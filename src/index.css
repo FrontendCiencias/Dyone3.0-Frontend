@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos globales adicionales se pueden agregar aquí */
+
+/* Animación simple para elementos al hacer scroll */
+.fade-on-scroll {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.animate-fade-in {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: opacity 700ms ease, transform 700ms ease;
+}
