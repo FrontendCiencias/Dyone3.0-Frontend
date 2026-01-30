@@ -3,9 +3,9 @@ export const BRANDS = {
     key: "CIENCIAS",
     label: "Ciencias",
     badge: "Colegio Ciencias",
-    gradientFrom: "#FF7A00",
-    gradientVia: "#FF3D3D",
-    gradientTo: "#FFB300",
+    gradientFrom: "#FF7A00", // naranja base (se queda)
+    gradientVia: "#FF4D2D",  // rojo-naranja, menos intenso
+    gradientTo: "#F59E0B",   // ámbar más sobrio (↓ amarillo)
     accent: "#FF7A00",
     accentSoft: "rgba(255, 122, 0, 0.15)",
     textOnAccent: "#0B0B0B",

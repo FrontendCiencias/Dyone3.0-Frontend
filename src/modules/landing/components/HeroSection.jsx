@@ -83,7 +83,6 @@ export default function HeroSection({
       <div className="relative max-w-7xl mx-auto px-6 py-20 md:py-28">
         <div className="text-center">
           <div className="flex items-center justify-center gap-3 mb-8">
-            <BrandPill label={brand.badge} />
             <BrandSwitch brandKey={brandKey} onSelectBrand={setBrandKey} />
           </div>
 
