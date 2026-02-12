@@ -7,6 +7,8 @@ import {
   Settings,
 } from "lucide-react";
 
+import { ROUTES } from "../../../config/routes";
+
 const isAdmin = (r) => String(r || "").toUpperCase().startsWith("ADMIN");
 const isSecretary = (r) => String(r || "").toUpperCase().startsWith("SECRETARY");
 const isDirector = (r) => String(r || "").toUpperCase().startsWith("DIRECTOR");
@@ -16,36 +18,71 @@ export function getNavItemsByRole(activeRole) {
   const role = String(activeRole || "").toUpperCase();
 
   const base = [
-    { to: "/dashboard", label: "Inicio", description: "Resumen general", icon: LayoutDashboard },
+    {
+      to: ROUTES.dashboard,
+      label: "Inicio",
+      description: "Resumen general",
+      icon: LayoutDashboard,
+    },
   ];
 
   if (isSecretary(role)) {
     return [
       ...base,
-      { to: "/dashboard/enrollments", label: "Matrículas", description: "Registrar y gestionar", icon: ClipboardList },
-      { to: "/dashboard/families", label: "Familias", description: "Padres y tutores", icon: Users },
-      { to: "/dashboard/payments", label: "Pagos", description: "Cobros y pensiones", icon: CreditCard },
+      {
+        to: ROUTES.dashboardEnrollments,
+        label: "Matrículas",
+        description: "Registrar y gestionar",
+        icon: ClipboardList,
+      },
+      {
+        to: ROUTES.dashboardFamilies,
+        label: "Familias",
+        description: "Padres y tutores",
+        icon: Users,
+      },
+      {
+        to: ROUTES.dashboardPayments,
+        label: "Pagos",
+        description: "Cobros y pensiones",
+        icon: CreditCard,
+      },
     ];
   }
 
   if (isDirector(role)) {
     return [
       ...base,
-      { to: "/dashboard/placeholder", label: "Reportes", description: "Indicadores y seguimiento", icon: ClipboardList },
+      {
+        to: ROUTES.dashboardPlaceholder,
+        label: "Reportes",
+        description: "Indicadores y seguimiento",
+        icon: ClipboardList,
+      },
     ];
   }
 
   if (isPromoter(role)) {
     return [
       ...base,
-      { to: "/dashboard/placeholder", label: "Prospectos", description: "Captación y pipeline", icon: Users },
+      {
+        to: ROUTES.dashboardPlaceholder,
+        label: "Prospectos",
+        description: "Captación y pipeline",
+        icon: Users,
+      },
     ];
   }
 
   if (isAdmin(role)) {
     return [
       ...base,
-      { to: "/dashboard/admin", label: "Admin", description: "Configuración del sistema", icon: Settings },
+      {
+        to: ROUTES.dashboardAdmin,
+        label: "Admin",
+        description: "Configuración sensible",
+        icon: Settings,
+      },
     ];
   }
 

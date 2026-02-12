@@ -7,6 +7,7 @@ import BreadcrumbHeader from "./components/BreadcrumbHeader";
 import PoweredBy from "./components/PoweredBy";
 import { getNavItemsByRole } from "./config/navByRole";
 import { useAuth } from "../../lib/auth";
+import { ROUTES } from "../../config/routes";
 
 export default function DashboardShell() {
   const { roles, activeRole, setActiveRole, logout, isAuthenticated } = useAuth();
@@ -68,7 +69,10 @@ export default function DashboardShell() {
       <Topbar
         roles={roles}
         activeRole={activeRole}
-        onRoleChange={(r) => setActiveRole?.(r)}
+        onRoleChange={(r) => {
+          setActiveRole?.(r);
+          navigate(ROUTES.dashboard, { replace: true });
+        }}
         offsetLeft={leftPad}
       />
 

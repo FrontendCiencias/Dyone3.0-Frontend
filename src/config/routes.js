@@ -4,5 +4,13 @@ export const ROUTES = {
   login: "/login",
 
   dashboard: "/dashboard",
-  admin: "/admin",
+
+  // Dashboard subroutes 
+  dashboardEnrollments: "/dashboard/enrollments",
+  dashboardFamilies: "/dashboard/families",
+  dashboardPayments: "/dashboard/payments",
+  dashboardAdmin: "/dashboard/admin",
+
+  // placeholders
+  dashboardPlaceholder: "/dashboard/placeholder",
 };
