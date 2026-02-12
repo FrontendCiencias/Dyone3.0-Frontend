@@ -1,15 +1,19 @@
 // src/lib/authStorage.js
-
 const TOKEN_KEY = "token";
 const ROLES_KEY = "roles";
 const CURRENT_ROLE_KEY = "activeRole";
 const USER_KEY = "user";
 
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  const t = localStorage.getItem(TOKEN_KEY);
+  return t && t.trim() ? t : null;
 }
 
 export function setToken(token) {
+  if (!token) {
+    localStorage.removeItem(TOKEN_KEY);
+    return;
+  }
   localStorage.setItem(TOKEN_KEY, token);
 }
 
@@ -19,14 +23,17 @@ export function clearToken() {
 
 export function getUserRoles() {
   try {
-    return JSON.parse(localStorage.getItem(ROLES_KEY)) || [];
+    const raw = localStorage.getItem(ROLES_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 }
 
 export function setUserRoles(roles) {
-  localStorage.setItem(ROLES_KEY, JSON.stringify(roles));
+  const safe = Array.isArray(roles) ? roles : [];
+  localStorage.setItem(ROLES_KEY, JSON.stringify(safe));
 }
 
 export function clearUserRoles() {
@@ -35,13 +42,18 @@ export function clearUserRoles() {
 
 export function getUser() {
   try {
-    return JSON.parse(localStorage.getItem(USER_KEY));
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
 export function setUser(user) {
+  if (!user) {
+    localStorage.removeItem(USER_KEY);
+    return;
+  }
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
@@ -50,10 +62,15 @@ export function clearUser() {
 }
 
 export function getActiveRole() {
-  return localStorage.getItem(CURRENT_ROLE_KEY);
+  const r = localStorage.getItem(CURRENT_ROLE_KEY);
+  return r && r.trim() ? r : null;
 }
 
 export function setActiveRole(role) {
+  if (!role) {
+    localStorage.removeItem(CURRENT_ROLE_KEY);
+    return;
+  }
   localStorage.setItem(CURRENT_ROLE_KEY, role);
 }
 

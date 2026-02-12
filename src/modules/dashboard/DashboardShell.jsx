@@ -1,6 +1,6 @@
 // src/modules/dashboard/DashboardShell.jsx
-import React from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import React, { useEffect, useState, useMemo} from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Topbar, { DASHBOARD_TOPBAR_HEIGHT } from "./components/Topbar";
 import Sidebar, { SIDEBAR_WIDTHS } from "./components/Sidebar";
 import BreadcrumbHeader from "./components/BreadcrumbHeader";
@@ -9,14 +9,23 @@ import { getNavItemsByRole } from "./config/navByRole";
 import { useAuth } from "../../lib/auth";
 
 export default function DashboardShell() {
-  const { roles, activeRole, setActiveRole, logout } = useAuth();
+  const { roles, activeRole, setActiveRole, logout, isAuthenticated } = useAuth();
   const location = useLocation();
 
-  const [expanded, setExpanded] = React.useState(false);
+  const navigate = useNavigate();
 
-  const navItems = React.useMemo(() => getNavItemsByRole(activeRole), [activeRole]);
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/login", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
-  const activeItemTo = React.useMemo(() => {
+
+  const [expanded, setExpanded] = useState(false);
+
+  const navItems = useMemo(() => getNavItemsByRole(activeRole), [activeRole]);
+
+  const activeItemTo = useMemo(() => {
     const { pathname } = location;
     let best = null;
 
@@ -34,7 +43,7 @@ export default function DashboardShell() {
 
   const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
 
-  const pageTitle = React.useMemo(() => {
+  const pageTitle = useMemo(() => {
     const path = location.pathname || "/dashboard";
     if (path.startsWith("/dashboard/enrollments")) return "Matrículas";
     if (path.startsWith("/dashboard/payments")) return "Pagos";
