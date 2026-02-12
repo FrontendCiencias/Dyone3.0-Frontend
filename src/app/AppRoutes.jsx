@@ -1,60 +1,65 @@
-import React from 'react';
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import PublicLayout from '../layouts/PublicLayout';
-import DashboardLayout from '../layouts/DashboardLayout';
-import LoginPage from '../modules/auth/pages/LoginPage';
-import LandingPage from '../modules/landing/pages/LandingPage';
-import AdminHome from '../modules/admin/AdminHome';
-import { getToken, getUserRoles } from '../lib/authStorage';
-import DashboardHome from '../modules/dashboard/pages/DashboardHome';
+import React from "react";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+
+import PublicLayout from "../layouts/PublicLayout";
+import DashboardLayout from "../layouts/DashboardLayout";
+
+import LoginPage from "../modules/auth/pages/LoginPage";
+import LandingPage from "../modules/landing/pages/LandingPage";
+import AdminHome from "../modules/admin/AdminHome";
+import DashboardHome from "../modules/dashboard/pages/DashboardHome";
+
+import { ROUTES } from "../config/routes";
+import { useAuth } from "../lib/auth";
+import DashboardNotFound from "../modules/dashboard/pages/DashboardNotFound";
+
+function pickDefaultPrivateRoute(roles = []) {
+  const list = Array.isArray(roles) ? roles : [];
+
+  const role = list[0] || "";
+  if (role.startsWith("ADMIN")) return ROUTES.admin;
+  return ROUTES.dashboard;
+}
 
 function PrivateRoute() {
-  const token = getToken();
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to={ROUTES.login} replace />;
   return <Outlet />;
 }
 
 function PublicRoute() {
-  const token = getToken();
-  if (token) {
-    const roles = getUserRoles();
-    if (roles && roles.length) {
-      const role = roles[0];
-      if (role.startsWith('SECRETARY')) {
-        return <Navigate to="/dashboard" replace />;
-      }
-      if (role.startsWith('ADMIN')) {
-        return <Navigate to="/admin" replace />;
-      }
-    }
-    return <Navigate to="/dashboard" replace />;
+  const { isAuthenticated, roles } = useAuth();
+
+  if (isAuthenticated) {
+    return <Navigate to={pickDefaultPrivateRoute(roles)} replace />;
   }
+
   return <Outlet />;
 }
 
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Rutas públicas */}
+      {/* Públicas */}
       <Route element={<PublicRoute />}>
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Route path={ROUTES.landing} element={<LandingPage />} />
+          <Route path={ROUTES.login} element={<LoginPage />} />
         </Route>
       </Route>
 
-      {/* Rutas protegidas */}
+      {/* Privadas */}
       <Route element={<PrivateRoute />}>
         <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<DashboardHome />} />
-          <Route path="/admin" element={<AdminHome />} />
+          <Route path={ROUTES.dashboard} element={<DashboardHome />} />
+          <Route path={ROUTES.admin} element={<AdminHome />} />
+          {/* 404 interno del dashboard */}
+          <Route path="/dashboard/*" element={<DashboardNotFound />} />
         </Route>
       </Route>
 
       {/* Catch-all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to={ROUTES.landing} replace />} />
     </Routes>
   );
 }
