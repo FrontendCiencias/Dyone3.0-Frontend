@@ -1,10 +1,10 @@
 import React from "react";
 import { useAuth } from "../../../../lib/auth";
-import { useSecretaryOverviewQuery } from "../../hooks/useSecretaryOverviewQuery";
-import SecretaryKpis from "../../components/widgets/SecretaryKpis";
-import RecentEnrollments from "../../components/widgets/RecentEnrollments";
-import PendingPayments from "../../components/widgets/PendingPayments";
-import AlertsPanel from "../../components/widgets/AlertsPanel";
+import { useSecretaryOverviewQuery } from "../../../dashboard/hooks/useSecretaryOverviewQuery";
+import SecretaryKpis from "../components/SecretaryKpis";
+import RecentEnrollments from "../components/RecentEnrollments";
+import PendingPayments from "../components/PendingPayments";
+import AlertsPanel from "../components/AlertsPanel";
 
 function LoadingBlock() {
   return (

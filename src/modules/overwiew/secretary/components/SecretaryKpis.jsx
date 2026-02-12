@@ -1,6 +1,6 @@
 import React from "react";
 import { Users, BadgeDollarSign, AlertCircle, CalendarDays } from "lucide-react";
-import { getRoleTheme } from "../../config/roleTheme";
+import { getRoleTheme } from "../../../dashboard/config/roleTheme";
 
 function KpiCard({ icon: Icon, label, value, hint, accent }) {
   return (

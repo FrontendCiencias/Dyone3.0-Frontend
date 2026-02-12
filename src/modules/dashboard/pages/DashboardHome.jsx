@@ -1,6 +1,6 @@
 import React from "react";
 import { useAuth } from "../../../lib/auth";
-import SecretaryHome from "./home/SecretaryHome";
+import SecretaryHome from "../../overwiew/secretary/pages/SecretaryHome";
 
 function roleGroup(role) {
   const r = String(role || "").toUpperCase();
