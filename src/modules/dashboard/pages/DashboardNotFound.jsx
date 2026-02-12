@@ -2,10 +2,12 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
+import { getRoleTheme } from "../config/roleTheme";
 
 export default function DashboardNotFound() {
   const navigate = useNavigate();
   const { activeRole } = useAuth();
+  const theme = getRoleTheme(activeRole);
 
   const handleBack = () => {
     navigate(ROUTES.dashboard, { replace: true });
@@ -29,10 +31,14 @@ export default function DashboardNotFound() {
           px-6 py-3
           rounded-xl
           text-sm font-semibold
-          bg-gray-900 text-white
-          hover:bg-black
-          transition-colors
+          text-white
+          shadow-sm
+          hover:shadow-lg
+          transition-all duration-200
         "
+        style={{
+          backgroundImage: `linear-gradient(to right, ${theme.main}, ${theme.dark})`,
+        }}
       >
         Volver al Panel
       </button>
