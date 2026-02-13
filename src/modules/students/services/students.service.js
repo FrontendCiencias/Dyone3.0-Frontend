@@ -4,7 +4,6 @@ import { API_ROUTES } from "../../../config/apiRoutes";
 export async function searchStudents({ q, limit = 10, cursor = null }) {
   const params = { q, limit };
   if (cursor) params.cursor = cursor;
-
   const res = await axiosInstance.get(API_ROUTES.students, { params });
   return res.data;
 }
