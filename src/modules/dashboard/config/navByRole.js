@@ -5,6 +5,7 @@ import {
   Users,
   CreditCard,
   Settings,
+  GraduationCap,
 } from "lucide-react";
 
 import { ROUTES } from "../../../config/routes";
@@ -29,6 +30,12 @@ export function getNavItemsByRole(activeRole) {
   if (isSecretary(role)) {
     return [
       ...base,
+      {
+        to: ROUTES.dashboardStudents,
+        label: "Alumnos",
+        description: "Ventanilla y ficha rápida",
+        icon: GraduationCap,
+      },
       {
         to: ROUTES.dashboardEnrollments,
         label: "Matrículas",

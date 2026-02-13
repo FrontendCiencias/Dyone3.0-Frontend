@@ -1,2 +1,1 @@
-// Placeholder para el módulo de estudiantes
-export default {};
+export { default as StudentsPage } from "./pages/StudentsPage";

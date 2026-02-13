@@ -5,7 +5,8 @@ export const ROUTES = {
 
   dashboard: "/dashboard",
 
-  // Dashboard subroutes 
+  // Dashboard subroutes
+  dashboardStudents: "/dashboard/students",
   dashboardEnrollments: "/dashboard/enrollments",
   dashboardFamilies: "/dashboard/families",
   dashboardPayments: "/dashboard/payments",
