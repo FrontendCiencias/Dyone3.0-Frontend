@@ -5,6 +5,7 @@ import {
   Users,
   CreditCard,
   Settings,
+  GraduationCap,
 } from "lucide-react";
 
 import { ROUTES } from "../../../config/routes";
@@ -30,6 +31,12 @@ export function getNavItemsByRole(activeRole) {
     return [
       ...base,
       {
+        to: ROUTES.dashboardStudents,
+        label: "Alumnos",
+        description: "Ventanilla y ficha rápida",
+        icon: GraduationCap,
+      },
+      {
         to: ROUTES.dashboardEnrollments,
         label: "Matrículas",
         description: "Registrar y gestionar",
@@ -54,6 +61,12 @@ export function getNavItemsByRole(activeRole) {
     return [
       ...base,
       {
+        to: ROUTES.dashboardStudents,
+        label: "Alumnos",
+        description: "Consulta por campus",
+        icon: GraduationCap,
+      },
+      {
         to: ROUTES.dashboardPlaceholder,
         label: "Reportes",
         description: "Indicadores y seguimiento",
@@ -66,6 +79,12 @@ export function getNavItemsByRole(activeRole) {
     return [
       ...base,
       {
+        to: ROUTES.dashboardStudents,
+        label: "Alumnos",
+        description: "Búsqueda global",
+        icon: GraduationCap,
+      },
+      {
         to: ROUTES.dashboardPlaceholder,
         label: "Prospectos",
         description: "Captación y pipeline",
@@ -77,6 +96,12 @@ export function getNavItemsByRole(activeRole) {
   if (isAdmin(role)) {
     return [
       ...base,
+      {
+        to: ROUTES.dashboardStudents,
+        label: "Alumnos",
+        description: "Búsqueda global",
+        icon: GraduationCap,
+      },
       {
         to: ROUTES.dashboardAdmin,
         label: "Admin",

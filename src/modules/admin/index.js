@@ -1,2 +1,1 @@
-// Placeholder para el módulo de administración de catálogos
-export default {};
+export { default as AdminSettingsPage } from "./pages/AdminSettingsPage";

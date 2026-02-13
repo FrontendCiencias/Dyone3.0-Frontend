@@ -6,8 +6,9 @@ import DashboardLayout from "../layouts/DashboardLayout";
 
 import LoginPage from "../modules/auth/pages/LoginPage";
 import LandingPage from "../modules/landing/pages/LandingPage";
-import AdminHome from "../modules/admin/AdminHome";
+import AdminSettingsPage from "../modules/admin/pages/AdminSettingsPage";
 import DashboardHome from "../modules/dashboard/pages/DashboardHome";
+import StudentsPage from "../modules/students/pages/StudentsPage";
 
 import { ROUTES } from "../config/routes";
 import { useAuth } from "../lib/auth";
@@ -17,7 +18,7 @@ function pickDefaultPrivateRoute(roles = []) {
   const list = Array.isArray(roles) ? roles : [];
 
   const role = list[0] || "";
-  if (role.startsWith("ADMIN")) return ROUTES.admin;
+  if (String(role).toUpperCase().startsWith("ADMIN")) return ROUTES.dashboardAdmin;
   return ROUTES.dashboard;
 }
 
@@ -40,7 +41,6 @@ function PublicRoute() {
 export default function AppRoutes() {
   return (
     <Routes>
-      {/* Públicas */}
       <Route element={<PublicRoute />}>
         <Route element={<PublicLayout />}>
           <Route path={ROUTES.landing} element={<LandingPage />} />
@@ -48,17 +48,15 @@ export default function AppRoutes() {
         </Route>
       </Route>
 
-      {/* Privadas */}
       <Route element={<PrivateRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path={ROUTES.dashboard} element={<DashboardHome />} />
-          <Route path={ROUTES.admin} element={<AdminHome />} />
-          {/* 404 interno del dashboard */}
+          <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
+          <Route path={ROUTES.dashboardAdmin} element={<AdminSettingsPage />} />
           <Route path="/dashboard/*" element={<DashboardNotFound />} />
         </Route>
       </Route>
 
-      {/* Catch-all */}
       <Route path="*" element={<Navigate to={ROUTES.landing} replace />} />
     </Routes>
   );
