@@ -1,14 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { getToken } from "../../../lib/authStorage";
-import { searchStudents } from "../services/students.service";
+import { listByCampus, searchStudents } from "../services/students.service";
 
-export function useStudentsSearchQuery({ q, cursor, enabled }) {
+export function useStudentsSearchQuery({ q, cursor, enabled, mode = "campus", campus = null }) {
   const token = getToken();
 
   return useQuery({
-    queryKey: ["students", "search", q, cursor || null],
-    queryFn: () => searchStudents({ q, cursor }),
-    enabled: Boolean(token) && Boolean(enabled) && Boolean(q?.trim()),
+    queryKey: ["students", "search", mode, campus || null, q || "", cursor || null],
+    queryFn: () => {
+      if (mode === "global") {
+        return searchStudents({ q, cursor });
+      }
+      return listByCampus({ campus, q, cursor });
+    },
+    enabled: Boolean(token) && Boolean(enabled) && (mode === "global" || Boolean(campus)),
     retry: false,
     refetchOnWindowFocus: false,
   });

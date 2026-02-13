@@ -8,6 +8,7 @@ export const API_ROUTES = {
   adminBillingConcepts: "/api/admin/billing-concepts",
 
   students: "/api/students",
+  studentsByCampus: (campus) => `/api/students/campus/${campus}`,
   studentSummary: (id) => `/api/students/${id}/summary`,
 
   familiesLinkStudent: "/api/families/link-student",
