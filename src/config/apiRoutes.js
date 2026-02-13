@@ -1,4 +1,16 @@
 export const API_ROUTES = {
   login: "/api/auth/login",
   me: "/api/auth/me",
+
+  adminCampuses: "/api/admin/campuses",
+  adminCycles: "/api/admin/cycles",
+  adminClassrooms: "/api/admin/classrooms",
+  adminBillingConcepts: "/api/admin/billing-concepts",
+
+  students: "/api/students",
+  studentSummary: (id) => `/api/students/${id}/summary`,
+
+  familiesLinkStudent: "/api/families/link-student",
+
+  enrollments: "/api/enrollments",
 };

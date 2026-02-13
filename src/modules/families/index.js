@@ -1,2 +1,1 @@
-// Placeholder para el módulo de familias
-export default {};
+export { linkStudentFamily } from "./services/families.service";
