@@ -5,6 +5,9 @@ import Input from "../../../components/ui/Input";
 import { useStudentsSearchQuery } from "../hooks/useStudentsSearchQuery";
 import StudentSummaryModal from "../components/StudentSummaryModal";
 import { useAuth } from "../../../lib/auth";
+import StudentsContextBar from "../components/StudentsContextBar";
+import { normalizeSearchText } from "../domain/searchText";
+import { getClassroomCapacityStatus } from "../domain/classroomCapacityStatus";
 
 function getErrorMessage(error) {
   const msg = error?.response?.data?.message;
@@ -90,6 +93,14 @@ function getEnrollmentStatus(student) {
     : { key: "ABSENT", label: "Ausente", classes: "bg-rose-100 text-rose-700" };
 }
 
+function pickNumericValue(student, candidates) {
+  for (const key of candidates) {
+    const value = Number(student?.[key]);
+    if (!Number.isNaN(value)) return value;
+  }
+  return null;
+}
+
 export default function StudentsPage() {
   const { activeRole } = useAuth();
 
@@ -154,15 +165,15 @@ export default function StudentsPage() {
   const secretaryFilteredResults = useMemo(() => {
     if (!secretaryMode) return results;
 
-    return results.filter((student) => {
-      const q = debouncedSearch.toLowerCase();
-      const shouldFilterBySearch = q.length >= 2;
+    const normalizedQuery = normalizeSearchText(debouncedSearch);
+    const shouldFilterBySearch = normalizedQuery.length >= 2;
 
+    return results.filter((student) => {
       const matchesSearch = !shouldFilterBySearch
         ? true
         : [student?.dni, student?.code, student?.names, student?.lastNames]
             .filter(Boolean)
-            .some((value) => String(value).toLowerCase().includes(q));
+            .some((value) => normalizeSearchText(value).includes(normalizedQuery));
 
       const enrollmentStatus = getEnrollmentStatus(student);
       const includeTransferred = showTransferred === "show";
@@ -178,6 +189,43 @@ export default function StudentsPage() {
   const dataToRender = secretaryMode ? secretaryFilteredResults : results;
   const hasResults = dataToRender.length > 0;
 
+  const selectedClassroomStudents = useMemo(() => {
+    if (!classroomFilter) return [];
+    return results.filter((student) => getClassroomLabel(student) === classroomFilter);
+  }, [results, classroomFilter]);
+
+  const classroomMetrics = useMemo(() => {
+    if (!classroomFilter || selectedClassroomStudents.length === 0) return null;
+
+    const sample = selectedClassroomStudents[0];
+    const capacity = pickNumericValue(sample, ["capacity", "classroomCapacity", "vacanciesTotal"]);
+    if (capacity === null) return null;
+
+    const occupiedRaw = pickNumericValue(sample, ["occupied", "enrolledCount", "classroomOccupied"]);
+    const occupied = occupiedRaw === null ? selectedClassroomStudents.length : occupiedRaw;
+
+    const availableRaw = pickNumericValue(sample, ["available", "availableSeats", "vacanciesAvailable"]);
+    const available = availableRaw === null ? capacity - occupied : availableRaw;
+
+    return {
+      capacity,
+      occupied,
+      available,
+      status: getClassroomCapacityStatus(available),
+    };
+  }, [classroomFilter, selectedClassroomStudents]);
+
+  const totalFromBackend = Number(searchQuery.data?.total);
+  const resultsTotal = Number.isFinite(totalFromBackend)
+    ? totalFromBackend
+    : secretaryMode
+      ? dataToRender.length
+      : results.length;
+
+  const contextTotals = {
+    results: secretaryMode ? dataToRender.length : resultsTotal,
+  };
+
   const handleSearch = () => {
     if (globalMode && !searchInput.trim()) return;
 
@@ -189,11 +237,24 @@ export default function StudentsPage() {
   return (
     <div className="space-y-4">
       <Card className="border border-gray-200 shadow-sm">
-        <div className="mb-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
-          {globalMode
-            ? "Modo global: busca alumnos en todas las sedes."
-            : `Campus activo: ${activeCampusAlias || "No detectado"}`}
-        </div>
+        {secretaryMode ? (
+          <StudentsContextBar
+            campus={activeCampusAlias}
+            salonSeleccionado={classroomFilter}
+            q={searchInput}
+            totals={contextTotals}
+            capacity={classroomMetrics?.capacity}
+            occupied={classroomMetrics?.occupied}
+            available={classroomMetrics?.available}
+            status={classroomMetrics?.status}
+          />
+        ) : (
+          <div className="mb-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
+            {globalMode
+              ? "Modo global: busca alumnos en todas las sedes."
+              : `Campus activo: ${activeCampusAlias || "No detectado"}`}
+          </div>
+        )}
 
         <div className="grid gap-3 md:grid-cols-12 md:items-end">
           <div className={secretaryMode ? "md:col-span-6" : "md:col-span-9"}>
@@ -255,8 +316,6 @@ export default function StudentsPage() {
       </Card>
 
       <Card className="border border-gray-200 shadow-sm">
-        <h3 className="mb-3 text-base font-semibold text-gray-900">Resultados ({dataToRender.length})</h3>
-
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>

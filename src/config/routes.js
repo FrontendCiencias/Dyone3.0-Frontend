@@ -7,6 +7,7 @@ export const ROUTES = {
 
   // Dashboard subroutes
   dashboardStudents: "/dashboard/students",
+  dashboardStudentDetail: (studentId = ":studentId") => `/dashboard/students/${studentId}`,
   dashboardEnrollments: "/dashboard/enrollments",
   dashboardFamilies: "/dashboard/families",
   dashboardPayments: "/dashboard/payments",

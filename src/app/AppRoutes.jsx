@@ -9,6 +9,7 @@ import LandingPage from "../modules/landing/pages/LandingPage";
 import AdminSettingsPage from "../modules/admin/pages/AdminSettingsPage";
 import DashboardHome from "../modules/dashboard/pages/DashboardHome";
 import StudentsPage from "../modules/students/pages/StudentsPage";
+import StudentDetailPage from "../modules/students/pages/StudentDetailPage";
 
 import { ROUTES } from "../config/routes";
 import { useAuth } from "../lib/auth";
@@ -56,6 +57,7 @@ export default function AppRoutes() {
           <Route element={<DashboardLayout />}>
             <Route path={ROUTES.dashboard} element={<DashboardHome />} />
             <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
+            <Route path={ROUTES.dashboardStudentDetail()} element={<StudentDetailPage />} />
             <Route path={ROUTES.dashboardAdmin} element={<AdminSettingsPage />} />
             <Route path="/dashboard/*" element={<DashboardNotFound />} />
           </Route>
