@@ -10,6 +10,7 @@ export const API_ROUTES = {
   students: "/api/students",
   studentsByCampus: (campus) => `/api/students/campus/${campus}`,
   studentSummary: (id) => `/api/students/${id}/summary`,
+  createStudentWithPerson: "/api/students/with-person",
 
   familiesLinkStudent: "/api/families/link-student",
 

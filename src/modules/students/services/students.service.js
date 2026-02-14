@@ -107,3 +107,25 @@ export async function getStudentSummary(studentId) {
 
   return res.data;
 }
+
+export async function createStudentWithPerson(payload) {
+  const endpoint = API_ROUTES.createStudentWithPerson;
+
+  logRequest(endpoint, "POST", payload);
+
+  try {
+    const res = await axiosInstance.post(endpoint, payload);
+    logResponse(endpoint, res.status, { id: res.data?.id || res.data?.student?.id || null });
+    return res.data;
+  } catch (error) {
+    if (error?.response?.status !== 404) throw error;
+
+    logRequest(API_ROUTES.students, "POST", payload);
+    const fallbackRes = await axiosInstance.post(API_ROUTES.students, payload);
+    logResponse(API_ROUTES.students, fallbackRes.status, {
+      id: fallbackRes.data?.id || fallbackRes.data?.student?.id || null,
+    });
+
+    return fallbackRes.data;
+  }
+}
