@@ -2,6 +2,7 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
 import { getRoleTheme } from "../config/roleTheme";
+import Button from "../../../components/ui/Button";
 
 const roleLabel = (role) => {
   const r = String(role || "").toUpperCase();
@@ -41,16 +42,12 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
 
   return (
     <div className="relative" ref={ref}>
-      <button
+      <Button
         type="button"
         onClick={() => canSwitch && setOpen((v) => !v)}
-        className={`
-          inline-flex items-center gap-2
-          rounded-xl px-3 py-1.5
-          text-sm font-medium
-          border border-gray-200 bg-white
-          ${canSwitch ? "hover:bg-gray-50" : "cursor-default opacity-90"}
-        `}
+        variant="secondary"
+        size="sm"
+        className={`border border-gray-200 !bg-white !text-gray-800 ${canSwitch ? "hover:bg-gray-50" : "cursor-default opacity-90"}`}
         aria-haspopup="menu"
         aria-expanded={open}
         title={roleLabel(current)}
@@ -63,7 +60,7 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
           {roleLabel(current)}
         </span>
         {canSwitch && <ChevronDown className="w-4 h-4 text-gray-400" />}
-      </button>
+      </Button>
 
       {open && (
         <div
@@ -93,7 +90,7 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
                 const t = getRoleTheme(r);
 
                 return (
-                  <button
+                  <Button
                     key={r}
                     type="button"
                     onClick={() => {
@@ -102,10 +99,11 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
                     }}
                     className={`
                       w-full flex items-center justify-between
-                      px-2.5 py-2 rounded-xl text-sm
                       border
-                      ${isActive ? "bg-gray-50 border-gray-200" : "bg-white border-transparent hover:bg-gray-50"}
+                      ${isActive ? "!bg-gray-50 border-gray-200" : "!bg-white border-transparent hover:bg-gray-50"}
                     `}
+                    variant="ghost"
+                    size="sm"
                     role="menuitem"
                   >
                     <span className="flex items-center gap-2 min-w-0">
@@ -121,7 +119,7 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
                         Activo
                       </span>
                     )}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
