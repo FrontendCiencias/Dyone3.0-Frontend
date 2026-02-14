@@ -28,24 +28,99 @@ function isGlobalRole(activeRole) {
   return role.startsWith("ADMIN") || role.startsWith("PROMOTER");
 }
 
+function isSecretaryRole(activeRole) {
+  const role = String(activeRole || "").toUpperCase();
+  return role.startsWith("SECRETARY");
+}
+
+function fullName(student) {
+  const lastNames = String(student?.lastNames || "").trim();
+  const names = String(student?.names || "").trim();
+  if (lastNames && names) return `${lastNames}, ${names}`;
+  return lastNames || names || "-";
+}
+
+function getGrade(student) {
+  return student?.lastKnownGrade || student?.grade || "-";
+}
+
+function getSection(student) {
+  return student?.lastKnownSection || student?.section || "-";
+}
+
+function getClassroomLabel(student) {
+  const grade = getGrade(student);
+  const section = getSection(student);
+  if (grade === "-" && section === "-") return "-";
+  return `${grade} - ${section}`;
+}
+
+function getDebtTotal(student) {
+  const value = Number(student?.totalDebt || student?.debtTotal || 0);
+  return Number.isNaN(value) ? 0 : value;
+}
+
+function formatMoney(value) {
+  return `S/ ${Number(value || 0).toFixed(2)}`;
+}
+
+function getEnrollmentStatus(student) {
+  const raw = String(
+    student?.enrollmentStatus ||
+      student?.enrollment?.status ||
+      student?.status ||
+      student?.studentStatus ||
+      ""
+  ).toUpperCase();
+
+  if (raw.includes("TRANSFER") || raw.includes("TRASLAD")) {
+    return { key: "TRANSFERRED", label: "Trasladado", classes: "bg-amber-100 text-amber-700" };
+  }
+
+  if (raw.includes("ABSENT") || raw.includes("AUSENT")) {
+    return { key: "ABSENT", label: "Ausente", classes: "bg-rose-100 text-rose-700" };
+  }
+
+  if (raw.includes("ENROLL") || raw.includes("MATRICUL") || raw.includes("CONFIRMED")) {
+    return { key: "ENROLLED", label: "Matriculado", classes: "bg-emerald-100 text-emerald-700" };
+  }
+
+  return student?.isActive
+    ? { key: "ENROLLED", label: "Matriculado", classes: "bg-emerald-100 text-emerald-700" }
+    : { key: "ABSENT", label: "Ausente", classes: "bg-rose-100 text-rose-700" };
+}
+
 export default function StudentsPage() {
   const { activeRole } = useAuth();
 
   const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [showTransferred, setShowTransferred] = useState("hide");
+  const [classroomFilter, setClassroomFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [cursor, setCursor] = useState(null);
   const [results, setResults] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
 
+  const secretaryMode = isSecretaryRole(activeRole);
   const globalMode = isGlobalRole(activeRole);
   const activeCampusAlias = resolveCampusAlias(activeRole);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
   const searchQuery = useStudentsSearchQuery({
-    q: searchTerm,
+    q: secretaryMode ? "" : searchTerm,
     cursor,
     enabled: globalMode ? Boolean(searchTerm.trim()) : true,
-    mode: globalMode ? "global" : "campus",
+    mode: secretaryMode ? "campusFull" : globalMode ? "global" : "campus",
     campus: activeCampusAlias,
+    limit: secretaryMode ? 1000 : 10,
   });
 
   const nextCursor = searchQuery.data?.nextCursor || null;
@@ -55,14 +130,53 @@ export default function StudentsPage() {
     setResults([]);
     setSearchTerm("");
     setSearchInput("");
+    setDebouncedSearch("");
+    setShowTransferred("hide");
+    setClassroomFilter("");
   }, [activeRole]);
 
   useEffect(() => {
     if (!searchQuery.data) return;
 
     const items = Array.isArray(searchQuery.data.items) ? searchQuery.data.items : [];
-    setResults((prev) => (cursor ? [...prev, ...items] : items));
-  }, [searchQuery.data, cursor]);
+    setResults((prev) => (cursor && !secretaryMode ? [...prev, ...items] : items));
+  }, [searchQuery.data, cursor, secretaryMode]);
+
+  const classroomOptions = useMemo(() => {
+    const values = new Set();
+    results.forEach((student) => {
+      const classroom = getClassroomLabel(student);
+      if (classroom !== "-") values.add(classroom);
+    });
+    return Array.from(values).sort((a, b) => a.localeCompare(b, "es"));
+  }, [results]);
+
+  const secretaryFilteredResults = useMemo(() => {
+    if (!secretaryMode) return results;
+
+    return results.filter((student) => {
+      const q = debouncedSearch.toLowerCase();
+      const shouldFilterBySearch = q.length >= 2;
+
+      const matchesSearch = !shouldFilterBySearch
+        ? true
+        : [student?.dni, student?.code, student?.names, student?.lastNames]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(q));
+
+      const enrollmentStatus = getEnrollmentStatus(student);
+      const includeTransferred = showTransferred === "show";
+      const passesTransferred = includeTransferred || enrollmentStatus.key !== "TRANSFERRED";
+
+      const classroom = getClassroomLabel(student);
+      const matchesClassroom = !classroomFilter || classroom === classroomFilter;
+
+      return matchesSearch && passesTransferred && matchesClassroom;
+    });
+  }, [results, secretaryMode, debouncedSearch, showTransferred, classroomFilter]);
+
+  const dataToRender = secretaryMode ? secretaryFilteredResults : results;
+  const hasResults = dataToRender.length > 0;
 
   const handleSearch = () => {
     if (globalMode && !searchInput.trim()) return;
@@ -71,8 +185,6 @@ export default function StudentsPage() {
     setResults([]);
     setSearchTerm(searchInput.trim());
   };
-
-  const hasResults = useMemo(() => results.length > 0, [results.length]);
 
   return (
     <div className="space-y-4">
@@ -83,27 +195,59 @@ export default function StudentsPage() {
             : `Campus activo: ${activeCampusAlias || "No detectado"}`}
         </div>
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-end">
-          <Input
-            className="w-full"
-            label="Buscar alumno"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Buscar por DNI, nombre o código"
-          />
-          <Button
-            onClick={handleSearch}
-            disabled={(globalMode && !searchInput.trim()) || searchQuery.isFetching}
-          >
-            {searchQuery.isFetching && !cursor ? "Buscando..." : "Buscar"}
-          </Button>
-        </div>
+        <div className="grid gap-3 md:grid-cols-12 md:items-end">
+          <div className={secretaryMode ? "md:col-span-6" : "md:col-span-9"}>
+            <Input
+              className="w-full"
+              label="Buscar alumno"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Buscar por DNI, nombre o código"
+            />
+          </div>
 
-        {!globalMode && (
-          <p className="mt-2 text-xs text-gray-500">
-            Si dejas el buscador vacío, se listan alumnos del campus activo.
-          </p>
-        )}
+          {secretaryMode ? (
+            <>
+              <div className="md:col-span-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Salón (grado - sección)</label>
+                <select
+                  className="w-full rounded border px-3 py-2 text-sm"
+                  value={classroomFilter}
+                  onChange={(e) => setClassroomFilter(e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {classroomOptions.map((classroom) => (
+                    <option key={classroom} value={classroom}>
+                      {classroom}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="mb-1 block text-sm font-medium text-gray-700">Trasladados</label>
+                <select
+                  className="w-full rounded border px-3 py-2 text-sm"
+                  value={showTransferred}
+                  onChange={(e) => setShowTransferred(e.target.value)}
+                >
+                  <option value="hide">No mostrar</option>
+                  <option value="show">Mostrar</option>
+                </select>
+              </div>
+            </>
+          ) : (
+            <div className="md:col-span-3">
+              <Button
+                onClick={handleSearch}
+                disabled={(globalMode && !searchInput.trim()) || searchQuery.isFetching}
+                className="w-full"
+              >
+                {searchQuery.isFetching && !cursor ? "Buscando..." : "Buscar"}
+              </Button>
+            </div>
+          )}
+        </div>
 
         {searchQuery.isError && (
           <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{getErrorMessage(searchQuery.error)}</p>
@@ -111,39 +255,49 @@ export default function StudentsPage() {
       </Card>
 
       <Card className="border border-gray-200 shadow-sm">
-        <h3 className="mb-3 text-base font-semibold text-gray-900">Resultados</h3>
+        <h3 className="mb-3 text-base font-semibold text-gray-900">Resultados ({dataToRender.length})</h3>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left text-gray-700">
                 <th className="px-3 py-2">DNI</th>
-                <th className="px-3 py-2">Nombre completo</th>
+                <th className="px-3 py-2">Apellidos y nombres</th>
                 <th className="px-3 py-2">Código</th>
-                <th className="px-3 py-2">Campus</th>
-                <th className="px-3 py-2">Grado</th>
-                <th className="px-3 py-2">Estado</th>
+                <th className="px-3 py-2">Salón</th>
+                {secretaryMode ? null : <th className="px-3 py-2">Campus</th>}
+                <th className="px-3 py-2">Estado matrícula</th>
+                <th className="px-3 py-2">Deuda total</th>
               </tr>
             </thead>
             <tbody>
-              {results.map((student) => (
-                <tr
-                  key={student.id}
-                  className="cursor-pointer border-b transition-colors hover:bg-gray-50"
-                  onClick={() => setSelectedStudentId(student.id)}
-                >
-                  <td className="px-3 py-2">{student.dni || "-"}</td>
-                  <td className="px-3 py-2">{`${student.names || ""} ${student.lastNames || ""}`.trim() || "-"}</td>
-                  <td className="px-3 py-2">{student.code || "-"}</td>
-                  <td className="px-3 py-2">{student.campusCode || "-"}</td>
-                  <td className="px-3 py-2">{student.lastKnownGrade || "-"}</td>
-                  <td className="px-3 py-2">{student.isActive ? "Activo" : "Inactivo"}</td>
-                </tr>
-              ))}
+              {dataToRender.map((student) => {
+                const enrollmentStatus = getEnrollmentStatus(student);
+
+                return (
+                  <tr
+                    key={student.id}
+                    className="cursor-pointer border-b transition-colors hover:bg-gray-50"
+                    onClick={() => setSelectedStudentId(student.id)}
+                  >
+                    <td className="px-3 py-2">{student.dni || "-"}</td>
+                    <td className="px-3 py-2">{fullName(student)}</td>
+                    <td className="px-3 py-2">{student.code || "-"}</td>
+                    <td className="px-3 py-2">{getClassroomLabel(student)}</td>
+                    {secretaryMode ? null : <td className="px-3 py-2">{student.campusCode || "-"}</td>}
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${enrollmentStatus.classes}`}>
+                        {enrollmentStatus.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">{formatMoney(getDebtTotal(student))}</td>
+                  </tr>
+                );
+              })}
 
               {!hasResults && (
                 <tr>
-                  <td className="px-3 py-3 text-gray-500" colSpan={6}>
+                  <td className="px-3 py-3 text-gray-500" colSpan={secretaryMode ? 6 : 7}>
                     {searchQuery.isFetching ? "Cargando..." : "Sin resultados"}
                   </td>
                 </tr>
@@ -152,7 +306,7 @@ export default function StudentsPage() {
           </table>
         </div>
 
-        {nextCursor && (
+        {!secretaryMode && nextCursor && (
           <div className="mt-4 flex justify-end">
             <Button onClick={() => setCursor(nextCursor)} disabled={searchQuery.isFetching}>
               {searchQuery.isFetching ? "Cargando..." : "Cargar más"}
@@ -162,8 +316,8 @@ export default function StudentsPage() {
       </Card>
 
       <StudentSummaryModal
-        studentId={selectedStudentId}
         open={Boolean(selectedStudentId)}
+        studentId={selectedStudentId}
         onClose={() => setSelectedStudentId(null)}
       />
     </div>

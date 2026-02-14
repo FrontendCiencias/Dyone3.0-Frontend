@@ -13,6 +13,7 @@ import StudentsPage from "../modules/students/pages/StudentsPage";
 import { ROUTES } from "../config/routes";
 import { useAuth } from "../lib/auth";
 import DashboardNotFound from "../modules/dashboard/pages/DashboardNotFound";
+import { ThemeProvider } from "../config/theme";
 
 function pickDefaultPrivateRoute(roles = []) {
   const list = Array.isArray(roles) ? roles : [];
@@ -39,25 +40,29 @@ function PublicRoute() {
 }
 
 export default function AppRoutes() {
+  const { activeRole } = useAuth();
+
   return (
-    <Routes>
-      <Route element={<PublicRoute />}>
-        <Route element={<PublicLayout />}>
-          <Route path={ROUTES.landing} element={<LandingPage />} />
-          <Route path={ROUTES.login} element={<LoginPage />} />
+    <ThemeProvider role={activeRole}>
+      <Routes>
+        <Route element={<PublicRoute />}>
+          <Route element={<PublicLayout />}>
+            <Route path={ROUTES.landing} element={<LandingPage />} />
+            <Route path={ROUTES.login} element={<LoginPage />} />
+          </Route>
         </Route>
-      </Route>
 
-      <Route element={<PrivateRoute />}>
-        <Route element={<DashboardLayout />}>
-          <Route path={ROUTES.dashboard} element={<DashboardHome />} />
-          <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
-          <Route path={ROUTES.dashboardAdmin} element={<AdminSettingsPage />} />
-          <Route path="/dashboard/*" element={<DashboardNotFound />} />
+        <Route element={<PrivateRoute />}>
+          <Route element={<DashboardLayout />}>
+            <Route path={ROUTES.dashboard} element={<DashboardHome />} />
+            <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
+            <Route path={ROUTES.dashboardAdmin} element={<AdminSettingsPage />} />
+            <Route path="/dashboard/*" element={<DashboardNotFound />} />
+          </Route>
         </Route>
-      </Route>
 
-      <Route path="*" element={<Navigate to={ROUTES.landing} replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to={ROUTES.landing} replace />} />
+      </Routes>
+    </ThemeProvider>
   );
 }
