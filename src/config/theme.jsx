@@ -1,11 +1,5 @@
 import React, { createContext, useEffect, useMemo, useState } from "react";
 
-/**
- * Dyone 3.0 — Theme tokens
- * - main / dark: usados para gradientes y acentos
- * - softBg: fondo suave (active states)
- * - gradientFrom / gradientTo: por compatibilidad con tu código anterior
- */
 export const THEMES = {
   CIMAS: {
     main: "#E53E3E",
@@ -14,7 +8,6 @@ export const THEMES = {
     gradientFrom: "#F56565",
     gradientTo: "#C53030",
   },
-
   CIENCIAS: {
     main: "#DD6B20",
     dark: "#C05621",
@@ -22,7 +15,6 @@ export const THEMES = {
     gradientFrom: "#F6AD55",
     gradientTo: "#C05621",
   },
-
   CIENCIAS_APLICADAS: {
     main: "#3182CE",
     dark: "#2B6CB0",
@@ -30,10 +22,8 @@ export const THEMES = {
     gradientFrom: "#63B3ED",
     gradientTo: "#2B6CB0",
   },
-
-  // ADMIN: requerido (negro)
   ADMIN: {
-    main: "#111827", // slate-900
+    main: "#111827",
     dark: "#000000",
     softBg: "rgba(17,24,39,0.10)",
     gradientFrom: "#111827",
@@ -41,78 +31,65 @@ export const THEMES = {
   },
 };
 
-// Backward-compat con tu código anterior (themes.CIENCIAS_SEC, etc.)
-export const themes = {
-  CIMAS: {
-    primary: THEMES.CIMAS.main,
-    gradientFrom: THEMES.CIMAS.gradientFrom,
-    gradientTo: THEMES.CIMAS.gradientTo,
-  },
-
-  // Alias antiguo: CIENCIAS_SEC -> CIENCIAS
-  CIENCIAS_SEC: {
-    primary: THEMES.CIENCIAS.main,
-    gradientFrom: THEMES.CIENCIAS.gradientFrom,
-    gradientTo: THEMES.CIENCIAS.gradientTo,
-  },
-
-  // Alias antiguo: CIENCIAS_PRIM -> CIENCIAS_APLICADAS (azul)
-  CIENCIAS_PRIM: {
-    primary: THEMES.CIENCIAS_APLICADAS.main,
-    gradientFrom: THEMES.CIENCIAS_APLICADAS.gradientFrom,
-    gradientTo: THEMES.CIENCIAS_APLICADAS.gradientTo,
-  },
-};
-
 export const DEFAULT_ROLE = "SECRETARY_CIENCIAS";
 
-/**
- * Devuelve el tema por rol.
- * Soporta variantes antiguas y nuevas.
- */
 export function getThemeByRole(role) {
   const r = String(role || "").toUpperCase();
 
   if (!r) return THEMES.CIENCIAS;
-
   if (r.startsWith("ADMIN")) return THEMES.ADMIN;
-
-  // CIMAS
   if (r.includes("CIMAS")) return THEMES.CIMAS;
-
-  // CIENCIAS APLICADAS (azul)
-  if (r.includes("CIENCIAS_APLICADAS") || r.includes("CIENCIAS_PRIM"))
-    return THEMES.CIENCIAS_APLICADAS;
-
-  // CIENCIAS (naranja) - default para ciencias
-  if (r.includes("CIENCIAS") || r.includes("CIENCIAS_SEC"))
-    return THEMES.CIENCIAS;
+  if (r.includes("CIENCIAS_APLICADAS") || r.includes("CIENCIAS_PRIM")) return THEMES.CIENCIAS_APLICADAS;
+  if (r.includes("CIENCIAS") || r.includes("CIENCIAS_SEC")) return THEMES.CIENCIAS;
 
   return THEMES.CIENCIAS;
 }
 
+function normalizeTheme(baseTheme) {
+  const main = baseTheme?.main || "#DD6B20";
+  const dark = baseTheme?.dark || main;
+
+  return {
+    ...baseTheme,
+    main,
+    dark,
+    primary: main,
+    accent: dark,
+    accentSoft: baseTheme?.softBg || "rgba(221,107,32,0.10)",
+    gradientFrom: baseTheme?.gradientFrom || main,
+    gradientVia: baseTheme?.gradientVia || main,
+    gradientTo: baseTheme?.gradientTo || dark,
+  };
+}
+
 export const ThemeContext = createContext({
-  theme: THEMES.CIENCIAS,
+  theme: normalizeTheme(THEMES.CIENCIAS),
   role: DEFAULT_ROLE,
   setRole: () => {},
 });
 
 const STORAGE_KEY = "activeRole";
 
-// export function ThemeProvider({ children }) {
-//   const [role, setRole] = useState(() => {
-//     return localStorage.getItem(STORAGE_KEY) || DEFAULT_ROLE;
-//   });
+export function ThemeProvider({ children, role: controlledRole }) {
+  const [internalRole, setInternalRole] = useState(() => {
+    return localStorage.getItem(STORAGE_KEY) || DEFAULT_ROLE;
+  });
 
-//   const theme = useMemo(() => getThemeByRole(role), [role]);
+  const role = controlledRole || internalRole;
 
-//   useEffect(() => {
-//     localStorage.setItem(STORAGE_KEY, role);
-//   }, [role]);
+  const theme = useMemo(() => normalizeTheme(getThemeByRole(role)), [role]);
 
-//   return (
-//     <ThemeContext.Provider value={{ theme, role, setRole }}>
-//       {children}
-//     </ThemeContext.Provider>
-//   );
-// }
+  useEffect(() => {
+    if (!controlledRole) localStorage.setItem(STORAGE_KEY, internalRole);
+  }, [internalRole, controlledRole]);
+
+  useEffect(() => {
+    if (controlledRole) localStorage.setItem(STORAGE_KEY, controlledRole);
+  }, [controlledRole]);
+
+  return (
+    <ThemeContext.Provider value={{ theme, role, setRole: setInternalRole }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
