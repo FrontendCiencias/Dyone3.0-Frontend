@@ -34,7 +34,10 @@ function isSecretaryRole(activeRole) {
 }
 
 function fullName(student) {
-  return `${student?.lastNames || ""} ${student?.names || ""}`.trim() || "-";
+  const lastNames = String(student?.lastNames || "").trim();
+  const names = String(student?.names || "").trim();
+  if (lastNames && names) return `${lastNames}, ${names}`;
+  return lastNames || names || "-";
 }
 
 function getGrade(student) {
@@ -43,6 +46,13 @@ function getGrade(student) {
 
 function getSection(student) {
   return student?.lastKnownSection || student?.section || "-";
+}
+
+function getClassroomLabel(student) {
+  const grade = getGrade(student);
+  const section = getSection(student);
+  if (grade === "-" && section === "-") return "-";
+  return `${grade} - ${section}`;
 }
 
 function getDebtTotal(student) {
@@ -54,13 +64,39 @@ function formatMoney(value) {
   return `S/ ${Number(value || 0).toFixed(2)}`;
 }
 
+function getEnrollmentStatus(student) {
+  const raw = String(
+    student?.enrollmentStatus ||
+      student?.enrollment?.status ||
+      student?.status ||
+      student?.studentStatus ||
+      ""
+  ).toUpperCase();
+
+  if (raw.includes("TRANSFER") || raw.includes("TRASLAD")) {
+    return { key: "TRANSFERRED", label: "Trasladado", classes: "bg-amber-100 text-amber-700" };
+  }
+
+  if (raw.includes("ABSENT") || raw.includes("AUSENT")) {
+    return { key: "ABSENT", label: "Ausente", classes: "bg-rose-100 text-rose-700" };
+  }
+
+  if (raw.includes("ENROLL") || raw.includes("MATRICUL") || raw.includes("CONFIRMED")) {
+    return { key: "ENROLLED", label: "Matriculado", classes: "bg-emerald-100 text-emerald-700" };
+  }
+
+  return student?.isActive
+    ? { key: "ENROLLED", label: "Matriculado", classes: "bg-emerald-100 text-emerald-700" }
+    : { key: "ABSENT", label: "Ausente", classes: "bg-rose-100 text-rose-700" };
+}
+
 export default function StudentsPage() {
   const { activeRole } = useAuth();
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [gradeFilter, setGradeFilter] = useState("");
-  const [sectionFilter, setSectionFilter] = useState("");
+  const [showTransferred, setShowTransferred] = useState("hide");
+  const [classroomFilter, setClassroomFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [cursor, setCursor] = useState(null);
   const [results, setResults] = useState([]);
@@ -82,7 +118,7 @@ export default function StudentsPage() {
     q: secretaryMode ? "" : searchTerm,
     cursor,
     enabled: globalMode ? Boolean(searchTerm.trim()) : true,
-    mode: globalMode ? "global" : "campus",
+    mode: secretaryMode ? "campusFull" : globalMode ? "global" : "campus",
     campus: activeCampusAlias,
     limit: secretaryMode ? 1000 : 10,
   });
@@ -95,8 +131,8 @@ export default function StudentsPage() {
     setSearchTerm("");
     setSearchInput("");
     setDebouncedSearch("");
-    setGradeFilter("");
-    setSectionFilter("");
+    setShowTransferred("hide");
+    setClassroomFilter("");
   }, [activeRole]);
 
   useEffect(() => {
@@ -106,10 +142,14 @@ export default function StudentsPage() {
     setResults((prev) => (cursor && !secretaryMode ? [...prev, ...items] : items));
   }, [searchQuery.data, cursor, secretaryMode]);
 
-  useEffect(() => {
-    if (!secretaryMode) return;
-    if (cursor) setCursor(null);
-  }, [secretaryMode, cursor]);
+  const classroomOptions = useMemo(() => {
+    const values = new Set();
+    results.forEach((student) => {
+      const classroom = getClassroomLabel(student);
+      if (classroom !== "-") values.add(classroom);
+    });
+    return Array.from(values).sort((a, b) => a.localeCompare(b, "es"));
+  }, [results]);
 
   const secretaryFilteredResults = useMemo(() => {
     if (!secretaryMode) return results;
@@ -124,32 +164,16 @@ export default function StudentsPage() {
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(q));
 
-      const studentGrade = getGrade(student);
-      const studentSection = getSection(student);
-      const matchesGrade = !gradeFilter || String(studentGrade) === String(gradeFilter);
-      const matchesSection = !sectionFilter || String(studentSection) === String(sectionFilter);
+      const enrollmentStatus = getEnrollmentStatus(student);
+      const includeTransferred = showTransferred === "show";
+      const passesTransferred = includeTransferred || enrollmentStatus.key !== "TRANSFERRED";
 
-      return matchesSearch && matchesGrade && matchesSection;
-    });
-  }, [results, secretaryMode, debouncedSearch, gradeFilter, sectionFilter]);
+      const classroom = getClassroomLabel(student);
+      const matchesClassroom = !classroomFilter || classroom === classroomFilter;
 
-  const gradeOptions = useMemo(() => {
-    const values = new Set();
-    results.forEach((student) => {
-      const grade = getGrade(student);
-      if (grade && grade !== "-") values.add(String(grade));
+      return matchesSearch && passesTransferred && matchesClassroom;
     });
-    return Array.from(values).sort((a, b) => a.localeCompare(b, "es"));
-  }, [results]);
-
-  const sectionOptions = useMemo(() => {
-    const values = new Set();
-    results.forEach((student) => {
-      const section = getSection(student);
-      if (section && section !== "-") values.add(String(section));
-    });
-    return Array.from(values).sort((a, b) => a.localeCompare(b, "es"));
-  }, [results]);
+  }, [results, secretaryMode, debouncedSearch, showTransferred, classroomFilter]);
 
   const dataToRender = secretaryMode ? secretaryFilteredResults : results;
   const hasResults = dataToRender.length > 0;
@@ -185,34 +209,30 @@ export default function StudentsPage() {
           {secretaryMode ? (
             <>
               <div className="md:col-span-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Grado</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Salón (grado - sección)</label>
                 <select
                   className="w-full rounded border px-3 py-2 text-sm"
-                  value={gradeFilter}
-                  onChange={(e) => setGradeFilter(e.target.value)}
+                  value={classroomFilter}
+                  onChange={(e) => setClassroomFilter(e.target.value)}
                 >
                   <option value="">Todos</option>
-                  {gradeOptions.map((grade) => (
-                    <option key={grade} value={grade}>
-                      {grade}
+                  {classroomOptions.map((classroom) => (
+                    <option key={classroom} value={classroom}>
+                      {classroom}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="md:col-span-3">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Sección</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Trasladados</label>
                 <select
                   className="w-full rounded border px-3 py-2 text-sm"
-                  value={sectionFilter}
-                  onChange={(e) => setSectionFilter(e.target.value)}
+                  value={showTransferred}
+                  onChange={(e) => setShowTransferred(e.target.value)}
                 >
-                  <option value="">Todas</option>
-                  {sectionOptions.map((section) => (
-                    <option key={section} value={section}>
-                      {section}
-                    </option>
-                  ))}
+                  <option value="hide">No mostrar</option>
+                  <option value="show">Mostrar</option>
                 </select>
               </div>
             </>
@@ -235,7 +255,7 @@ export default function StudentsPage() {
       </Card>
 
       <Card className="border border-gray-200 shadow-sm">
-        <h3 className="mb-3 text-base font-semibold text-gray-900">Resultados</h3>
+        <h3 className="mb-3 text-base font-semibold text-gray-900">Resultados ({dataToRender.length})</h3>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -244,36 +264,36 @@ export default function StudentsPage() {
                 <th className="px-3 py-2">DNI</th>
                 <th className="px-3 py-2">Apellidos y nombres</th>
                 <th className="px-3 py-2">Código</th>
-                <th className="px-3 py-2">Último grado / sección</th>
+                <th className="px-3 py-2">Salón</th>
                 {secretaryMode ? null : <th className="px-3 py-2">Campus</th>}
-                <th className="px-3 py-2">Estado</th>
+                <th className="px-3 py-2">Estado matrícula</th>
                 <th className="px-3 py-2">Deuda total</th>
               </tr>
             </thead>
             <tbody>
-              {dataToRender.map((student) => (
-                <tr
-                  key={student.id}
-                  className="cursor-pointer border-b transition-colors hover:bg-gray-50"
-                  onClick={() => setSelectedStudentId(student.id)}
-                >
-                  <td className="px-3 py-2">{student.dni || "-"}</td>
-                  <td className="px-3 py-2">{fullName(student)}</td>
-                  <td className="px-3 py-2">{student.code || "-"}</td>
-                  <td className="px-3 py-2">{`${getGrade(student)} / ${getSection(student)}`}</td>
-                  {secretaryMode ? null : <td className="px-3 py-2">{student.campusCode || "-"}</td>}
-                  <td className="px-3 py-2">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                        student.isActive ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
-                      }`}
-                    >
-                      {student.isActive ? "Activo" : "Inactivo"}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">{formatMoney(getDebtTotal(student))}</td>
-                </tr>
-              ))}
+              {dataToRender.map((student) => {
+                const enrollmentStatus = getEnrollmentStatus(student);
+
+                return (
+                  <tr
+                    key={student.id}
+                    className="cursor-pointer border-b transition-colors hover:bg-gray-50"
+                    onClick={() => setSelectedStudentId(student.id)}
+                  >
+                    <td className="px-3 py-2">{student.dni || "-"}</td>
+                    <td className="px-3 py-2">{fullName(student)}</td>
+                    <td className="px-3 py-2">{student.code || "-"}</td>
+                    <td className="px-3 py-2">{getClassroomLabel(student)}</td>
+                    {secretaryMode ? null : <td className="px-3 py-2">{student.campusCode || "-"}</td>}
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${enrollmentStatus.classes}`}>
+                        {enrollmentStatus.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">{formatMoney(getDebtTotal(student))}</td>
+                  </tr>
+                );
+              })}
 
               {!hasResults && (
                 <tr>
