@@ -77,7 +77,7 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
               <>
                 <section className="rounded-lg border bg-gray-50 p-4">
                   <h4 className="mb-2 text-sm font-semibold text-gray-900">Datos del alumno</h4>
-                  <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2">
+                  <div className="grid gap-2 px-4 text-sm text-gray-700 md:grid-cols-2">
                     <p>
                       <span className="font-medium">Nombre:</span> {fullName(student)}
                     </p>
@@ -85,20 +85,23 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
                       <span className="font-medium">DNI:</span> {student.dni || "-"}
                     </p>
                     <p>
-                      <span className="font-medium">Código:</span> {student.code || "-"}
-                    </p>
-                    <p>
-                      <span className="font-medium">Campus:</span> {student.campusCode || "-"}
+                      <span className="font-medium">F. Nacimiento:</span> {student.birthDate || "?"}
                     </p>
                     <p>
                       <span className="font-medium">Estado:</span> {student.isActive ? "Activo" : "Inactivo"}
+                    </p>
+                    <p>
+                      <span className="font-medium">Código:</span> {student.internalCode || "-"}
+                    </p>
+                    <p>
+                      <span className="font-medium">Campus:</span> {student.campusCode || "-"}
                     </p>
                   </div>
                 </section>
 
                 <section className="rounded-lg border bg-gray-50 p-4">
                   <h4 className="mb-2 text-sm font-semibold text-gray-900">Estado matrícula</h4>
-                  <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-3">
+                  <div className="grid gap-2 px-4 text-sm text-gray-700 md:grid-cols-3">
                     <p>
                       <span className="font-medium">Ciclo:</span> {enrollmentStatus.cycleName || enrollmentStatus.cycle?.name || "-"}
                     </p>
@@ -112,24 +115,102 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
                 </section>
 
                 <section className="rounded-lg border bg-gray-50 p-4">
-                  <h4 className="mb-2 text-sm font-semibold text-gray-900">Familia</h4>
-                  <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2">
-                    <p>
-                      <span className="font-medium">Tutor principal:</span>{" "}
-                      {mainGuardian
-                        ? `${mainGuardian.lastNames || ""}, ${mainGuardian.names || ""}`.replace(/^,\s*/, "").trim() || "-"
-                        : familyLink.mainGuardianName || "-"}
-                    </p>
-                    <p>
-                      <span className="font-medium">DNI tutor:</span>{" "}
-                      {mainGuardian?.dni || familyLink.mainGuardianDni || "-"}
-                    </p>
+                  <h4 className="mb-3 text-sm font-semibold text-gray-900">Familia</h4>
+
+                  {/* Tutor principal */}
+                  <div className="rounded-md bg-white p-3 text-sm text-gray-700">
+                    <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-xs font-semibold uppercase text-gray-600">
+                        Tutor principal
+                      </span>
+                    </div>
+
+                    <div className="grid gap-2 px-4 text-sm text-gray-700 md:grid-cols-2">
+                      <p>
+                        <span className="font-medium">Relación:</span>{" "}
+                        {familyLink?.primaryTutor_send?.relationship || "-"}
+                      </p>
+                      <p>
+                        <span className="font-medium">Apellidos y nombres:</span>{" "}
+                        {`${familyLink?.primaryTutor_send?.lastNames || ""}, ${familyLink?.primaryTutor_send?.names || ""}`
+                          .replace(/^,\s*/, "")
+                          .trim() || "-"}
+                      </p>
+
+                      <p>
+                        <span className="font-medium">Celular/es:</span>{" "}
+                        {(familyLink?.primaryTutor_send?.phones?.length
+                          ? familyLink.primaryTutor_send.phones.filter(Boolean).join(" - ")
+                          : familyLink?.primaryTutor_send?.phone) || "-"}
+                      </p>
+
+                      <p>
+                        <span className="font-medium">Vive con el estudiante:</span>{" "}
+                        {familyLink?.primaryTutor_send?.livesWithStudent === true
+                          ? "Sí"
+                          : familyLink?.primaryTutor_send?.livesWithStudent === false
+                          ? "No"
+                          : "-"}
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Otros tutores */}
+                  {familyLink?.otherTutors_send?.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      <hr className="border-gray-200" />
+                      <h5 className="text-xs font-semibold uppercase text-gray-600">
+                        Otros tutores
+                      </h5>
+
+                      {familyLink.otherTutors_send.map((tutor, index) => (
+                        <div
+                          key={`${tutor._id || "tutor"}-${index}`}
+                          className="rounded-md bg-white p-3 text-sm text-gray-700"
+                        >
+                          <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span className="text-xs font-semibold uppercase text-gray-600">
+                              Tutor {index + 2}
+                            </span>
+                          </div>
+
+                          <div className="grid gap-2 px-4 text-sm text-gray-700 md:grid-cols-2">
+                            <p>
+                              <span className="font-medium">Relación:</span>{" "}
+                              {familyLink?.primaryTutor_send?.relationship || "-"}
+                            </p>
+                            <p>
+                              <span className="font-medium">Apellidos y nombres:</span>{" "}
+                              {`${familyLink?.primaryTutor_send?.lastNames || ""}, ${familyLink?.primaryTutor_send?.names || ""}`
+                                .replace(/^,\s*/, "")
+                                .trim() || "-"}
+                            </p>
+
+                            <p>
+                              <span className="font-medium">Celular/es:</span>{" "}
+                              {(familyLink?.primaryTutor_send?.phones?.length
+                                ? familyLink.primaryTutor_send.phones.filter(Boolean).join(" - ")
+                                : familyLink?.primaryTutor_send?.phone) || "-"}
+                            </p>
+
+                            <p>
+                              <span className="font-medium">Vive con el estudiante:</span>{" "}
+                              {familyLink?.primaryTutor_send?.livesWithStudent === true
+                                ? "Sí"
+                                : familyLink?.primaryTutor_send?.livesWithStudent === false
+                                ? "No"
+                                : "-"}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </section>
 
                 <section className="rounded-lg border bg-gray-50 p-4">
                   <h4 className="mb-2 text-sm font-semibold text-gray-900">Deudas</h4>
-                  <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-3">
+                  <div className="grid gap-2 px-4 text-sm text-gray-700 md:grid-cols-3">
                     <p>
                       <span className="font-medium">Total pendiente:</span> {formatMoney(debtsSummary.pendingTotal)}
                     </p>
