@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
+import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import Input from "../../../components/ui/Input";
 import { useStudentsSearchQuery } from "../hooks/useStudentsSearchQuery";
 import StudentSummaryModal from "../components/StudentSummaryModal";
+import CreateStudentModal from "../components/CreateStudentModal";
 import { useAuth } from "../../../lib/auth";
 import StudentsContextBar from "../components/StudentsContextBar";
 import { normalizeSearchText } from "../domain/searchText";
@@ -112,6 +114,7 @@ export default function StudentsPage() {
   const [cursor, setCursor] = useState(null);
   const [results, setResults] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const secretaryMode = isSecretaryRole(activeRole);
   const globalMode = isGlobalRole(activeRole);
@@ -310,6 +313,14 @@ export default function StudentsPage() {
           )}
         </div>
 
+        {secretaryMode && (
+          <div className="mt-3 flex justify-end">
+            <SecondaryButton className="w-full md:w-auto" onClick={() => setCreateModalOpen(true)}>
+              + Nuevo alumno
+            </SecondaryButton>
+          </div>
+        )}
+
         {searchQuery.isError && (
           <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{getErrorMessage(searchQuery.error)}</p>
         )}
@@ -373,6 +384,8 @@ export default function StudentsPage() {
           </div>
         )}
       </Card>
+
+      <CreateStudentModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
 
       <StudentSummaryModal
         open={Boolean(selectedStudentId)}
