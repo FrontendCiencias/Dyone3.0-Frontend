@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../../components/ui/Button";
+import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import BaseModal from "../../../shared/ui/BaseModal";
 import { ROUTES } from "../../../config/routes";
 import { useStudentSummaryQuery } from "../hooks/useStudentSummaryQuery";
@@ -51,11 +52,11 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
       maxWidthClass="max-w-4xl"
       footer={
         <div className="flex justify-end gap-2">
-          <Button type="button" onClick={onClose} className="!bg-gray-500">
+          <SecondaryButton type="button" onClick={onClose}>
             Cerrar
-          </Button>
+          </SecondaryButton>
           <Button type="button" onClick={handleGoToEdit} disabled={!studentId}>
-            Editar alumno
+            Editar/Ver detalle
           </Button>
         </div>
       }

@@ -40,3 +40,8 @@ export async function createBillingConcept(payload) {
   const res = await axiosInstance.post(API_ROUTES.adminBillingConcepts, payload);
   return res.data;
 }
+
+export async function getAdminEndpoints() {
+  const response = await axiosInstance.get(API_ROUTES.adminEndpoints);
+  return response.data;
+}
