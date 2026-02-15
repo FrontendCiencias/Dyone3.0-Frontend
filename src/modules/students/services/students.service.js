@@ -134,3 +134,51 @@ export async function getStudentDetail(studentId) {
   // TODO: cuando backend exponga endpoint de detalle completo, reemplazar por ese endpoint.
   return getStudentSummary(studentId);
 }
+
+export async function getClassroomCapacity(classroomId) {
+  const endpoint = API_ROUTES.enrollmentClassroomCapacity(classroomId);
+
+  logRequest(endpoint, "GET", {});
+  const res = await axiosInstance.get(endpoint);
+  logResponse(endpoint, res.status, res.data);
+
+  return res.data;
+}
+
+export async function createEnrollment(payload) {
+  logRequest(API_ROUTES.enrollments, "POST", payload);
+  const res = await axiosInstance.post(API_ROUTES.enrollments, payload);
+  logResponse(API_ROUTES.enrollments, res.status, res.data);
+  return res.data;
+}
+
+export async function confirmEnrollment(enrollmentId, payload = {}) {
+  const endpoint = API_ROUTES.enrollmentConfirm(enrollmentId);
+  logRequest(endpoint, "POST", payload);
+  const res = await axiosInstance.post(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function updateStudentCycleStatus(studentId, payload) {
+  const endpoint = API_ROUTES.studentCycleStatus(studentId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function changeStudentClassroom(studentId, payload) {
+  const endpoint = API_ROUTES.studentClassroom(studentId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function createStudentCharge(payload) {
+  logRequest(API_ROUTES.charges, "POST", payload);
+  const res = await axiosInstance.post(API_ROUTES.charges, payload);
+  logResponse(API_ROUTES.charges, res.status, res.data);
+  return res.data;
+}

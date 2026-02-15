@@ -13,6 +13,8 @@ export default function StudentsContextBar({
   occupied,
   available,
   status,
+  loadingCapacity,
+  capacityError,
 }) {
   const hasSalon = Boolean(salonSeleccionado);
   const hasSearch = Boolean(String(q || "").trim());
@@ -26,12 +28,17 @@ export default function StudentsContextBar({
           <>
             <span>·</span>
             <BarItem>Salón: {salonSeleccionado}</BarItem>
-            {typeof capacity === "number" && typeof occupied === "number" && typeof available === "number" ? (
+            {loadingCapacity ? (
+              <>
+                <span>·</span>
+                <BarItem>Cargando cupo real...</BarItem>
+              </>
+            ) : typeof capacity === "number" && typeof occupied === "number" && typeof available === "number" ? (
               <>
                 <span>·</span>
                 <BarItem>Capacidad: {capacity}</BarItem>
                 <span>·</span>
-                <BarItem>Matriculados: {occupied}</BarItem>
+                <BarItem>Matriculados/Ocupados: {occupied}</BarItem>
                 <span>·</span>
                 <BarItem>Disponibles: {available}</BarItem>
                 {status ? (
@@ -46,7 +53,7 @@ export default function StudentsContextBar({
             ) : (
               <>
                 <span>·</span>
-                <BarItem>(Cupo no disponible)</BarItem>
+                <BarItem>{capacityError ? "No se pudo obtener cupo real" : "Cupo no disponible"}</BarItem>
               </>
             )}
           </>

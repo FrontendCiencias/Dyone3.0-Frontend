@@ -10,6 +10,8 @@ import { useAuth } from "../../../lib/auth";
 import StudentsContextBar from "../components/StudentsContextBar";
 import { normalizeSearchText } from "../domain/searchText";
 import { getClassroomCapacityStatus } from "../domain/classroomCapacityStatus";
+import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
+import { useClassroomCapacityQuery } from "../hooks/useClassroomCapacityQuery";
 
 function getErrorMessage(error) {
   const msg = error?.response?.data?.message;
@@ -95,9 +97,9 @@ function getEnrollmentStatus(student) {
     : { key: "ABSENT", label: "Ausente", classes: "bg-rose-100 text-rose-700" };
 }
 
-function pickNumericValue(student, candidates) {
+function pickNumericValue(source, candidates) {
   for (const key of candidates) {
-    const value = Number(student?.[key]);
+    const value = Number(source?.[key]);
     if (!Number.isNaN(value)) return value;
   }
   return null;
@@ -137,6 +139,8 @@ export default function StudentsPage() {
     limit: secretaryMode ? 1000 : 10,
   });
 
+  const classroomsQuery = useClassroomsQuery();
+
   const nextCursor = searchQuery.data?.nextCursor || null;
 
   useEffect(() => {
@@ -156,14 +160,81 @@ export default function StudentsPage() {
     setResults((prev) => (cursor && !secretaryMode ? [...prev, ...items] : items));
   }, [searchQuery.data, cursor, secretaryMode]);
 
+  const allClassrooms = useMemo(() => {
+    const rows = Array.isArray(classroomsQuery.data)
+      ? classroomsQuery.data
+      : Array.isArray(classroomsQuery.data?.items)
+        ? classroomsQuery.data.items
+        : [];
+
+    return rows.filter((classroom) => {
+      if (!activeCampusAlias) return true;
+      const campusCode = String(classroom?.campusCode || classroom?.campusAlias || "").toUpperCase();
+      return !campusCode || campusCode === String(activeCampusAlias).toUpperCase();
+    });
+  }, [classroomsQuery.data, activeCampusAlias]);
+
   const classroomOptions = useMemo(() => {
     const values = new Set();
     results.forEach((student) => {
       const classroom = getClassroomLabel(student);
       if (classroom !== "-") values.add(classroom);
     });
+    allClassrooms.forEach((classroom) => {
+      const label = classroom?.displayName || `${classroom?.grade || ""} - ${classroom?.section || ""}`.trim();
+      if (label && label !== "-") values.add(label);
+    });
     return Array.from(values).sort((a, b) => a.localeCompare(b, "es"));
-  }, [results]);
+  }, [results, allClassrooms]);
+
+  const classroomByLabel = useMemo(() => {
+    const map = new Map();
+    allClassrooms.forEach((classroom) => {
+      const names = [
+        classroom?.displayName,
+        `${classroom?.grade || ""} - ${classroom?.section || ""}`.trim(),
+        `${classroom?.grade || ""}-${classroom?.section || ""}`.trim(),
+      ].filter(Boolean);
+
+      names.forEach((name) => map.set(name, classroom));
+    });
+    return map;
+  }, [allClassrooms]);
+
+  const selectedClassroomStudents = useMemo(() => {
+    if (!classroomFilter) return [];
+    return results.filter((student) => getClassroomLabel(student) === classroomFilter);
+  }, [results, classroomFilter]);
+
+  const selectedClassroomId = useMemo(() => {
+    if (!classroomFilter) return null;
+
+    const fromMap = classroomByLabel.get(classroomFilter);
+    if (fromMap?.id) return fromMap.id;
+
+    const sample = selectedClassroomStudents[0];
+    return sample?.classroomId || sample?.classroom?.id || sample?.enrollment?.classroomId || null;
+  }, [classroomFilter, classroomByLabel, selectedClassroomStudents]);
+
+  const classroomCapacityQuery = useClassroomCapacityQuery(selectedClassroomId, secretaryMode && Boolean(classroomFilter));
+
+  const classroomMetrics = useMemo(() => {
+    if (!classroomFilter) return null;
+
+    const capacitySource = classroomCapacityQuery.data;
+    const capacity = pickNumericValue(capacitySource, ["capacity", "total", "vacanciesTotal"]);
+    const occupied = pickNumericValue(capacitySource, ["occupied", "enrolled", "enrolledCount", "matriculated"]);
+    const available = pickNumericValue(capacitySource, ["available", "vacanciesAvailable", "remaining"]);
+
+    if (capacity === null || occupied === null || available === null) return null;
+
+    return {
+      capacity,
+      occupied,
+      available,
+      status: getClassroomCapacityStatus(available),
+    };
+  }, [classroomCapacityQuery.data, classroomFilter]);
 
   const secretaryFilteredResults = useMemo(() => {
     if (!secretaryMode) return results;
@@ -191,32 +262,6 @@ export default function StudentsPage() {
 
   const dataToRender = secretaryMode ? secretaryFilteredResults : results;
   const hasResults = dataToRender.length > 0;
-
-  const selectedClassroomStudents = useMemo(() => {
-    if (!classroomFilter) return [];
-    return results.filter((student) => getClassroomLabel(student) === classroomFilter);
-  }, [results, classroomFilter]);
-
-  const classroomMetrics = useMemo(() => {
-    if (!classroomFilter || selectedClassroomStudents.length === 0) return null;
-
-    const sample = selectedClassroomStudents[0];
-    const capacity = pickNumericValue(sample, ["capacity", "classroomCapacity", "vacanciesTotal"]);
-    if (capacity === null) return null;
-
-    const occupiedRaw = pickNumericValue(sample, ["occupied", "enrolledCount", "classroomOccupied"]);
-    const occupied = occupiedRaw === null ? selectedClassroomStudents.length : occupiedRaw;
-
-    const availableRaw = pickNumericValue(sample, ["available", "availableSeats", "vacanciesAvailable"]);
-    const available = availableRaw === null ? capacity - occupied : availableRaw;
-
-    return {
-      capacity,
-      occupied,
-      available,
-      status: getClassroomCapacityStatus(available),
-    };
-  }, [classroomFilter, selectedClassroomStudents]);
 
   const totalFromBackend = Number(searchQuery.data?.total);
   const resultsTotal = Number.isFinite(totalFromBackend)
@@ -250,6 +295,8 @@ export default function StudentsPage() {
             occupied={classroomMetrics?.occupied}
             available={classroomMetrics?.available}
             status={classroomMetrics?.status}
+            loadingCapacity={classroomCapacityQuery.isFetching}
+            capacityError={classroomCapacityQuery.isError}
           />
         ) : (
           <div className="mb-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
