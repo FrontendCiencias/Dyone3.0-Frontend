@@ -229,22 +229,33 @@ export default function StudentsPage() {
     });
   }, [classroomFilter, classroomByLabel, classroomLookup, selectedClassroomStudents]);
 
-  const classroomCapacityQuery = useClassroomCapacityQuery(selectedClassroomId, secretaryMode && Boolean(classroomFilter));
+  const classroomCapacityQuery = useClassroomCapacityQuery(selectedClassroomId, secretaryMode && Boolean(selectedClassroomId));
 
   const classroomMetrics = useMemo(() => {
     if (!classroomFilter) return null;
 
     const capacitySource = classroomCapacityQuery.data;
     const capacity = pickNumericValue(capacitySource, ["capacity", "total", "vacanciesTotal"]);
-    const occupied = pickNumericValue(capacitySource, ["occupied", "enrolled", "enrolledCount", "matriculated"]);
-    const available = pickNumericValue(capacitySource, ["available", "vacanciesAvailable", "remaining"]);
+    const reserved = pickNumericValue(capacitySource, ["reserved", "vacanciesReserved", "reservedSeats", "seatsReserved"]);
 
-    if (capacity === null || occupied === null || available === null) return null;
+    let occupied = pickNumericValue(capacitySource, ["occupied", "enrolled", "enrolledCount", "matriculated"]);
+    let available = pickNumericValue(capacitySource, ["available", "vacanciesAvailable", "remaining"]);
+
+    if (occupied === null && capacity !== null && available !== null) {
+      occupied = Math.max(capacity - available - Math.max(reserved || 0, 0), 0);
+    }
+
+    if (available === null && capacity !== null && occupied !== null) {
+      available = Math.max(capacity - occupied - Math.max(reserved || 0, 0), 0);
+    }
+
+    if (capacity === null && occupied === null && available === null && reserved === null) return null;
 
     return {
       capacity,
       occupied,
       available,
+      reserved,
       status: getClassroomCapacityStatus(available),
     };
   }, [classroomCapacityQuery.data, classroomFilter]);
@@ -307,6 +318,7 @@ export default function StudentsPage() {
             capacity={classroomMetrics?.capacity}
             occupied={classroomMetrics?.occupied}
             available={classroomMetrics?.available}
+            reserved={classroomMetrics?.reserved}
             status={classroomMetrics?.status}
             loadingCapacity={classroomCapacityQuery.isFetching}
             capacityError={classroomCapacityQuery.isError}

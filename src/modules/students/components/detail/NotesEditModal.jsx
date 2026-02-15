@@ -3,7 +3,7 @@ import BaseModal from "../../../../shared/ui/BaseModal";
 import Button from "../../../../components/ui/Button";
 import SecondaryButton from "../../../../shared/ui/SecondaryButton";
 
-export default function NotesEditModal({ open, onClose, value = "", onSave }) {
+export default function NotesEditModal({ open, onClose, value = "", onSave, saving = false, errorMessage = "" }) {
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -18,8 +18,8 @@ export default function NotesEditModal({ open, onClose, value = "", onSave }) {
       title="Editar notas internas"
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose}>Cancelar</SecondaryButton>
-          <Button onClick={() => onSave?.(notes)}>Guardar</Button>
+          <SecondaryButton onClick={onClose} disabled={saving}>Cancelar</SecondaryButton>
+          <Button onClick={() => onSave?.(notes)} disabled={saving}>Guardar</Button>
         </div>
       }
     >
@@ -30,7 +30,7 @@ export default function NotesEditModal({ open, onClose, value = "", onSave }) {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Escribe notas de secretaría..."
         />
-        <p className="text-xs text-gray-500">TODO: guardar notas con endpoint dedicado cuando esté disponible.</p>
+        {errorMessage ? <p className="text-xs text-red-600">{errorMessage}</p> : null}
       </div>
     </BaseModal>
   );

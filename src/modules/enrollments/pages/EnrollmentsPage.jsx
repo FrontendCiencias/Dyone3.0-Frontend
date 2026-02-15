@@ -253,8 +253,13 @@ export default function EnrollmentsPage() {
   return (
     <div className="space-y-4">
       <Card className="border border-gray-200 shadow-sm">
-        <h1 className="text-xl font-semibold text-gray-900">Matrículas</h1>
-        <p className="mt-1 text-sm text-gray-600">Tablero operativo de matrícula para seguimiento administrativo.</p>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Matrículas</h1>
+            <p className="mt-1 text-sm text-gray-600">Tablero operativo de matrícula para seguimiento administrativo.</p>
+          </div>
+          <Button onClick={() => navigate(ROUTES.dashboardEnrollmentCaseNew)}>Nueva Matrícula</Button>
+        </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-12 md:items-end">
           <div className="md:col-span-5">

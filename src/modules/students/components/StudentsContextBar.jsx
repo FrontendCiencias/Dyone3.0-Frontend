@@ -12,12 +12,14 @@ export default function StudentsContextBar({
   capacity,
   occupied,
   available,
+  reserved,
   status,
   loadingCapacity,
   capacityError,
 }) {
   const hasSalon = Boolean(salonSeleccionado);
   const hasSearch = Boolean(String(q || "").trim());
+  const hasAnyCapacityData = [capacity, occupied, available, reserved].some((value) => typeof value === "number");
 
   return (
     <div className="mb-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
@@ -33,14 +35,32 @@ export default function StudentsContextBar({
                 <span>·</span>
                 <BarItem>Cargando cupo real...</BarItem>
               </>
-            ) : typeof capacity === "number" && typeof occupied === "number" && typeof available === "number" ? (
+            ) : hasAnyCapacityData ? (
               <>
-                <span>·</span>
-                <BarItem>Capacidad: {capacity}</BarItem>
-                <span>·</span>
-                <BarItem>Matriculados/Ocupados: {occupied}</BarItem>
-                <span>·</span>
-                <BarItem>Disponibles: {available}</BarItem>
+                {typeof capacity === "number" ? (
+                  <>
+                    <span>·</span>
+                    <BarItem>Capacidad: {capacity}</BarItem>
+                  </>
+                ) : null}
+                {typeof occupied === "number" ? (
+                  <>
+                    <span>·</span>
+                    <BarItem>Matriculados/Ocupados: {occupied}</BarItem>
+                  </>
+                ) : null}
+                {typeof reserved === "number" ? (
+                  <>
+                    <span>·</span>
+                    <BarItem>Reservadas: {reserved}</BarItem>
+                  </>
+                ) : null}
+                {typeof available === "number" ? (
+                  <>
+                    <span>·</span>
+                    <BarItem>Disponibles: {available}</BarItem>
+                  </>
+                ) : null}
                 {status ? (
                   <>
                     <span>·</span>
