@@ -17,6 +17,8 @@ import { useChangeStudentClassroomMutation } from "../hooks/useChangeStudentClas
 import { useCreateStudentChargeMutation } from "../hooks/useCreateStudentChargeMutation";
 import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
 import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQuery";
+import RegisterPaymentModal from "../../payments/components/RegisterPaymentModal";
+import { useStudentAccountStatementQuery } from "../../payments/hooks/useStudentAccountStatementQuery";
 import IdentityEditModal from "../components/detail/IdentityEditModal";
 import TutorsManageModal from "../components/detail/TutorsManageModal";
 import AccountStatementModal from "../components/detail/AccountStatementModal";
@@ -97,6 +99,7 @@ export default function StudentDetailPage() {
   const [enrollmentForm, setEnrollmentForm] = useState(initialEnrollmentForm);
   const [createChargeOpen, setCreateChargeOpen] = useState(false);
   const [chargeForm, setChargeForm] = useState(initialChargeForm);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const detailQuery = useStudentDetailQuery(studentId);
   const detail = detailQuery.data || {};
@@ -117,6 +120,7 @@ export default function StudentDetailPage() {
   const transferMutation = useUpdateStudentCycleStatusMutation(studentId);
   const changeClassroomMutation = useChangeStudentClassroomMutation(studentId);
   const createChargeMutation = useCreateStudentChargeMutation(studentId);
+  const accountStatementQuery = useStudentAccountStatementQuery(studentId, true);
 
   const classrooms = useMemo(() => {
     const rows = Array.isArray(classroomsQuery.data)
@@ -422,6 +426,9 @@ export default function StudentDetailPage() {
               <SecondaryButton disabled={lockEdition && activeEditor !== "accountStatement"} onClick={() => openEditor("accountStatement")}>
                 Ver estado de cuenta
               </SecondaryButton>
+              <SecondaryButton disabled={!isAdminOrSecretary} onClick={() => setPaymentModalOpen(true)}>
+                Registrar pago
+              </SecondaryButton>
               <SecondaryButton disabled={!isAdminOrSecretary} onClick={() => setCreateChargeOpen(true)}>
                 Crear cargo
               </SecondaryButton>
@@ -454,6 +461,19 @@ export default function StudentDetailPage() {
         open={activeEditor === "accountStatement"}
         onClose={() => setActiveEditor(null)}
         debtsSummary={debtsSummary}
+        accountQuery={accountStatementQuery}
+        onOpenRegisterPayment={() => setPaymentModalOpen(true)}
+      />
+      <RegisterPaymentModal
+        open={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
+        fixedStudent={{
+          id: studentId,
+          names: student?.names,
+          lastNames: student?.lastNames,
+          dni: student?.dni,
+        }}
+        title="Registrar pago del alumno"
       />
       <NotesEditModal
         open={activeEditor === "notes"}

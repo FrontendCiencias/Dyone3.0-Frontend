@@ -136,9 +136,6 @@ export default function FamilyDetailPage() {
           <SecondaryButton onClick={() => setCreateTutorOpen(true)}>Crear tutor</SecondaryButton>
           <SecondaryButton onClick={() => setCreateStudentOpen(true)}>Crear alumno y vincular</SecondaryButton>
         </div>
-        <p className="mt-3 text-xs text-amber-700">
-          Nota: asociación tutor↔familia usa payload en <code>/api/tutors</code>. Endpoint dedicado sigue pendiente en backend.
-        </p>
       </Card>
 
       <LinkStudentModal

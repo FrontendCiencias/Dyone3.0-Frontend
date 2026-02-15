@@ -10,8 +10,13 @@ function logResponse(endpoint, status, dataSummary) {
 }
 
 export async function searchFamilies({ q = "", limit = 20 }) {
+  const normalizedQuery = String(q || "").trim();
+  if (normalizedQuery.length < 2) {
+    return { items: [], total: 0 };
+  }
+
   const params = { limit };
-  if (q?.trim()) params.q = q.trim();
+  params.q = normalizedQuery;
 
   logRequest(API_ROUTES.familiesSearch, "GET", params);
   const res = await axiosInstance.get(API_ROUTES.familiesSearch, { params });

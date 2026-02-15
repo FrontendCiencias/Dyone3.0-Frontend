@@ -103,6 +103,12 @@ export function getNavItemsByRole(activeRole) {
         icon: GraduationCap,
       },
       {
+        to: ROUTES.dashboardPayments,
+        label: "Pagos",
+        description: "Cobros y pensiones",
+        icon: CreditCard,
+      },
+      {
         to: ROUTES.dashboardAdmin,
         label: "Admin",
         description: "Configuración sensible",
