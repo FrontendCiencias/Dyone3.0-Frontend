@@ -55,7 +55,10 @@ export default function FamiliesPage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  const familiesQuery = useFamiliesSearchQuery({ q: debouncedSearch, enabled: true });
+  const normalizedSearch = debouncedSearch.trim();
+  const hasSearchTerm = normalizedSearch.length >= 2;
+
+  const familiesQuery = useFamiliesSearchQuery({ q: normalizedSearch, enabled: hasSearchTerm });
 
   const normalizedQuery = normalizeSearchText(debouncedSearch);
   const families = useMemo(() => {
@@ -91,7 +94,7 @@ export default function FamiliesPage() {
         <Card className="border border-red-100 text-sm text-red-700">{getErrorMessage(familiesQuery.error)}</Card>
       )}
 
-      {familiesQuery.isLoading || familiesQuery.isFetching ? (
+      {hasSearchTerm && (familiesQuery.isLoading || familiesQuery.isFetching) ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => <FamilyCardSkeleton key={index} />)}
         </div>
@@ -103,11 +106,15 @@ export default function FamiliesPage() {
             ))}
           </div>
 
-          {!families.length && (
+          {!hasSearchTerm ? (
+            <Card className="border border-gray-200 text-sm text-gray-500">
+              Escribe para buscar familias por DNI, nombres, apellidos o teléfono.
+            </Card>
+          ) : !families.length ? (
             <Card className="border border-gray-200 text-sm text-gray-500">
               No se encontraron familias para esa búsqueda. Intenta con DNI, nombres o teléfono.
             </Card>
-          )}
+          ) : null}
         </>
       )}
 
