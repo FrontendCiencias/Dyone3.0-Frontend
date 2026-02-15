@@ -1,5 +1,4 @@
-// src/modules/dashboard/DashboardShell.jsx
-import React, { useEffect, useState, useMemo} from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Topbar, { DASHBOARD_TOPBAR_HEIGHT } from "./components/Topbar";
 import Sidebar, { SIDEBAR_WIDTHS } from "./components/Sidebar";
@@ -8,11 +7,41 @@ import PoweredBy from "./components/PoweredBy";
 import { getNavItemsByRole } from "./config/navByRole";
 import { useAuth } from "../../lib/auth";
 import { ROUTES } from "../../config/routes";
+import { useStudentSummaryQuery } from "../students/hooks/useStudentSummaryQuery";
+
+const PAGE_META = {
+  dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del día." },
+  students: { title: "Alumnos", description: "Busca, filtra y gestiona expedientes estudiantiles." },
+  studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matrícula, aula y finanzas." },
+  admin: { title: "Administración", description: "Configura sedes, ciclos, aulas y conceptos." },
+  enrollments: { title: "Matrículas", description: "Monitorea y registra el flujo de matrículas." },
+  payments: { title: "Pagos", description: "Controla cobros, vencimientos y estado de pagos." },
+  families: { title: "Familias", description: "Gestiona tutores y relación familiar de alumnos." },
+  notFound: { title: "Página no encontrada", description: "La ruta no existe en el panel." },
+};
+
+function resolvePageKey(pathname) {
+  if (pathname === ROUTES.dashboard) return "dashboard";
+  if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
+  if (pathname.startsWith(ROUTES.dashboardStudents)) return "students";
+  if (pathname.startsWith(ROUTES.dashboardAdmin)) return "admin";
+  if (pathname.startsWith(ROUTES.dashboardEnrollments)) return "enrollments";
+  if (pathname.startsWith(ROUTES.dashboardPayments)) return "payments";
+  if (pathname.startsWith(ROUTES.dashboardFamilies)) return "families";
+  if (pathname.startsWith("/dashboard/")) return "notFound";
+  return "dashboard";
+}
+
+function getStudentBreadcrumbLabel(summary) {
+  const student = summary?.student || {};
+  const full = [student?.lastNames, student?.names].filter(Boolean).join(", ").trim();
+  if (full) return full;
+  return student?.internalCode || student?.code || "Alumno...";
+}
 
 export default function DashboardShell() {
   const { roles, activeRole, setActiveRole, logout, isAuthenticated } = useAuth();
   const location = useLocation();
-
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,7 +49,6 @@ export default function DashboardShell() {
       navigate("/login", { replace: true });
     }
   }, [isAuthenticated, navigate]);
-
 
   const [expanded, setExpanded] = useState(false);
 
@@ -33,7 +61,7 @@ export default function DashboardShell() {
     for (const item of navItems) {
       const to = item.to;
       const exact = pathname === to;
-      const prefix = pathname.startsWith(to + "/");
+      const prefix = pathname.startsWith(`${to}/`);
 
       if (exact || prefix) {
         if (!best || to.length > best.to.length) best = item;
@@ -42,21 +70,45 @@ export default function DashboardShell() {
     return best?.to ?? null;
   }, [location.pathname, navItems]);
 
-  const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
-
-  const pageTitle = useMemo(() => {
-    const path = location.pathname || "/dashboard";
-    if (path.startsWith("/dashboard/enrollments")) return "Matrículas";
-    if (path.startsWith("/dashboard/payments")) return "Pagos";
-    if (path.startsWith("/dashboard/families")) return "Familias";
-    if (path.startsWith("/dashboard/students")) return "Alumnos";
-    if (path.startsWith("/dashboard/admin")) return "Administración";
-    return "Inicio";
+  const pageKey = useMemo(() => resolvePageKey(location.pathname || ""), [location.pathname]);
+  const studentId = useMemo(() => {
+    const match = (location.pathname || "").match(/^\/dashboard\/students\/([^/]+)$/);
+    return match?.[1] || null;
   }, [location.pathname]);
 
+  const studentSummaryQuery = useStudentSummaryQuery(studentId, pageKey === "studentDetail");
+
+  const pageMeta = useMemo(() => {
+    if (pageKey !== "studentDetail") return PAGE_META[pageKey] || PAGE_META.dashboard;
+
+    const label = studentSummaryQuery.isLoading
+      ? "Alumno..."
+      : getStudentBreadcrumbLabel(studentSummaryQuery.data);
+
+    return {
+      title: `Expediente: ${label}`,
+      description: PAGE_META.studentDetail.description,
+    };
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
+
+  const breadcrumbItems = useMemo(() => {
+    if (pageKey !== "studentDetail") return null;
+
+    const label = studentSummaryQuery.isLoading
+      ? "Alumno..."
+      : getStudentBreadcrumbLabel(studentSummaryQuery.data);
+
+    return [
+      { label: "Inicio", to: ROUTES.dashboard },
+      { label: "Alumnos", to: ROUTES.dashboardStudents },
+      { label },
+    ];
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
+
+  const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Sidebar: full height, sin que el topbar lo “corte” */}
+    <div className="flex min-h-screen flex-col bg-gray-50">
       <Sidebar
         navItems={navItems}
         activeItemTo={activeItemTo}
@@ -65,7 +117,6 @@ export default function DashboardShell() {
         onExpandChange={setExpanded}
       />
 
-      {/* Topbar: fijo, pero SOLO sobre el main (no sobre el sidebar) */}
       <Topbar
         roles={roles}
         activeRole={activeRole}
@@ -76,21 +127,23 @@ export default function DashboardShell() {
         offsetLeft={leftPad}
       />
 
-      {/* Main: NO scroll del body. Scroll solo dentro del card */}
       <main
         className="flex-1 overflow-hidden transition-[padding-left] duration-300 ease-out"
         style={{ paddingLeft: leftPad }}
       >
-        {/* Espacio para topbar (solo dentro del main) */}
         <div
-          className="h-full px-4 md:px-6 pt-0 pb-0 flex flex-col gap-4 overflow-hidden"
+          className="flex h-full flex-col gap-4 overflow-hidden px-4 pb-0 pt-0 md:px-6"
           style={{ paddingTop: DASHBOARD_TOPBAR_HEIGHT + 8 }}
         >
-
-          <BreadcrumbHeader activeRole={activeRole} title={pageTitle} />
+          <BreadcrumbHeader
+            activeRole={activeRole}
+            title={pageMeta.title}
+            description={pageMeta.description}
+            breadcrumbItems={breadcrumbItems}
+          />
 
           <section
-            className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden"
+            className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
             style={{ height: "calc(100vh - 220px)" }}
           >
             <div className="h-full overflow-auto p-4 md:p-5">

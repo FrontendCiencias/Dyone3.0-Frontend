@@ -1,4 +1,3 @@
-// src/modules/dashboard/components/BreadcrumbHeader.jsx
 import React, { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
@@ -33,11 +32,12 @@ export default function BreadcrumbHeader({
   description,
   breadcrumbLabels = DEFAULT_LABELS,
   hideIdsInBreadcrumbs = true,
+  breadcrumbItems,
 }) {
   const theme = getRoleTheme(activeRole);
   const location = useLocation();
 
-  const crumbs = useMemo(() => {
+  const autoCrumbs = useMemo(() => {
     const path = location.pathname || "/";
     const parts = path.split("/").filter(Boolean);
 
@@ -55,6 +55,7 @@ export default function BreadcrumbHeader({
     });
   }, [location.pathname, breadcrumbLabels, hideIdsInBreadcrumbs]);
 
+  const crumbs = Array.isArray(breadcrumbItems) && breadcrumbItems.length > 0 ? breadcrumbItems : autoCrumbs;
   const hasCrumbs = Array.isArray(crumbs) && crumbs.length > 0;
 
   return (
@@ -65,20 +66,17 @@ export default function BreadcrumbHeader({
       }}
     >
       {hasCrumbs && (
-        <nav className="flex items-center flex-wrap gap-1 text-sm text-white/85 mb-2" aria-label="Breadcrumb">
+        <nav className="mb-2 flex flex-wrap items-center gap-1 text-sm text-white/80" aria-label="Breadcrumb">
           {crumbs.map((item, idx) => {
             const isLast = idx === crumbs.length - 1;
 
             return (
-              <React.Fragment key={`${item.to}-${idx}`}>
-                {idx > 0 && <ChevronRight className="w-4 h-4 opacity-70 flex-shrink-0" />}
-                {isLast ? (
-                  <span className="font-semibold text-white truncate">{item.label}</span>
+              <React.Fragment key={`${item.to || item.label}-${idx}`}>
+                {idx > 0 && <ChevronRight className="h-4 w-4 flex-shrink-0 opacity-70" />}
+                {isLast || !item.to ? (
+                  <span className="truncate font-semibold text-white">{item.label}</span>
                 ) : (
-                  <Link
-                    to={item.to}
-                    className="hover:text-white hover:underline underline-offset-2 transition-colors"
-                  >
+                  <Link to={item.to} className="underline-offset-2 transition-colors hover:text-white hover:underline">
                     {item.label}
                   </Link>
                 )}
@@ -88,8 +86,8 @@ export default function BreadcrumbHeader({
         </nav>
       )}
 
-      <h1 className="text-2xl md:text-3xl font-bold leading-tight">{title}</h1>
-      {description && <p className="text-white/85 text-sm md:text-base mt-1">{description}</p>}
+      <h1 className="text-2xl font-bold leading-tight md:text-3xl">{title}</h1>
+      {description ? <p className="mt-1 text-xs text-white/70 md:text-sm">{description}</p> : null}
     </div>
   );
 }

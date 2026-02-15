@@ -4,9 +4,19 @@ import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import BaseModal from "../../../shared/ui/BaseModal";
+import Input from "../../../components/ui/Input";
+import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
+import Spinner from "../../../shared/ui/Spinner";
 import { useAuth } from "../../../lib/auth";
 import { ROUTES } from "../../../config/routes";
 import { useStudentDetailQuery } from "../hooks/useStudentDetailQuery";
+import { useClassroomCapacityQuery } from "../hooks/useClassroomCapacityQuery";
+import { useConfirmEnrollmentMutation } from "../hooks/useConfirmEnrollmentMutation";
+import { useUpdateStudentCycleStatusMutation } from "../hooks/useUpdateStudentCycleStatusMutation";
+import { useChangeStudentClassroomMutation } from "../hooks/useChangeStudentClassroomMutation";
+import { useCreateStudentChargeMutation } from "../hooks/useCreateStudentChargeMutation";
+import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
+import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQuery";
 import IdentityEditModal from "../components/detail/IdentityEditModal";
 import TutorsManageModal from "../components/detail/TutorsManageModal";
 import AccountStatementModal from "../components/detail/AccountStatementModal";
@@ -16,11 +26,11 @@ function safeUpper(value) {
   return String(value || "").toUpperCase();
 }
 
-function getErrorMessage(error) {
+function getErrorMessage(error, fallback = "No se pudo completar la operación") {
   const msg = error?.response?.data?.message;
   if (Array.isArray(msg)) return msg.join(". ");
   if (typeof msg === "string") return msg;
-  return "No se pudo cargar el expediente del alumno.";
+  return fallback;
 }
 
 function fullName(student = {}) {
@@ -59,12 +69,32 @@ function StudentDetailSkeleton() {
   );
 }
 
+const initialEnrollmentForm = {
+  monthlyFee: "",
+  discountsDescription: "",
+  observations: "",
+};
+
+const initialChargeForm = {
+  billingConceptId: "",
+  amount: "",
+  dueDate: "",
+  observation: "",
+};
+
 export default function StudentDetailPage() {
   const navigate = useNavigate();
   const { activeRole } = useAuth();
   const { studentId } = useParams();
   const [activeEditor, setActiveEditor] = useState(null);
-  const [actionModal, setActionModal] = useState({ type: null, reason: "" });
+  const [transferReason, setTransferReason] = useState("");
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [changeClassroomOpen, setChangeClassroomOpen] = useState(false);
+  const [selectedClassroomId, setSelectedClassroomId] = useState("");
+  const [confirmEnrollmentOpen, setConfirmEnrollmentOpen] = useState(false);
+  const [enrollmentForm, setEnrollmentForm] = useState(initialEnrollmentForm);
+  const [createChargeOpen, setCreateChargeOpen] = useState(false);
+  const [chargeForm, setChargeForm] = useState(initialChargeForm);
 
   const detailQuery = useStudentDetailQuery(studentId);
   const detail = detailQuery.data || {};
@@ -73,9 +103,57 @@ export default function StudentDetailPage() {
   const familyLink = detail.familyLink || {};
   const enrollmentStatus = detail.enrollmentStatus || {};
   const debtsSummary = detail.debtsSummary || {};
+  const enrollment = detail.enrollment || {};
 
   const status = safeUpper(enrollmentStatus.status || student.enrollmentStatus || "ABSENT");
   const internalNotes = detail.internalNotes || student.internalNotes || "";
+
+  const classroomsQuery = useClassroomsQuery();
+  const billingConceptsQuery = useBillingConceptsQuery();
+
+  const confirmEnrollmentMutation = useConfirmEnrollmentMutation(studentId);
+  const transferMutation = useUpdateStudentCycleStatusMutation(studentId);
+  const changeClassroomMutation = useChangeStudentClassroomMutation(studentId);
+  const createChargeMutation = useCreateStudentChargeMutation(studentId);
+
+  const classrooms = useMemo(() => {
+    const rows = Array.isArray(classroomsQuery.data)
+      ? classroomsQuery.data
+      : Array.isArray(classroomsQuery.data?.items)
+        ? classroomsQuery.data.items
+        : [];
+
+    const campusCode = String(student?.campusCode || "").toUpperCase();
+
+    return rows.filter((classroom) => {
+      if (!campusCode) return true;
+      const rowCampus = String(classroom?.campusCode || classroom?.campusAlias || "").toUpperCase();
+      return !rowCampus || rowCampus === campusCode;
+    });
+  }, [classroomsQuery.data, student?.campusCode]);
+
+  const selectedClassroomCapacityQuery = useClassroomCapacityQuery(selectedClassroomId, changeClassroomOpen && Boolean(selectedClassroomId));
+
+  const selectedClassroomCapacity = useMemo(() => {
+    const source = selectedClassroomCapacityQuery.data;
+    const capacity = Number(source?.capacity ?? source?.total ?? source?.vacanciesTotal);
+    const occupied = Number(source?.occupied ?? source?.enrolledCount ?? source?.enrolled);
+    const available = Number(source?.available ?? source?.vacanciesAvailable ?? source?.remaining);
+
+    if ([capacity, occupied, available].some((value) => Number.isNaN(value))) return null;
+
+    return { capacity, occupied, available };
+  }, [selectedClassroomCapacityQuery.data]);
+
+  const canConfirmClassroomChange = useMemo(() => {
+    if (!selectedClassroomId) return false;
+    if (!selectedClassroomCapacity) return false;
+
+    const currentClassroomId = enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollment?.classroomId;
+    if (String(currentClassroomId || "") === String(selectedClassroomId)) return false;
+
+    return selectedClassroomCapacity.available > 0;
+  }, [selectedClassroomId, selectedClassroomCapacity, enrollmentStatus, enrollment]);
 
   const tutors = useMemo(() => {
     const primaryTutor = familyLink?.primaryTutor_send
@@ -85,11 +163,18 @@ export default function StudentDetailPage() {
     return [primaryTutor, ...others].filter(Boolean);
   }, [familyLink]);
 
+  const billingConcepts = useMemo(() => {
+    const rows = Array.isArray(billingConceptsQuery.data)
+      ? billingConceptsQuery.data
+      : Array.isArray(billingConceptsQuery.data?.items)
+        ? billingConceptsQuery.data.items
+        : [];
+
+    return rows;
+  }, [billingConceptsQuery.data]);
+
   const isAdminOrSecretary = ["ADMIN", "SECRETARY"].some((role) => safeUpper(activeRole).startsWith(role));
   const lockEdition = activeEditor !== null;
-
-  const headerPrimaryAction =
-    status === "ABSENT" ? "Confirmar matrícula" : status === "ENROLLED" ? "Registrar pago" : null;
 
   const upcomingCharges = Array.isArray(debtsSummary?.upcomingCharges) ? debtsSummary.upcomingCharges.slice(0, 3) : [];
 
@@ -98,12 +183,72 @@ export default function StudentDetailPage() {
     setActiveEditor(editorKey);
   };
 
+  const openConfirmEnrollment = () => {
+    setEnrollmentForm({
+      monthlyFee: enrollment?.monthlyFee ? String(enrollment.monthlyFee) : "",
+      discountsDescription: enrollment?.discountsDescription || "",
+      observations: enrollment?.observations || "",
+    });
+    setConfirmEnrollmentOpen(true);
+  };
+
+  const handleConfirmEnrollment = async () => {
+    const monthlyFee = Number(enrollmentForm.monthlyFee);
+    if (Number.isNaN(monthlyFee) || monthlyFee < 0) return;
+
+    const payload = {
+      studentId,
+      monthlyFee,
+      discountsDescription: enrollmentForm.discountsDescription.trim() || undefined,
+      observations: enrollmentForm.observations.trim() || undefined,
+      classroomId: enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollment?.classroomId,
+      cycleId: enrollmentStatus?.cycleId || enrollmentStatus?.cycle?.id || enrollment?.cycleId,
+    };
+
+    await confirmEnrollmentMutation.mutateAsync({
+      enrollmentId: enrollment?.id,
+      payload,
+    });
+
+    setConfirmEnrollmentOpen(false);
+  };
+
+  const handleTransfer = async () => {
+    if (!transferReason.trim()) return;
+    await transferMutation.mutateAsync({ status: "TRANSFERRED", reason: transferReason.trim() });
+    setTransferOpen(false);
+    setTransferReason("");
+  };
+
+  const handleChangeClassroom = async () => {
+    if (!canConfirmClassroomChange) return;
+    await changeClassroomMutation.mutateAsync({ classroomId: selectedClassroomId });
+    setChangeClassroomOpen(false);
+    setSelectedClassroomId("");
+  };
+
+  const handleCreateCharge = async () => {
+    const amount = Number(chargeForm.amount);
+    if (!chargeForm.billingConceptId || Number.isNaN(amount) || amount <= 0 || !chargeForm.dueDate) return;
+
+    await createChargeMutation.mutateAsync({
+      studentId,
+      billingConceptId: chargeForm.billingConceptId,
+      amount,
+      dueDate: chargeForm.dueDate,
+      observation: chargeForm.observation.trim() || undefined,
+    });
+
+    setCreateChargeOpen(false);
+    setChargeForm(initialChargeForm);
+  };
+
   if (detailQuery.isLoading) return <StudentDetailSkeleton />;
 
   if (detailQuery.isError) {
     return (
       <Card className="border border-red-100">
-        <p className="text-sm text-red-700">{getErrorMessage(detailQuery.error)}</p>
+        <p className="text-sm text-red-700">{getErrorMessage(detailQuery.error, "No se pudo cargar el expediente del alumno.")}</p>
         <div className="mt-3">
           <SecondaryButton onClick={() => navigate(ROUTES.dashboardStudents)}>Volver</SecondaryButton>
         </div>
@@ -131,7 +276,7 @@ export default function StudentDetailPage() {
           </div>
 
           <div className="flex items-center gap-2 self-start">
-            {headerPrimaryAction && <Button>{headerPrimaryAction}</Button>}
+            {status === "ABSENT" && <Button onClick={openConfirmEnrollment}>Confirmar matrícula</Button>}
             <SecondaryButton onClick={() => navigate(ROUTES.dashboardStudents)}>Volver</SecondaryButton>
           </div>
         </div>
@@ -147,63 +292,61 @@ export default function StudentDetailPage() {
               </SecondaryButton>
             </div>
             <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2">
-              <p>Nombres: {student.names || "-"}</p>
-              <p>Apellidos: {student.lastNames || "-"}</p>
-              <p>DNI: {student.dni || "-"}</p>
-              <p>Código interno: {student.internalCode || "-"}</p>
-              <p>Fecha de ingreso: {student.entryDate?.slice?.(0, 10) || "-"}</p>
+              <p><span className="font-medium">Nombres:</span> {student.names || "-"}</p>
+              <p><span className="font-medium">Apellidos:</span> {student.lastNames || "-"}</p>
+              <p><span className="font-medium">DNI:</span> {student.dni || "-"}</p>
+              <p><span className="font-medium">Código:</span> {student.internalCode || "-"}</p>
+              <p><span className="font-medium">F. nacimiento:</span> {student.birthDate || "-"}</p>
+              <p><span className="font-medium">Estado registro:</span> {student.isActive ? "Activo" : "Inactivo"}</p>
             </div>
           </Card>
 
           <Card className="border border-gray-200 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Tutores</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Tutores y familia</h3>
               <SecondaryButton disabled={lockEdition && activeEditor !== "tutors"} onClick={() => openEditor("tutors")}>
                 Gestionar
               </SecondaryButton>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 text-sm text-gray-700">
               {tutors.length ? (
                 tutors.map((tutor, index) => (
-                  <div key={`${tutor.id || tutor._id || "tutor"}-${index}`} className="rounded-lg border border-gray-100 p-3 text-sm text-gray-700">
-                    <p className="font-medium text-gray-900">{[tutor.lastNames, tutor.names].filter(Boolean).join(", ") || "-"}</p>
+                  <div key={`${tutor.id || tutor._id || "tutor"}-${index}`} className="rounded-md border border-gray-200 p-3">
+                    <p className="font-medium text-gray-900">{tutor.isPrimary ? "Tutor principal" : `Tutor ${index + 1}`}</p>
+                    <p>{`${tutor.lastNames || ""}, ${tutor.names || ""}`.replace(/^,\s*/, "").trim() || "-"}</p>
                     <p>Relación: {tutor.relationship || "-"}</p>
-                    <p>Teléfonos: {Array.isArray(tutor.phones) ? tutor.phones.filter(Boolean).join(" - ") : tutor.phone || "-"}</p>
-                    {tutor.isPrimary && (
-                      <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                        Principal
-                      </span>
-                    )}
+                    <p>Teléfono: {(Array.isArray(tutor.phones) ? tutor.phones.filter(Boolean).join(" - ") : tutor.phone) || "-"}</p>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-gray-500">Sin tutores registrados.</p>
+                <p>Sin tutores vinculados.</p>
               )}
             </div>
           </Card>
 
           <Card className="border border-gray-200 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Matrícula / Condiciones</h3>
-              {status === "ENROLLED" && (
-                <SecondaryButton disabled={lockEdition && activeEditor !== "conditions"} onClick={() => openEditor("conditions")}>
-                  Editar condiciones
-                </SecondaryButton>
+              <h3 className="text-lg font-semibold text-gray-900">Matrícula</h3>
+              {status === "ABSENT" && isAdminOrSecretary && (
+                <SecondaryButton onClick={openConfirmEnrollment}>Confirmar matrícula</SecondaryButton>
               )}
             </div>
-            {!enrollmentStatus?.cycleName && !enrollmentStatus?.cycle?.name ? (
-              <p className="text-sm text-gray-600">Sin matrícula confirmada.</p>
+            <div className="space-y-2 text-sm text-gray-700">
+              <p>Estado del ciclo: <span className="font-medium">{status}</span></p>
+              <p>Aula actual: {enrollmentStatus.classroomName || enrollmentStatus.classroom?.displayName || "-"}</p>
+              <p>Ciclo actual: {enrollmentStatus.cycleName || enrollmentStatus.cycle?.name || "-"}</p>
+              <p>Enrollment ID: {enrollment?.id || "Sin enrollment"}</p>
+            </div>
+
+            {!enrollment?.id ? (
+              <p className="mt-3 text-sm text-gray-600">Sin matrícula confirmada.</p>
             ) : (
-              <div className="space-y-2 text-sm text-gray-700">
-                <p>Pensión mensual: {formatMoney(detail?.enrollment?.monthlyFee || detail?.financial?.monthlyFee)}</p>
-                <p>Descuentos / exoneraciones: {detail?.enrollment?.discountsDescription || "-"}</p>
-                <p>Observaciones: {detail?.enrollment?.observations || "-"}</p>
-                <p>Fecha confirmación: {detail?.enrollment?.confirmedAt?.slice?.(0, 10) || "-"}</p>
-                <SecondaryButton className="mt-2">Ver detalle</SecondaryButton>
+              <div className="mt-3 space-y-2 text-sm text-gray-700">
+                <p>Pensión mensual: {formatMoney(enrollment?.monthlyFee || detail?.financial?.monthlyFee)}</p>
+                <p>Descuentos / exoneraciones: {enrollment?.discountsDescription || "-"}</p>
+                <p>Observaciones: {enrollment?.observations || "-"}</p>
+                <p>Fecha confirmación: {enrollment?.confirmedAt?.slice?.(0, 10) || "-"}</p>
               </div>
-            )}
-            {activeEditor === "conditions" && (
-              <p className="mt-2 text-xs text-gray-500">TODO: conectar edición de condiciones con endpoint oficial de matrícula.</p>
             )}
           </Card>
 
@@ -231,7 +374,7 @@ export default function StudentDetailPage() {
               <p>Estado: {status}</p>
             </div>
             <div className="mt-3">
-              <SecondaryButton disabled={!isAdminOrSecretary} onClick={() => setActionModal({ type: "changeClassroom", reason: "" })}>
+              <SecondaryButton disabled={!isAdminOrSecretary} onClick={() => setChangeClassroomOpen(true)}>
                 Cambiar aula
               </SecondaryButton>
             </div>
@@ -241,6 +384,7 @@ export default function StudentDetailPage() {
             <h3 className="mb-3 text-lg font-semibold text-gray-900">Finanzas</h3>
             <div className="space-y-2 text-sm text-gray-700">
               <p>Deuda total: {formatMoney(debtsSummary.pendingTotal)}</p>
+              <p>Vencido: {formatMoney(debtsSummary.overdueTotal)}</p>
               <div>
                 <p className="font-medium text-gray-900">Próximos cargos:</p>
                 <ul className="list-inside list-disc text-sm text-gray-600">
@@ -260,7 +404,9 @@ export default function StudentDetailPage() {
               <SecondaryButton disabled={lockEdition && activeEditor !== "accountStatement"} onClick={() => openEditor("accountStatement")}>
                 Ver estado de cuenta
               </SecondaryButton>
-              <SecondaryButton disabled={!isAdminOrSecretary}>Agregar cargo</SecondaryButton>
+              <SecondaryButton disabled={!isAdminOrSecretary} onClick={() => setCreateChargeOpen(true)}>
+                Crear cargo
+              </SecondaryButton>
             </div>
           </Card>
 
@@ -269,18 +415,11 @@ export default function StudentDetailPage() {
             <div className="space-y-2">
               <SecondaryButton
                 className="w-full border-red-200 text-red-700 hover:bg-red-50"
-                onClick={() => setActionModal({ type: "transfer", reason: "" })}
+                onClick={() => setTransferOpen(true)}
+                disabled={!isAdminOrSecretary || status === "TRANSFERRED"}
               >
-                Marcar trasladado
+                Marcar como trasladado
               </SecondaryButton>
-              {status !== "ABSENT" && (
-                <SecondaryButton
-                  className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
-                  onClick={() => setActionModal({ type: "revertAbsent", reason: "" })}
-                >
-                  Revertir a ausente
-                </SecondaryButton>
-              )}
             </div>
           </Card>
         </div>
@@ -306,32 +445,168 @@ export default function StudentDetailPage() {
       />
 
       <BaseModal
-        open={Boolean(actionModal.type)}
-        onClose={() => setActionModal({ type: null, reason: "" })}
-        title="Confirmar acción"
+        open={confirmEnrollmentOpen}
+        onClose={() => setConfirmEnrollmentOpen(false)}
+        title="Confirmar matrícula"
         footer={
           <div className="flex justify-end gap-2">
-            <SecondaryButton onClick={() => setActionModal({ type: null, reason: "" })}>Cancelar</SecondaryButton>
-            <Button onClick={() => setActionModal({ type: null, reason: "" })}>Confirmar</Button>
+            <SecondaryButton onClick={() => setConfirmEnrollmentOpen(false)} disabled={confirmEnrollmentMutation.isPending}>
+              Cancelar
+            </SecondaryButton>
+            <Button onClick={handleConfirmEnrollment} disabled={confirmEnrollmentMutation.isPending}>
+              Confirmar matrícula
+            </Button>
+          </div>
+        }
+      >
+        <div className="relative space-y-3 p-5">
+          <Input
+            label="Pensión mensual"
+            type="number"
+            min="0"
+            value={enrollmentForm.monthlyFee}
+            onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, monthlyFee: e.target.value }))}
+          />
+          <label className="block text-sm font-medium text-gray-700">Descuentos / exoneraciones</label>
+          <textarea
+            value={enrollmentForm.discountsDescription}
+            onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, discountsDescription: e.target.value }))}
+            className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2"
+          />
+          <label className="block text-sm font-medium text-gray-700">Observaciones</label>
+          <textarea
+            value={enrollmentForm.observations}
+            onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, observations: e.target.value }))}
+            className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2"
+          />
+          {confirmEnrollmentMutation.isError && (
+            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(confirmEnrollmentMutation.error)}</p>
+          )}
+          <LoadingOverlay open={confirmEnrollmentMutation.isPending}>
+            <Spinner />
+            <p className="mt-3 text-sm">Confirmando matrícula...</p>
+          </LoadingOverlay>
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        title="Marcar como trasladado"
+        footer={
+          <div className="flex justify-end gap-2">
+            <SecondaryButton onClick={() => setTransferOpen(false)} disabled={transferMutation.isPending}>Cancelar</SecondaryButton>
+            <Button onClick={handleTransfer} disabled={transferMutation.isPending || !transferReason.trim()}>Confirmar</Button>
           </div>
         }
       >
         <div className="space-y-3 p-5 text-sm text-gray-700">
-          <p>
-            {actionModal.type === "transfer" && "Confirma marcar al alumno como trasladado."}
-            {actionModal.type === "revertAbsent" && "Confirma revertir el estado del alumno a ausente."}
-            {actionModal.type === "changeClassroom" && "Confirma el cambio de aula para el alumno."}
-          </p>
-          <label className="block text-sm font-medium text-gray-700" htmlFor="action-reason">
-            Motivo
-          </label>
+          <label className="block text-sm font-medium text-gray-700">Motivo</label>
           <textarea
-            id="action-reason"
-            value={actionModal.reason}
-            onChange={(e) => setActionModal((prev) => ({ ...prev, reason: e.target.value }))}
+            value={transferReason}
+            onChange={(e) => setTransferReason(e.target.value)}
             className="min-h-[110px] w-full rounded-lg border border-gray-300 px-3 py-2"
           />
-          <p className="text-xs text-gray-500">TODO: conectar acción al endpoint correspondiente cuando esté disponible.</p>
+          {transferMutation.isError && (
+            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(transferMutation.error)}</p>
+          )}
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={changeClassroomOpen}
+        onClose={() => setChangeClassroomOpen(false)}
+        title="Cambiar aula"
+        footer={
+          <div className="flex justify-end gap-2">
+            <SecondaryButton onClick={() => setChangeClassroomOpen(false)} disabled={changeClassroomMutation.isPending}>
+              Cancelar
+            </SecondaryButton>
+            <Button onClick={handleChangeClassroom} disabled={changeClassroomMutation.isPending || !canConfirmClassroomChange}>
+              Confirmar cambio
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3 p-5 text-sm text-gray-700">
+          <label className="block text-sm font-medium text-gray-700">Aula destino</label>
+          <select
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+            value={selectedClassroomId}
+            onChange={(e) => setSelectedClassroomId(e.target.value)}
+          >
+            <option value="">Selecciona un aula</option>
+            {classrooms.map((classroom) => (
+              <option key={classroom.id} value={classroom.id}>
+                {classroom.displayName || `${classroom.grade || ""} - ${classroom.section || ""}`.trim()}
+              </option>
+            ))}
+          </select>
+
+          {selectedClassroomCapacityQuery.isFetching && <p>Cargando cupo real...</p>}
+          {selectedClassroomCapacity && (
+            <div className="rounded-md bg-gray-50 p-3 text-sm">
+              <p>Capacidad: {selectedClassroomCapacity.capacity}</p>
+              <p>Ocupados: {selectedClassroomCapacity.occupied}</p>
+              <p>Disponibles: {selectedClassroomCapacity.available}</p>
+            </div>
+          )}
+          {selectedClassroomCapacity && selectedClassroomCapacity.available <= 0 && (
+            <p className="text-xs text-red-600">No hay cupos disponibles en el aula seleccionada.</p>
+          )}
+          {changeClassroomMutation.isError && (
+            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(changeClassroomMutation.error)}</p>
+          )}
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={createChargeOpen}
+        onClose={() => setCreateChargeOpen(false)}
+        title="Crear cargo"
+        footer={
+          <div className="flex justify-end gap-2">
+            <SecondaryButton onClick={() => setCreateChargeOpen(false)} disabled={createChargeMutation.isPending}>Cancelar</SecondaryButton>
+            <Button onClick={handleCreateCharge} disabled={createChargeMutation.isPending}>Crear cargo</Button>
+          </div>
+        }
+      >
+        <div className="space-y-3 p-5 text-sm text-gray-700">
+          <label className="block text-sm font-medium text-gray-700">Concepto</label>
+          <select
+            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+            value={chargeForm.billingConceptId}
+            onChange={(e) => setChargeForm((prev) => ({ ...prev, billingConceptId: e.target.value }))}
+          >
+            <option value="">Selecciona un concepto</option>
+            {billingConcepts.map((concept) => (
+              <option key={concept.id} value={concept.id}>
+                {concept.name || concept.code || concept.label || "Concepto"}
+              </option>
+            ))}
+          </select>
+          <Input
+            label="Monto"
+            type="number"
+            min="0"
+            value={chargeForm.amount}
+            onChange={(e) => setChargeForm((prev) => ({ ...prev, amount: e.target.value }))}
+          />
+          <Input
+            label="Fecha vencimiento"
+            type="date"
+            value={chargeForm.dueDate}
+            onChange={(e) => setChargeForm((prev) => ({ ...prev, dueDate: e.target.value }))}
+          />
+          <label className="block text-sm font-medium text-gray-700">Observación</label>
+          <textarea
+            value={chargeForm.observation}
+            onChange={(e) => setChargeForm((prev) => ({ ...prev, observation: e.target.value }))}
+            className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2"
+          />
+          {createChargeMutation.isError && (
+            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(createChargeMutation.error)}</p>
+          )}
         </div>
       </BaseModal>
     </div>

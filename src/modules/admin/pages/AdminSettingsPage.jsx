@@ -32,12 +32,9 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-        <h2 className="text-xl font-semibold text-blue-900">Configuración Administrativa</h2>
-        <p className="mt-1 text-sm text-blue-800">
-          Gestiona sedes, ciclos, aulas y conceptos de cobro del sistema.
-        </p>
-      </div>
+      <p className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+        Ajusta catálogos maestros y herramientas internas del sistema.
+      </p>
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => {
