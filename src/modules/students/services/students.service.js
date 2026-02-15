@@ -129,3 +129,8 @@ export async function createStudentWithPerson(payload) {
     return fallbackRes.data;
   }
 }
+
+export async function getStudentDetail(studentId) {
+  // TODO: cuando backend exponga endpoint de detalle completo, reemplazar por ese endpoint.
+  return getStudentSummary(studentId);
+}

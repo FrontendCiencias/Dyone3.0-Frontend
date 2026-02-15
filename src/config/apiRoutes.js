@@ -6,6 +6,7 @@ export const API_ROUTES = {
   adminCycles: "/api/admin/cycles",
   adminClassrooms: "/api/admin/classrooms",
   adminBillingConcepts: "/api/admin/billing-concepts",
+  adminEndpoints: "/api/admin/endpoints",
 
   students: "/api/students",
   studentsByCampus: (campus) => `/api/students/campus/${campus}`,
