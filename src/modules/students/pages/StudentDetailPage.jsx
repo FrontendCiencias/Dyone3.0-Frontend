@@ -21,6 +21,7 @@ import IdentityEditModal from "../components/detail/IdentityEditModal";
 import TutorsManageModal from "../components/detail/TutorsManageModal";
 import AccountStatementModal from "../components/detail/AccountStatementModal";
 import NotesEditModal from "../components/detail/NotesEditModal";
+import { buildClassroomLookup, resolveClassroomId } from "../domain/classroomIdResolver";
 
 function safeUpper(value) {
   return String(value || "").toUpperCase();
@@ -49,6 +50,7 @@ function statusChipClass(status) {
   if (status === "TRANSFERRED") return "bg-amber-100 text-amber-800";
   return "bg-slate-100 text-slate-700";
 }
+
 
 function StudentDetailSkeleton() {
   return (
@@ -132,7 +134,23 @@ export default function StudentDetailPage() {
     });
   }, [classroomsQuery.data, student?.campusCode]);
 
-  const selectedClassroomCapacityQuery = useClassroomCapacityQuery(selectedClassroomId, changeClassroomOpen && Boolean(selectedClassroomId));
+  const classroomLookup = useMemo(() => buildClassroomLookup(classrooms), [classrooms]);
+
+  const resolvedSelectedClassroomId = useMemo(() => {
+    if (!selectedClassroomId) return "";
+
+    return (
+      resolveClassroomId({
+        value: selectedClassroomId,
+        lookup: classroomLookup,
+      }) || selectedClassroomId
+    );
+  }, [selectedClassroomId, classroomLookup]);
+
+  const selectedClassroomCapacityQuery = useClassroomCapacityQuery(
+    resolvedSelectedClassroomId,
+    changeClassroomOpen && Boolean(resolvedSelectedClassroomId),
+  );
 
   const selectedClassroomCapacity = useMemo(() => {
     const source = selectedClassroomCapacityQuery.data;
@@ -146,14 +164,14 @@ export default function StudentDetailPage() {
   }, [selectedClassroomCapacityQuery.data]);
 
   const canConfirmClassroomChange = useMemo(() => {
-    if (!selectedClassroomId) return false;
+    if (!resolvedSelectedClassroomId) return false;
     if (!selectedClassroomCapacity) return false;
 
     const currentClassroomId = enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollment?.classroomId;
-    if (String(currentClassroomId || "") === String(selectedClassroomId)) return false;
+    if (String(currentClassroomId || "") === String(resolvedSelectedClassroomId)) return false;
 
     return selectedClassroomCapacity.available > 0;
-  }, [selectedClassroomId, selectedClassroomCapacity, enrollmentStatus, enrollment]);
+  }, [resolvedSelectedClassroomId, selectedClassroomCapacity, enrollmentStatus, enrollment]);
 
   const tutors = useMemo(() => {
     const primaryTutor = familyLink?.primaryTutor_send
@@ -222,7 +240,7 @@ export default function StudentDetailPage() {
 
   const handleChangeClassroom = async () => {
     if (!canConfirmClassroomChange) return;
-    await changeClassroomMutation.mutateAsync({ classroomId: selectedClassroomId });
+    await changeClassroomMutation.mutateAsync({ classroomId: resolvedSelectedClassroomId });
     setChangeClassroomOpen(false);
     setSelectedClassroomId("");
   };

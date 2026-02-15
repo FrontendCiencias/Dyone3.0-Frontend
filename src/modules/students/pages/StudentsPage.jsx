@@ -10,6 +10,7 @@ import { useAuth } from "../../../lib/auth";
 import StudentsContextBar from "../components/StudentsContextBar";
 import { normalizeSearchText } from "../domain/searchText";
 import { getClassroomCapacityStatus } from "../domain/classroomCapacityStatus";
+import { buildClassroomLookup, normalizeClassroomLabel, resolveClassroomId } from "../domain/classroomIdResolver";
 import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
 import { useClassroomCapacityQuery } from "../hooks/useClassroomCapacityQuery";
 
@@ -61,6 +62,7 @@ function getClassroomLabel(student) {
   if (grade === "-" && section === "-") return "-";
   return `${grade} - ${section}`;
 }
+
 
 function getDebtTotal(student) {
   const value = Number(student?.totalDebt || student?.debtTotal || 0);
@@ -187,34 +189,45 @@ export default function StudentsPage() {
     return Array.from(values).sort((a, b) => a.localeCompare(b, "es"));
   }, [results, allClassrooms]);
 
+  const classroomLookup = useMemo(() => buildClassroomLookup(allClassrooms), [allClassrooms]);
+
   const classroomByLabel = useMemo(() => {
+    const lookup = classroomLookup;
     const map = new Map();
     allClassrooms.forEach((classroom) => {
-      const names = [
-        classroom?.displayName,
-        `${classroom?.grade || ""} - ${classroom?.section || ""}`.trim(),
-        `${classroom?.grade || ""}-${classroom?.section || ""}`.trim(),
-      ].filter(Boolean);
-
-      names.forEach((name) => map.set(name, classroom));
+      if (!classroom?.id) return;
+      map.set(classroom.id, classroom);
     });
+
+    lookup.forEach((id, label) => {
+      const classroom = map.get(id);
+      if (classroom) map.set(label, classroom);
+    });
+
     return map;
-  }, [allClassrooms]);
+  }, [allClassrooms, classroomLookup]);
 
   const selectedClassroomStudents = useMemo(() => {
     if (!classroomFilter) return [];
-    return results.filter((student) => getClassroomLabel(student) === classroomFilter);
+    const normalized = normalizeClassroomLabel(classroomFilter);
+    return results.filter((student) => {
+      const studentLabel = getClassroomLabel(student);
+      return normalizeClassroomLabel(studentLabel) === normalized;
+    });
   }, [results, classroomFilter]);
 
   const selectedClassroomId = useMemo(() => {
     if (!classroomFilter) return null;
 
-    const fromMap = classroomByLabel.get(classroomFilter);
+    const fromMap = classroomByLabel.get(normalizeClassroomLabel(classroomFilter));
     if (fromMap?.id) return fromMap.id;
 
-    const sample = selectedClassroomStudents[0];
-    return sample?.classroomId || sample?.classroom?.id || sample?.enrollment?.classroomId || null;
-  }, [classroomFilter, classroomByLabel, selectedClassroomStudents]);
+    return resolveClassroomId({
+      value: classroomFilter,
+      lookup: classroomLookup,
+      fallbackStudent: selectedClassroomStudents[0],
+    });
+  }, [classroomFilter, classroomByLabel, classroomLookup, selectedClassroomStudents]);
 
   const classroomCapacityQuery = useClassroomCapacityQuery(selectedClassroomId, secretaryMode && Boolean(classroomFilter));
 
@@ -254,7 +267,7 @@ export default function StudentsPage() {
       const passesTransferred = includeTransferred || enrollmentStatus.key !== "TRANSFERRED";
 
       const classroom = getClassroomLabel(student);
-      const matchesClassroom = !classroomFilter || classroom === classroomFilter;
+      const matchesClassroom = !classroomFilter || normalizeClassroomLabel(classroom) === normalizeClassroomLabel(classroomFilter);
 
       return matchesSearch && passesTransferred && matchesClassroom;
     });

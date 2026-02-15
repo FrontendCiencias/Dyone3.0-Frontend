@@ -8,6 +8,7 @@ import { getNavItemsByRole } from "./config/navByRole";
 import { useAuth } from "../../lib/auth";
 import { ROUTES } from "../../config/routes";
 import { useStudentSummaryQuery } from "../students/hooks/useStudentSummaryQuery";
+import { useFamilyDetailQuery } from "../families/hooks/useFamilyDetailQuery";
 
 const PAGE_META = {
   dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del día." },
@@ -17,6 +18,7 @@ const PAGE_META = {
   enrollments: { title: "Matrículas", description: "Monitorea y registra el flujo de matrículas." },
   payments: { title: "Pagos", description: "Controla cobros, vencimientos y estado de pagos." },
   families: { title: "Familias", description: "Gestiona tutores y relación familiar de alumnos." },
+  familyDetail: { title: "Ficha de familia", description: "Revisa tutores e hijos vinculados de la familia." },
   notFound: { title: "Página no encontrada", description: "La ruta no existe en el panel." },
 };
 
@@ -27,6 +29,7 @@ function resolvePageKey(pathname) {
   if (pathname.startsWith(ROUTES.dashboardAdmin)) return "admin";
   if (pathname.startsWith(ROUTES.dashboardEnrollments)) return "enrollments";
   if (pathname.startsWith(ROUTES.dashboardPayments)) return "payments";
+  if (/^\/dashboard\/families\/[^/]+$/.test(pathname)) return "familyDetail";
   if (pathname.startsWith(ROUTES.dashboardFamilies)) return "families";
   if (pathname.startsWith("/dashboard/")) return "notFound";
   return "dashboard";
@@ -77,8 +80,20 @@ export default function DashboardShell() {
   }, [location.pathname]);
 
   const studentSummaryQuery = useStudentSummaryQuery(studentId, pageKey === "studentDetail");
+  const familyId = useMemo(() => {
+    const match = (location.pathname || "").match(/^\/dashboard\/families\/([^/]+)$/);
+    return match?.[1] || null;
+  }, [location.pathname]);
+  const familyDetailQuery = useFamilyDetailQuery(familyId, pageKey === "familyDetail");
 
   const pageMeta = useMemo(() => {
+    if (pageKey === "familyDetail") {
+      return {
+        title: `Familia: ${familyId || "Detalle"}`,
+        description: PAGE_META.familyDetail.description,
+      };
+    }
+
     if (pageKey !== "studentDetail") return PAGE_META[pageKey] || PAGE_META.dashboard;
 
     const label = studentSummaryQuery.isLoading
@@ -89,9 +104,22 @@ export default function DashboardShell() {
       title: `Expediente: ${label}`,
       description: PAGE_META.studentDetail.description,
     };
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyId]);
 
   const breadcrumbItems = useMemo(() => {
+    if (pageKey === "familyDetail") {
+      const tutor = familyDetailQuery.data?.family?.primaryTutor || familyDetailQuery.data?.primaryTutor;
+      const label = tutor
+        ? [tutor?.lastNames, tutor?.names].filter(Boolean).join(", ")
+        : `ID ${familyId || "-"}`;
+
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Familias", to: ROUTES.dashboardFamilies },
+        { label },
+      ];
+    }
+
     if (pageKey !== "studentDetail") return null;
 
     const label = studentSummaryQuery.isLoading
@@ -103,7 +131,7 @@ export default function DashboardShell() {
       { label: "Alumnos", to: ROUTES.dashboardStudents },
       { label },
     ];
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyDetailQuery.data, familyId]);
 
   const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
 
