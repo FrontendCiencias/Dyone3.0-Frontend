@@ -15,6 +15,8 @@ import { useConfirmEnrollmentMutation } from "../hooks/useConfirmEnrollmentMutat
 import { useUpdateStudentCycleStatusMutation } from "../hooks/useUpdateStudentCycleStatusMutation";
 import { useChangeStudentClassroomMutation } from "../hooks/useChangeStudentClassroomMutation";
 import { useCreateStudentChargeMutation } from "../hooks/useCreateStudentChargeMutation";
+import { useUpdateStudentIdentityMutation } from "../hooks/useUpdateStudentIdentityMutation";
+import { useUpdateStudentInternalNotesMutation } from "../hooks/useUpdateStudentInternalNotesMutation";
 import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
 import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQuery";
 import RegisterPaymentModal from "../../payments/components/RegisterPaymentModal";
@@ -120,6 +122,8 @@ export default function StudentDetailPage() {
   const transferMutation = useUpdateStudentCycleStatusMutation(studentId);
   const changeClassroomMutation = useChangeStudentClassroomMutation(studentId);
   const createChargeMutation = useCreateStudentChargeMutation(studentId);
+  const updateIdentityMutation = useUpdateStudentIdentityMutation(studentId);
+  const updateNotesMutation = useUpdateStudentInternalNotesMutation(studentId);
   const accountStatementQuery = useStudentAccountStatementQuery(studentId, true);
 
   const classrooms = useMemo(() => {
@@ -247,6 +251,25 @@ export default function StudentDetailPage() {
     await changeClassroomMutation.mutateAsync({ classroomId: resolvedSelectedClassroomId });
     setChangeClassroomOpen(false);
     setSelectedClassroomId("");
+  };
+
+
+  const handleSaveIdentity = async (formValues) => {
+    const payload = {
+      names: String(formValues?.names || "").trim(),
+      lastNames: String(formValues?.lastNames || "").trim(),
+      dni: String(formValues?.dni || "").trim(),
+    };
+
+    if (!payload.names || !payload.lastNames || !payload.dni) return;
+
+    await updateIdentityMutation.mutateAsync(payload);
+    setActiveEditor(null);
+  };
+
+  const handleSaveNotes = async (notes) => {
+    await updateNotesMutation.mutateAsync({ internalNotes: String(notes || "") });
+    setActiveEditor(null);
   };
 
   const handleCreateCharge = async () => {
@@ -454,7 +477,9 @@ export default function StudentDetailPage() {
         open={activeEditor === "identity"}
         onClose={() => setActiveEditor(null)}
         student={student}
-        onSave={() => setActiveEditor(null)}
+        onSave={handleSaveIdentity}
+        saving={updateIdentityMutation.isPending}
+        errorMessage={updateIdentityMutation.isError ? getErrorMessage(updateIdentityMutation.error, "No se pudo guardar la identidad") : ""}
       />
       <TutorsManageModal open={activeEditor === "tutors"} onClose={() => setActiveEditor(null)} tutors={tutors} />
       <AccountStatementModal
@@ -479,7 +504,9 @@ export default function StudentDetailPage() {
         open={activeEditor === "notes"}
         onClose={() => setActiveEditor(null)}
         value={internalNotes}
-        onSave={() => setActiveEditor(null)}
+        onSave={handleSaveNotes}
+        saving={updateNotesMutation.isPending}
+        errorMessage={updateNotesMutation.isError ? getErrorMessage(updateNotesMutation.error, "No se pudo guardar las notas") : ""}
       />
 
       <BaseModal

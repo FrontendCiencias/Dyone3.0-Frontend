@@ -4,7 +4,7 @@ import Button from "../../../../components/ui/Button";
 import SecondaryButton from "../../../../shared/ui/SecondaryButton";
 import Input from "../../../../components/ui/Input";
 
-export default function IdentityEditModal({ open, onClose, student, onSave }) {
+export default function IdentityEditModal({ open, onClose, student, onSave, saving = false, errorMessage = "" }) {
   const [form, setForm] = useState({ names: "", lastNames: "", dni: "" });
 
   useEffect(() => {
@@ -23,8 +23,8 @@ export default function IdentityEditModal({ open, onClose, student, onSave }) {
       title="Editar identidad"
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose}>Cancelar</SecondaryButton>
-          <Button onClick={() => onSave?.(form)}>Guardar</Button>
+          <SecondaryButton onClick={onClose} disabled={saving}>Cancelar</SecondaryButton>
+          <Button onClick={() => onSave?.(form)} disabled={saving}>Guardar</Button>
         </div>
       }
     >
@@ -36,7 +36,7 @@ export default function IdentityEditModal({ open, onClose, student, onSave }) {
           onChange={(e) => setForm((p) => ({ ...p, lastNames: e.target.value }))}
         />
         <Input label="DNI" value={form.dni} onChange={(e) => setForm((p) => ({ ...p, dni: e.target.value }))} />
-        <p className="text-xs text-gray-500">TODO: conectar guardado con endpoint real de identidad del alumno.</p>
+        {errorMessage ? <p className="text-xs text-red-600">{errorMessage}</p> : null}
       </div>
     </BaseModal>
   );

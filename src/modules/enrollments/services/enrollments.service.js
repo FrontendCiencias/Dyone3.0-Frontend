@@ -72,3 +72,36 @@ export async function searchStudentsForEnrollments({ q, limit = 20 }) {
 
   return res.data;
 }
+
+
+export async function createEnrollmentCaseDraft(payload) {
+  logRequest(API_ROUTES.enrollmentCases, "POST", payload);
+  const res = await axiosInstance.post(API_ROUTES.enrollmentCases, payload);
+  logResponse(API_ROUTES.enrollmentCases, res.status, res.data);
+  return res.data;
+}
+
+export async function updateEnrollmentCaseDraft(caseId, payload) {
+  const endpoint = API_ROUTES.enrollmentCaseDetail(caseId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function confirmEnrollmentCase(caseId, payload = {}) {
+  const endpoint = API_ROUTES.enrollmentCaseConfirm(caseId);
+  logRequest(endpoint, "POST", payload);
+  const res = await axiosInstance.post(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+
+export async function removeEnrollmentCaseStudent({ caseId, enrollmentStudentId }) {
+  const endpoint = API_ROUTES.enrollmentCaseRemoveStudent(caseId, enrollmentStudentId);
+  logRequest(endpoint, "DELETE", {});
+  const res = await axiosInstance.delete(endpoint);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}

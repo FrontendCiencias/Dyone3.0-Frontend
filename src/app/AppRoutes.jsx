@@ -13,6 +13,7 @@ import StudentDetailPage from "../modules/students/pages/StudentDetailPage";
 import FamiliesPage from "../modules/families/pages/FamiliesPage";
 import FamilyDetailPage from "../modules/families/pages/FamilyDetailPage";
 import EnrollmentsPage from "../modules/enrollments/pages/EnrollmentsPage";
+import EnrollmentCaseCreatePage from "../modules/enrollments/pages/EnrollmentCaseCreatePage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
 
 import { ROUTES } from "../config/routes";
@@ -64,6 +65,7 @@ export default function AppRoutes() {
             <Route path={ROUTES.dashboardStudentDetail()} element={<StudentDetailPage />} />
             <Route path={ROUTES.dashboardFamilies} element={<FamiliesPage />} />
             <Route path={ROUTES.dashboardEnrollments} element={<EnrollmentsPage />} />
+            <Route path={ROUTES.dashboardEnrollmentCaseNew} element={<EnrollmentCaseCreatePage />} />
             <Route path={ROUTES.dashboardFamilyDetail()} element={<FamilyDetailPage />} />
             <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />
             <Route path={ROUTES.dashboardAdmin} element={<AdminSettingsPage />} />

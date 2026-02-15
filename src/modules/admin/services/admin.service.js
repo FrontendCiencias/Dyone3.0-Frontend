@@ -45,3 +45,9 @@ export async function getAdminEndpoints() {
   const response = await axiosInstance.get(API_ROUTES.adminEndpoints);
   return response.data;
 }
+
+
+export async function getAdminModels() {
+  const response = await axiosInstance.get(API_ROUTES.adminModels);
+  return response.data;
+}
