@@ -14,6 +14,8 @@ export const ROUTES = {
   dashboardFamilyDetail: (familyId = ":familyId") => `/dashboard/families/${familyId}`,
   dashboardPayments: "/dashboard/payments",
   dashboardAdmin: "/dashboard/admin",
+  dashboardAdminSettings: "/dashboard/admin/settings",
+  dashboardAdminDev: "/dashboard/admin/dev",
 
   // placeholders
   dashboardPlaceholder: "/dashboard/placeholder",

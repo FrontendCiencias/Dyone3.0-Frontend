@@ -135,6 +135,17 @@ export async function getStudentDetail(studentId) {
   return getStudentSummary(studentId);
 }
 
+export async function getClassroomOptions({ level, grade }) {
+  const endpoint = API_ROUTES.classroomOptions;
+  const params = { level, grade };
+
+  logRequest(endpoint, "GET", params);
+  const res = await axiosInstance.get(endpoint, { params });
+  logResponse(endpoint, res.status, { count: Array.isArray(res.data?.items) ? res.data.items.length : 0 });
+
+  return res.data;
+}
+
 export async function getClassroomCapacity(classroomId) {
   const endpoint = API_ROUTES.enrollmentClassroomCapacity(classroomId);
 

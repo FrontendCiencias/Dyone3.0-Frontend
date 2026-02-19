@@ -6,7 +6,9 @@ import DashboardLayout from "../layouts/DashboardLayout";
 
 import LoginPage from "../modules/auth/pages/LoginPage";
 import LandingPage from "../modules/landing/pages/LandingPage";
-import AdminSettingsPage from "../modules/admin/pages/AdminSettingsPage";
+import AdminConfigPage from "../modules/admin/pages/AdminConfigPage";
+import AdminDevPage from "../modules/admin/pages/AdminDevPage";
+import AdminLegacyRedirectPage from "../modules/admin/pages/AdminLegacyRedirectPage";
 import DashboardHome from "../modules/dashboard/pages/DashboardHome";
 import StudentsPage from "../modules/students/pages/StudentsPage";
 import StudentDetailPage from "../modules/students/pages/StudentDetailPage";
@@ -25,7 +27,7 @@ function pickDefaultPrivateRoute(roles = []) {
   const list = Array.isArray(roles) ? roles : [];
 
   const role = list[0] || "";
-  if (String(role).toUpperCase().startsWith("ADMIN")) return ROUTES.dashboardAdmin;
+  if (String(role).toUpperCase().startsWith("ADMIN")) return ROUTES.dashboardAdminSettings;
   return ROUTES.dashboard;
 }
 
@@ -68,7 +70,9 @@ export default function AppRoutes() {
             <Route path={ROUTES.dashboardEnrollmentCaseNew} element={<EnrollmentCaseCreatePage />} />
             <Route path={ROUTES.dashboardFamilyDetail()} element={<FamilyDetailPage />} />
             <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />
-            <Route path={ROUTES.dashboardAdmin} element={<AdminSettingsPage />} />
+            <Route path={ROUTES.dashboardAdmin} element={<AdminLegacyRedirectPage />} />
+            <Route path={ROUTES.dashboardAdminSettings} element={<AdminConfigPage />} />
+            <Route path={ROUTES.dashboardAdminDev} element={<AdminDevPage />} />
             <Route path="/dashboard/*" element={<DashboardNotFound />} />
           </Route>
         </Route>

@@ -4,7 +4,8 @@ import {
   ClipboardList,
   Users,
   CreditCard,
-  Settings,
+  Settings2,
+  Code2,
   GraduationCap,
 } from "lucide-react";
 
@@ -109,10 +110,16 @@ export function getNavItemsByRole(activeRole) {
         icon: CreditCard,
       },
       {
-        to: ROUTES.dashboardAdmin,
-        label: "Admin",
+        to: ROUTES.dashboardAdminSettings,
+        label: "Admin · Configuración",
         description: "Configuración sensible",
-        icon: Settings,
+        icon: Settings2,
+      },
+      {
+        to: ROUTES.dashboardAdminDev,
+        label: "Admin · Desarrollo",
+        description: "Endpoints y modelos",
+        icon: Code2,
       },
     ];
   }

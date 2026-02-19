@@ -14,7 +14,8 @@ const PAGE_META = {
   dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del día." },
   students: { title: "Alumnos", description: "Busca, filtra y gestiona expedientes estudiantiles." },
   studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matrícula, aula y finanzas." },
-  admin: { title: "Administración", description: "Configura sedes, ciclos, aulas y conceptos." },
+  adminSettings: { title: "Configuración", description: "Sedes, ciclos, aulas y conceptos." },
+  adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades técnicas." },
   enrollments: { title: "Matrículas", description: "Monitorea y registra el flujo de matrículas." },
   payments: { title: "Pagos", description: "Controla cobros, vencimientos y estado de pagos." },
   families: { title: "Familias", description: "Gestiona tutores y relación familiar de alumnos." },
@@ -26,7 +27,8 @@ function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboard) return "dashboard";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
   if (pathname.startsWith(ROUTES.dashboardStudents)) return "students";
-  if (pathname.startsWith(ROUTES.dashboardAdmin)) return "admin";
+  if (pathname.startsWith(ROUTES.dashboardAdminDev)) return "adminDev";
+  if (pathname.startsWith(ROUTES.dashboardAdminSettings) || pathname === ROUTES.dashboardAdmin) return "adminSettings";
   if (pathname.startsWith(ROUTES.dashboardEnrollments)) return "enrollments";
   if (pathname.startsWith(ROUTES.dashboardPayments)) return "payments";
   if (/^\/dashboard\/families\/[^/]+$/.test(pathname)) return "familyDetail";
@@ -117,6 +119,22 @@ export default function DashboardShell() {
         { label: "Inicio", to: ROUTES.dashboard },
         { label: "Familias", to: ROUTES.dashboardFamilies },
         { label },
+      ];
+    }
+
+    if (pageKey === "adminSettings") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Admin", to: ROUTES.dashboardAdminSettings },
+        { label: "Configuración" },
+      ];
+    }
+
+    if (pageKey === "adminDev") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Admin", to: ROUTES.dashboardAdminSettings },
+        { label: "Desarrollo" },
       ];
     }
 

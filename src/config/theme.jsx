@@ -33,6 +33,16 @@ export const THEMES = {
 
 export const DEFAULT_ROLE = "SECRETARY_CIENCIAS";
 
+export function getThemeByCampusCode(campusCode) {
+  const code = String(campusCode || "").toUpperCase();
+
+  if (code.includes("CIMAS")) return THEMES.CIMAS;
+  if (code.includes("CIENCIAS_APLICADAS") || code.includes("CIENCIAS_PRIM")) return THEMES.CIENCIAS_APLICADAS;
+  if (code.includes("CIENCIAS") || code.includes("CIENCIAS_SEC")) return THEMES.CIENCIAS;
+
+  return null;
+}
+
 export function getThemeByRole(role) {
   const r = String(role || "").toUpperCase();
 

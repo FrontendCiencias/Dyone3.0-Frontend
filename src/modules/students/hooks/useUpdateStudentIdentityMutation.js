@@ -9,6 +9,8 @@ export function useUpdateStudentIdentityMutation(studentId) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["students", "summary", studentId] });
       queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });
+      queryClient.invalidateQueries({ queryKey: ["student-summary", studentId] });
+      queryClient.invalidateQueries({ queryKey: ["student-detail", studentId] });
       queryClient.invalidateQueries({ queryKey: ["students", "search"] });
     },
   });
