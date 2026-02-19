@@ -10,6 +10,7 @@ export function useChangeStudentClassroomMutation(studentId) {
       queryClient.invalidateQueries({ queryKey: ["students", "summary", studentId] });
       queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });
       queryClient.invalidateQueries({ queryKey: ["students", "search"] });
+      queryClient.invalidateQueries({ queryKey: ["enrollments", "list"] });
       queryClient.invalidateQueries({ queryKey: ["enrollments", "classroomCapacity"] });
     },
   });

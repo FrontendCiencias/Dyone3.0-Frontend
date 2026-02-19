@@ -9,14 +9,31 @@ function logResponse(endpoint, status, dataSummary) {
   console.log("[Families][API][RESPONSE]", { endpoint, status, dataSummary });
 }
 
-export async function searchFamilies({ q = "", limit = 20 }) {
+export async function searchFamilies({ q = "", limit = 20, cursor = null }) {
   const normalizedQuery = String(q || "").trim();
   const params = { limit };
   if (normalizedQuery) params.q = normalizedQuery;
+  if (cursor) params.cursor = cursor;
 
   logRequest(API_ROUTES.familiesSearch, "GET", params);
   const res = await axiosInstance.get(API_ROUTES.familiesSearch, { params });
-  logResponse(API_ROUTES.familiesSearch, res.status, { count: res.data?.items?.length || 0 });
+  logResponse(API_ROUTES.familiesSearch, res.status, {
+    count: res.data?.items?.length || 0,
+    nextCursor: res.data?.nextCursor || null,
+  });
+  return res.data;
+}
+
+export async function listFamilies({ limit = 20, cursor = null }) {
+  const params = { limit };
+  if (cursor) params.cursor = cursor;
+
+  logRequest(API_ROUTES.families, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.families, { params });
+  logResponse(API_ROUTES.families, res.status, {
+    count: res.data?.items?.length || 0,
+    nextCursor: res.data?.nextCursor || null,
+  });
   return res.data;
 }
 

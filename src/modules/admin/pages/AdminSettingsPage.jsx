@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../lib/auth";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import CampusesSection from "../components/CampusesSection";
@@ -20,7 +21,15 @@ function roleCanManageAdminSettings(role) {
 export default function AdminSettingsPage() {
   const { activeRole } = useAuth();
   const canAccess = roleCanManageAdminSettings(activeRole);
-  const [activeTab, setActiveTab] = useState("settings");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") === "development" ? "development" : "settings";
+
+  const handleTabChange = (tabKey) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", tabKey);
+    if (tabKey !== "development") next.delete("devTab");
+    setSearchParams(next, { replace: true });
+  };
 
   const tabs = useMemo(
     () => [
@@ -32,10 +41,6 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <p className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
-        Ajusta catálogos maestros y herramientas internas del sistema.
-      </p>
-
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
@@ -44,7 +49,7 @@ export default function AdminSettingsPage() {
             <SecondaryButton
               key={tab.key}
               className={isActive ? "border-gray-900 text-gray-900" : ""}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleTabChange(tab.key)}
             >
               {tab.label}
             </SecondaryButton>

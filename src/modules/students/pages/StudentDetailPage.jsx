@@ -25,7 +25,6 @@ import IdentityEditModal from "../components/detail/IdentityEditModal";
 import TutorsManageModal from "../components/detail/TutorsManageModal";
 import AccountStatementModal from "../components/detail/AccountStatementModal";
 import NotesEditModal from "../components/detail/NotesEditModal";
-import { buildClassroomLookup, resolveClassroomId } from "../domain/classroomIdResolver";
 
 function safeUpper(value) {
   return String(value || "").toUpperCase();
@@ -53,6 +52,58 @@ function statusChipClass(status) {
   if (status === "ENROLLED") return "bg-emerald-100 text-emerald-800";
   if (status === "TRANSFERRED") return "bg-amber-100 text-amber-800";
   return "bg-slate-100 text-slate-700";
+}
+
+function parseCapacity(source) {
+  const capacity = Number(source?.capacity ?? source?.total ?? source?.vacanciesTotal);
+  const occupied = Number(source?.occupied ?? source?.enrolledCount ?? source?.enrolled);
+  const available = Number(source?.available ?? source?.vacanciesAvailable ?? source?.remaining);
+
+  if ([capacity, occupied, available].some((value) => Number.isNaN(value))) return null;
+  return { capacity, occupied, available };
+}
+
+function getClassroomId(classroom = {}) {
+  return classroom?.id || classroom?._id || "";
+}
+
+function ClassroomChangeButton({ classroom, isCurrent, disabledByCurrent = false, onSelect }) {
+  const classroomId = getClassroomId(classroom);
+  const capacityQuery = useClassroomCapacityQuery(classroomId, Boolean(classroomId));
+  const capacity = useMemo(() => parseCapacity(capacityQuery.data), [capacityQuery.data]);
+  const noVacancies = capacity ? capacity.available <= 0 : false;
+  const disabled = disabledByCurrent || noVacancies;
+
+  return (
+    <button
+      type="button"
+      className={[
+        "rounded-xl border p-3 text-left transition",
+        isCurrent ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white",
+        disabled ? "cursor-not-allowed bg-gray-100 text-gray-500" : "hover:border-blue-300 hover:bg-blue-50/50",
+      ].join(" ")}
+      onClick={() => !disabled && onSelect(classroom)}
+      disabled={disabled}
+      title={noVacancies ? "Sin vacantes" : undefined}
+    >
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <p className="font-semibold text-gray-900">{classroom.displayName || `${classroom.grade || ""} ${classroom.section || ""}`.trim() || "Aula"}</p>
+        {isCurrent ? <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Actual</span> : null}
+      </div>
+
+      {capacityQuery.isFetching ? (
+        <p className="text-xs text-gray-500">Consultando…</p>
+      ) : capacityQuery.isError ? (
+        <p className="text-xs text-red-600">No se pudo consultar</p>
+      ) : capacity ? (
+        <div className="text-xs text-gray-600">
+          <p>Cap: {capacity.capacity} · Ocup: {capacity.occupied} · Disp: {capacity.available}</p>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500">No se pudo consultar</p>
+      )}
+    </button>
+  );
 }
 
 
@@ -96,7 +147,6 @@ export default function StudentDetailPage() {
   const [transferReason, setTransferReason] = useState("");
   const [transferOpen, setTransferOpen] = useState(false);
   const [changeClassroomOpen, setChangeClassroomOpen] = useState(false);
-  const [selectedClassroomId, setSelectedClassroomId] = useState("");
   const [confirmEnrollmentOpen, setConfirmEnrollmentOpen] = useState(false);
   const [enrollmentForm, setEnrollmentForm] = useState(initialEnrollmentForm);
   const [createChargeOpen, setCreateChargeOpen] = useState(false);
@@ -126,6 +176,10 @@ export default function StudentDetailPage() {
   const updateNotesMutation = useUpdateStudentInternalNotesMutation(studentId);
   const accountStatementQuery = useStudentAccountStatementQuery(studentId, true);
 
+  const currentClassroomId = enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollmentStatus?.classroom?._id || enrollment?.classroomId;
+  const currentClassroomGrade = enrollmentStatus?.classroom?.grade || student?.grade;
+  const currentClassroomLevel = enrollmentStatus?.classroom?.level || student?.level;
+
   const classrooms = useMemo(() => {
     const rows = Array.isArray(classroomsQuery.data)
       ? classroomsQuery.data
@@ -134,52 +188,20 @@ export default function StudentDetailPage() {
         : [];
 
     const campusCode = String(student?.campusCode || "").toUpperCase();
+    const grade = String(currentClassroomGrade || "").trim();
+    const level = String(currentClassroomLevel || "").trim().toUpperCase();
 
     return rows.filter((classroom) => {
-      if (!campusCode) return true;
+      const classroomGrade = String(classroom?.grade || "").trim();
+      const classroomLevel = String(classroom?.level || "").trim().toUpperCase();
       const rowCampus = String(classroom?.campusCode || classroom?.campusAlias || "").toUpperCase();
-      return !rowCampus || rowCampus === campusCode;
+      const sameCampus = !campusCode || !rowCampus || rowCampus === campusCode;
+      const sameGrade = !grade || !classroomGrade || classroomGrade === grade;
+      const sameLevel = !level || !classroomLevel || classroomLevel === level;
+
+      return sameCampus && sameGrade && sameLevel;
     });
-  }, [classroomsQuery.data, student?.campusCode]);
-
-  const classroomLookup = useMemo(() => buildClassroomLookup(classrooms), [classrooms]);
-
-  const resolvedSelectedClassroomId = useMemo(() => {
-    if (!selectedClassroomId) return "";
-
-    return (
-      resolveClassroomId({
-        value: selectedClassroomId,
-        lookup: classroomLookup,
-      }) || selectedClassroomId
-    );
-  }, [selectedClassroomId, classroomLookup]);
-
-  const selectedClassroomCapacityQuery = useClassroomCapacityQuery(
-    resolvedSelectedClassroomId,
-    changeClassroomOpen && Boolean(resolvedSelectedClassroomId),
-  );
-
-  const selectedClassroomCapacity = useMemo(() => {
-    const source = selectedClassroomCapacityQuery.data;
-    const capacity = Number(source?.capacity ?? source?.total ?? source?.vacanciesTotal);
-    const occupied = Number(source?.occupied ?? source?.enrolledCount ?? source?.enrolled);
-    const available = Number(source?.available ?? source?.vacanciesAvailable ?? source?.remaining);
-
-    if ([capacity, occupied, available].some((value) => Number.isNaN(value))) return null;
-
-    return { capacity, occupied, available };
-  }, [selectedClassroomCapacityQuery.data]);
-
-  const canConfirmClassroomChange = useMemo(() => {
-    if (!resolvedSelectedClassroomId) return false;
-    if (!selectedClassroomCapacity) return false;
-
-    const currentClassroomId = enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollment?.classroomId;
-    if (String(currentClassroomId || "") === String(resolvedSelectedClassroomId)) return false;
-
-    return selectedClassroomCapacity.available > 0;
-  }, [resolvedSelectedClassroomId, selectedClassroomCapacity, enrollmentStatus, enrollment]);
+  }, [classroomsQuery.data, student?.campusCode, currentClassroomGrade, currentClassroomLevel]);
 
   const tutors = useMemo(() => {
     const primaryTutor = familyLink?.primaryTutor_send
@@ -246,11 +268,16 @@ export default function StudentDetailPage() {
     setTransferReason("");
   };
 
-  const handleChangeClassroom = async () => {
-    if (!canConfirmClassroomChange) return;
-    await changeClassroomMutation.mutateAsync({ classroomId: resolvedSelectedClassroomId });
+  const handleClassroomChange = async (targetClassroom) => {
+    const targetClassroomId = getClassroomId(targetClassroom);
+    if (!targetClassroomId) return;
+    if (String(currentClassroomId || "") === String(targetClassroomId)) return;
+
+    const accepted = window.confirm(`¿Desea trasladar al alumno al salón ${targetClassroom.displayName || "seleccionado"}?`);
+    if (!accepted) return;
+
+    await changeClassroomMutation.mutateAsync({ classroomId: targetClassroomId });
     setChangeClassroomOpen(false);
-    setSelectedClassroomId("");
   };
 
 
@@ -587,41 +614,39 @@ export default function StudentDetailPage() {
             <SecondaryButton onClick={() => setChangeClassroomOpen(false)} disabled={changeClassroomMutation.isPending}>
               Cancelar
             </SecondaryButton>
-            <Button onClick={handleChangeClassroom} disabled={changeClassroomMutation.isPending || !canConfirmClassroomChange}>
-              Confirmar cambio
-            </Button>
           </div>
         }
       >
         <div className="space-y-3 p-5 text-sm text-gray-700">
-          <label className="block text-sm font-medium text-gray-700">Aula destino</label>
-          <select
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-            value={selectedClassroomId}
-            onChange={(e) => setSelectedClassroomId(e.target.value)}
-          >
-            <option value="">Selecciona un aula</option>
-            {classrooms.map((classroom) => (
-              <option key={classroom.id} value={classroom.id}>
-                {classroom.displayName || `${classroom.grade || ""} - ${classroom.section || ""}`.trim()}
-              </option>
-            ))}
-          </select>
+          <p className="text-sm font-medium text-gray-700">Seleccione el nuevo salón</p>
+          <div className="grid gap-2">
+            {classrooms.map((classroom) => {
+              const classroomId = getClassroomId(classroom);
+              const isCurrent = String(currentClassroomId || "") === String(classroomId || "");
 
-          {selectedClassroomCapacityQuery.isFetching && <p>Cargando cupo real...</p>}
-          {selectedClassroomCapacity && (
-            <div className="rounded-md bg-gray-50 p-3 text-sm">
-              <p>Capacidad: {selectedClassroomCapacity.capacity}</p>
-              <p>Ocupados: {selectedClassroomCapacity.occupied}</p>
-              <p>Disponibles: {selectedClassroomCapacity.available}</p>
-            </div>
-          )}
-          {selectedClassroomCapacity && selectedClassroomCapacity.available <= 0 && (
-            <p className="text-xs text-red-600">No hay cupos disponibles en el aula seleccionada.</p>
-          )}
+              return (
+                <ClassroomChangeButton
+                  key={classroomId || classroom.displayName}
+                  classroom={classroom}
+                  isCurrent={isCurrent}
+                  disabledByCurrent={isCurrent}
+                  onSelect={handleClassroomChange}
+                />
+              );
+            })}
+          </div>
+
+          {!classrooms.length ? (
+            <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">No hay salones disponibles del mismo grado, nivel y sede.</p>
+          ) : null}
+
           {changeClassroomMutation.isError && (
             <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(changeClassroomMutation.error)}</p>
           )}
+          <LoadingOverlay open={changeClassroomMutation.isPending}>
+            <Spinner />
+            <p className="mt-3 text-sm">Cambiando aula...</p>
+          </LoadingOverlay>
         </div>
       </BaseModal>
 
