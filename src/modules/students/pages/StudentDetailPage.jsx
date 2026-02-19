@@ -134,7 +134,7 @@ export default function StudentDetailPage() {
   const debtsSummary = detail.debtsSummary || {};
   const enrollment = detail.enrollment || {};
 
-  const status = safeUpper(enrollmentStatus.status || student.enrollmentStatus || "ABSENT");
+  const status = safeUpper(enrollmentStatus.cycle.status || "?");
   const internalNotes = detail.internalNotes || student.internalNotes || "";
 
   const billingConceptsQuery = useBillingConceptsQuery();
@@ -258,7 +258,6 @@ export default function StudentDetailPage() {
       address: trimOrEmpty(formValues?.address),
     };
 
-    if (!next.dni) return { error: "El DNI es obligatorio." };
     if (!next.names && !next.lastNames) return { error: "Debe completar nombres o apellidos." };
 
     const payload = {};
@@ -322,8 +321,9 @@ export default function StudentDetailPage() {
       <StudentDetailHeader
         student={student}
         status={status}
+        campus={enrollmentStatus.campus}
         statusClassName={statusChipClass(status)}
-        classroomName={enrollmentStatus.classroomName || enrollmentStatus.classroom?.displayName || "-"}
+        classroom={enrollmentStatus.classroom || null}
         fullName={fullName(student)}
         showConfirmEnrollment={status === "ABSENT"}
         onConfirmEnrollment={openConfirmEnrollment}
