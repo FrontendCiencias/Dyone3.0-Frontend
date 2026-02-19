@@ -24,6 +24,12 @@ import IdentityEditModal from "../components/detail/IdentityEditModal";
 import TutorsManageModal from "../components/detail/TutorsManageModal";
 import AccountStatementModal from "../components/detail/AccountStatementModal";
 import NotesEditModal from "../components/detail/NotesEditModal";
+import StudentDetailHeader from "../components/detail/StudentDetailHeader";
+import StudentDetailSkeleton from "../components/detail/StudentDetailSkeleton";
+import StudentIdentityCard from "../components/detail/StudentIdentityCard";
+import StudentFamilyCard from "../components/detail/StudentFamilyCard";
+import StudentAcademicCard from "../components/detail/StudentAcademicCard";
+import StudentFinanceCard from "../components/detail/StudentFinanceCard";
 import { getThemeByCampusCode } from "../../../config/theme";
 
 function safeUpper(value) {
@@ -90,33 +96,6 @@ function ClassroomOptionButton({ classroom, isCurrent, onSelect }) {
     </button>
   );
 }
-
-
-function StudentDetailSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="h-28 animate-pulse rounded-xl bg-gray-100" />
-      {identityFeedback ? (
-        <Card className="border border-emerald-200 bg-emerald-50 py-2">
-          <p className="text-sm text-emerald-700">{identityFeedback}</p>
-        </Card>
-      ) : null}
-
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="space-y-4 lg:col-span-8">
-          <div className="h-40 animate-pulse rounded-xl bg-gray-100" />
-          <div className="h-40 animate-pulse rounded-xl bg-gray-100" />
-          <div className="h-40 animate-pulse rounded-xl bg-gray-100" />
-        </div>
-        <div className="space-y-4 lg:col-span-4">
-          <div className="h-36 animate-pulse rounded-xl bg-gray-100" />
-          <div className="h-36 animate-pulse rounded-xl bg-gray-100" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const initialEnrollmentForm = {
   monthlyFee: "",
   discountsDescription: "",
@@ -340,77 +319,30 @@ export default function StudentDetailPage() {
 
   return (
     <div className="space-y-4 pb-4">
-      <Card className="sticky top-0 z-20 border border-gray-200 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-gray-900">{fullName(student)}</h1>
-            <p className="text-sm text-gray-600">
-              {student.internalCode || "COD_SIN_ASIGNAR"} · DNI: {student.dni || "-"}
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700">Sede: {student.campusCode || "-"}</span>
-              <span className="rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700">Nivel: {student.level || "-"}</span>
-              <span className="rounded-full bg-slate-100 px-2 py-1 font-medium text-slate-700">
-                Grado-Sección: {enrollmentStatus.classroomName || enrollmentStatus.classroom?.displayName || "-"}
-              </span>
-              <span className={`rounded-full px-2 py-1 font-semibold ${statusChipClass(status)}`}>Estado: {status}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-start">
-            {status === "ABSENT" && <Button onClick={openConfirmEnrollment}>Confirmar matrícula</Button>}
-            <SecondaryButton onClick={() => navigate(ROUTES.dashboardStudents)}>Volver</SecondaryButton>
-          </div>
-        </div>
-      </Card>
-
-      {identityFeedback ? (
-        <Card className="border border-emerald-200 bg-emerald-50 py-2">
-          <p className="text-sm text-emerald-700">{identityFeedback}</p>
-        </Card>
-      ) : null}
+      <StudentDetailHeader
+        student={student}
+        status={status}
+        statusClassName={statusChipClass(status)}
+        classroomName={enrollmentStatus.classroomName || enrollmentStatus.classroom?.displayName || "-"}
+        fullName={fullName(student)}
+        showConfirmEnrollment={status === "ABSENT"}
+        onConfirmEnrollment={openConfirmEnrollment}
+        onGoBack={() => navigate(ROUTES.dashboardStudents)}
+      />
 
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-8">
-          <Card className="border border-gray-200 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Identidad</h3>
-              <SecondaryButton disabled={lockEdition && activeEditor !== "identity"} onClick={() => openEditor("identity")}>
-                Editar
-              </SecondaryButton>
-            </div>
-            <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2">
-              <p><span className="font-medium">Nombres:</span> {student.names || "-"}</p>
-              <p><span className="font-medium">Apellidos:</span> {student.lastNames || "-"}</p>
-              <p><span className="font-medium">DNI:</span> {student.dni || "-"}</p>
-              <p><span className="font-medium">Código:</span> {student.internalCode || "-"}</p>
-              <p><span className="font-medium">F. nacimiento:</span> {student.birthDate || "-"}</p>
-              <p><span className="font-medium">Estado registro:</span> {student.isActive ? "Activo" : "Inactivo"}</p>
-            </div>
-          </Card>
+          <StudentIdentityCard
+            student={student}
+            disabled={lockEdition && activeEditor !== "identity"}
+            onEdit={() => openEditor("identity")}
+          />
 
-          <Card className="border border-gray-200 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Tutores y familia</h3>
-              <SecondaryButton disabled={lockEdition && activeEditor !== "tutors"} onClick={() => openEditor("tutors")}>
-                Gestionar
-              </SecondaryButton>
-            </div>
-            <div className="space-y-2 text-sm text-gray-700">
-              {tutors.length ? (
-                tutors.map((tutor, index) => (
-                  <div key={`${tutor.id || tutor._id || "tutor"}-${index}`} className="rounded-md border border-gray-200 p-3">
-                    <p className="font-medium text-gray-900">{tutor.isPrimary ? "Tutor principal" : `Tutor ${index + 1}`}</p>
-                    <p>{`${tutor.lastNames || ""}, ${tutor.names || ""}`.replace(/^,\s*/, "").trim() || "-"}</p>
-                    <p>Relación: {tutor.relationship || "-"}</p>
-                    <p>Teléfono: {(Array.isArray(tutor.phones) ? tutor.phones.filter(Boolean).join(" - ") : tutor.phone) || "-"}</p>
-                  </div>
-                ))
-              ) : (
-                <p>Sin tutores vinculados.</p>
-              )}
-            </div>
-          </Card>
+          <StudentFamilyCard
+            tutors={tutors}
+            disabled={lockEdition && activeEditor !== "tutors"}
+            onManage={() => openEditor("tutors")}
+          />
 
           <Card className="border border-gray-200 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
@@ -454,52 +386,22 @@ export default function StudentDetailPage() {
         </div>
 
         <div className="space-y-4 lg:col-span-4">
-          <Card className="border border-gray-200 shadow-sm">
-            <h3 className="mb-3 text-lg font-semibold text-gray-900">Estado académico</h3>
-            <div className="space-y-2 text-sm text-gray-700">
-              <p>Ciclo actual: {enrollmentStatus.cycleName || enrollmentStatus.cycle?.name || "-"}</p>
-              <p>Aula actual: {enrollmentStatus.classroomName || enrollmentStatus.classroom?.displayName || "-"}</p>
-              <p>Estado: {status}</p>
-            </div>
-            <div className="mt-3">
-              <SecondaryButton disabled={!isAdminOrSecretary} onClick={() => setChangeClassroomOpen(true)}>
-                Cambiar aula
-              </SecondaryButton>
-            </div>
-          </Card>
+          <StudentAcademicCard
+            enrollmentStatus={enrollmentStatus}
+            status={status}
+            canChangeClassroom={isAdminOrSecretary}
+            onChangeClassroom={() => setChangeClassroomOpen(true)}
+          />
 
-          <Card className="border border-gray-200 shadow-sm">
-            <h3 className="mb-3 text-lg font-semibold text-gray-900">Finanzas</h3>
-            <div className="space-y-2 text-sm text-gray-700">
-              <p>Deuda total: {formatMoney(debtsSummary.pendingTotal)}</p>
-              <p>Vencido: {formatMoney(debtsSummary.overdueTotal)}</p>
-              <div>
-                <p className="font-medium text-gray-900">Próximos cargos:</p>
-                <ul className="list-inside list-disc text-sm text-gray-600">
-                  {upcomingCharges.length ? (
-                    upcomingCharges.map((charge, index) => (
-                      <li key={`${charge.id || charge.concept || "charge"}-${index}`}>
-                        {charge.concept || charge.name || "Cargo"} - {formatMoney(charge.amount)}
-                      </li>
-                    ))
-                  ) : (
-                    <li>Sin cargos próximos.</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <SecondaryButton disabled={lockEdition && activeEditor !== "accountStatement"} onClick={() => openEditor("accountStatement")}>
-                Ver estado de cuenta
-              </SecondaryButton>
-              <SecondaryButton disabled={!isAdminOrSecretary} onClick={() => setPaymentModalOpen(true)}>
-                Registrar pago
-              </SecondaryButton>
-              <SecondaryButton disabled={!isAdminOrSecretary} onClick={() => setCreateChargeOpen(true)}>
-                Crear cargo
-              </SecondaryButton>
-            </div>
-          </Card>
+          <StudentFinanceCard
+            debtsSummary={debtsSummary}
+            upcomingCharges={upcomingCharges}
+            disableAccountStatement={lockEdition && activeEditor !== "accountStatement"}
+            canManagePayments={isAdminOrSecretary}
+            onOpenAccountStatement={() => openEditor("accountStatement")}
+            onRegisterPayment={() => setPaymentModalOpen(true)}
+            onCreateCharge={() => setCreateChargeOpen(true)}
+          />
 
           <Card className="border border-gray-200 shadow-sm">
             <h3 className="mb-3 text-lg font-semibold text-gray-900">Acciones</h3>
