@@ -10,14 +10,13 @@ import Spinner from "../../../shared/ui/Spinner";
 import { useAuth } from "../../../lib/auth";
 import { ROUTES } from "../../../config/routes";
 import { useStudentDetailQuery } from "../hooks/useStudentDetailQuery";
-import { useClassroomCapacityQuery } from "../hooks/useClassroomCapacityQuery";
+import { useClassroomOptionsQuery } from "../hooks/useClassroomOptionsQuery";
 import { useConfirmEnrollmentMutation } from "../hooks/useConfirmEnrollmentMutation";
 import { useUpdateStudentCycleStatusMutation } from "../hooks/useUpdateStudentCycleStatusMutation";
 import { useChangeStudentClassroomMutation } from "../hooks/useChangeStudentClassroomMutation";
 import { useCreateStudentChargeMutation } from "../hooks/useCreateStudentChargeMutation";
 import { useUpdateStudentIdentityMutation } from "../hooks/useUpdateStudentIdentityMutation";
 import { useUpdateStudentInternalNotesMutation } from "../hooks/useUpdateStudentInternalNotesMutation";
-import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
 import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQuery";
 import RegisterPaymentModal from "../../payments/components/RegisterPaymentModal";
 import { useStudentAccountStatementQuery } from "../../payments/hooks/useStudentAccountStatementQuery";
@@ -25,6 +24,7 @@ import IdentityEditModal from "../components/detail/IdentityEditModal";
 import TutorsManageModal from "../components/detail/TutorsManageModal";
 import AccountStatementModal from "../components/detail/AccountStatementModal";
 import NotesEditModal from "../components/detail/NotesEditModal";
+import { getThemeByCampusCode } from "../../../config/theme";
 
 function safeUpper(value) {
   return String(value || "").toUpperCase();
@@ -54,54 +54,39 @@ function statusChipClass(status) {
   return "bg-slate-100 text-slate-700";
 }
 
-function parseCapacity(source) {
-  const capacity = Number(source?.capacity ?? source?.total ?? source?.vacanciesTotal);
-  const occupied = Number(source?.occupied ?? source?.enrolledCount ?? source?.enrolled);
-  const available = Number(source?.available ?? source?.vacanciesAvailable ?? source?.remaining);
-
-  if ([capacity, occupied, available].some((value) => Number.isNaN(value))) return null;
-  return { capacity, occupied, available };
+function getClassroomStyleByCampus(campusCode) {
+  const theme = getThemeByCampusCode(campusCode);
+  if (!theme) return { borderColor: "#E5E7EB", backgroundColor: "#FFFFFF" };
+  return { borderColor: theme.main, backgroundColor: theme.softBg };
 }
 
-function getClassroomId(classroom = {}) {
-  return classroom?.id || classroom?._id || "";
-}
-
-function ClassroomChangeButton({ classroom, isCurrent, disabledByCurrent = false, onSelect }) {
-  const classroomId = getClassroomId(classroom);
-  const capacityQuery = useClassroomCapacityQuery(classroomId, Boolean(classroomId));
-  const capacity = useMemo(() => parseCapacity(capacityQuery.data), [capacityQuery.data]);
-  const noVacancies = capacity ? capacity.available <= 0 : false;
-  const disabled = disabledByCurrent || noVacancies;
+function ClassroomOptionButton({ classroom, isCurrent, onSelect }) {
+  const noVacancies = Number(classroom?.available) <= 0;
+  const unknownStatus = String(classroom?.status || "").toUpperCase() === "UNKNOWN";
+  const disabled = Boolean(isCurrent || noVacancies || unknownStatus);
+  const style = getClassroomStyleByCampus(classroom?.campusCode);
+  const title = classroom?.label || `${classroom?.grade || ""}° - ${classroom?.section || ""}`.trim() || "Aula";
 
   return (
     <button
       type="button"
-      className={[
-        "rounded-xl border p-3 text-left transition",
-        isCurrent ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white",
-        disabled ? "cursor-not-allowed bg-gray-100 text-gray-500" : "hover:border-blue-300 hover:bg-blue-50/50",
-      ].join(" ")}
+      className={`rounded-xl border p-3 text-left transition ${disabled ? "cursor-not-allowed bg-gray-100 text-gray-500" : "hover:opacity-90"}`}
+      style={isCurrent ? { ...style, boxShadow: `0 0 0 1px ${style.borderColor}` } : style}
       onClick={() => !disabled && onSelect(classroom)}
       disabled={disabled}
-      title={noVacancies ? "Sin vacantes" : undefined}
+      title={unknownStatus ? "No se pudo verificar cupos" : noVacancies ? "Sin vacantes" : undefined}
     >
       <div className="mb-1 flex items-center justify-between gap-2">
-        <p className="font-semibold text-gray-900">{classroom.displayName || `${classroom.grade || ""} ${classroom.section || ""}`.trim() || "Aula"}</p>
-        {isCurrent ? <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Actual</span> : null}
+        <p className="font-semibold text-gray-900">{title}</p>
+        <div className="flex items-center gap-1">
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{classroom?.campusCode || "-"}</span>
+          {isCurrent ? <span className="rounded-full bg-slate-900 px-2 py-0.5 text-xs font-medium text-white">Actual</span> : null}
+        </div>
       </div>
 
-      {capacityQuery.isFetching ? (
-        <p className="text-xs text-gray-500">Consultando…</p>
-      ) : capacityQuery.isError ? (
-        <p className="text-xs text-red-600">No se pudo consultar</p>
-      ) : capacity ? (
-        <div className="text-xs text-gray-600">
-          <p>Cap: {capacity.capacity} · Ocup: {capacity.occupied} · Disp: {capacity.available}</p>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-500">No se pudo consultar</p>
-      )}
+      <p className="text-xs text-gray-600">Cap: {classroom?.capacity ?? "-"} · Disp: {classroom?.available ?? "-"}</p>
+      {unknownStatus ? <p className="mt-1 text-xs text-amber-700">No se pudo verificar cupos</p> : null}
+      {!unknownStatus && noVacancies ? <p className="mt-1 text-xs text-rose-700">Sin vacantes</p> : null}
     </button>
   );
 }
@@ -111,6 +96,12 @@ function StudentDetailSkeleton() {
   return (
     <div className="space-y-4">
       <div className="h-28 animate-pulse rounded-xl bg-gray-100" />
+      {identityFeedback ? (
+        <Card className="border border-emerald-200 bg-emerald-50 py-2">
+          <p className="text-sm text-emerald-700">{identityFeedback}</p>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-8">
           <div className="h-40 animate-pulse rounded-xl bg-gray-100" />
@@ -152,6 +143,8 @@ export default function StudentDetailPage() {
   const [createChargeOpen, setCreateChargeOpen] = useState(false);
   const [chargeForm, setChargeForm] = useState(initialChargeForm);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [identityFeedback, setIdentityFeedback] = useState("");
+  const [identityFormError, setIdentityFormError] = useState("");
 
   const detailQuery = useStudentDetailQuery(studentId);
   const detail = detailQuery.data || {};
@@ -165,7 +158,6 @@ export default function StudentDetailPage() {
   const status = safeUpper(enrollmentStatus.status || student.enrollmentStatus || "ABSENT");
   const internalNotes = detail.internalNotes || student.internalNotes || "";
 
-  const classroomsQuery = useClassroomsQuery();
   const billingConceptsQuery = useBillingConceptsQuery();
 
   const confirmEnrollmentMutation = useConfirmEnrollmentMutation(studentId);
@@ -177,31 +169,14 @@ export default function StudentDetailPage() {
   const accountStatementQuery = useStudentAccountStatementQuery(studentId, true);
 
   const currentClassroomId = enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollmentStatus?.classroom?._id || enrollment?.classroomId;
-  const currentClassroomGrade = enrollmentStatus?.classroom?.grade || student?.grade;
-  const currentClassroomLevel = enrollmentStatus?.classroom?.level || student?.level;
+  const classroomLevel = enrollmentStatus?.classroom?.level || student?.level;
+  const classroomGrade = enrollmentStatus?.classroom?.grade || student?.grade;
+  const classroomOptionsQuery = useClassroomOptionsQuery({ level: classroomLevel, grade: classroomGrade });
 
   const classrooms = useMemo(() => {
-    const rows = Array.isArray(classroomsQuery.data)
-      ? classroomsQuery.data
-      : Array.isArray(classroomsQuery.data?.items)
-        ? classroomsQuery.data.items
-        : [];
-
-    const campusCode = String(student?.campusCode || "").toUpperCase();
-    const grade = String(currentClassroomGrade || "").trim();
-    const level = String(currentClassroomLevel || "").trim().toUpperCase();
-
-    return rows.filter((classroom) => {
-      const classroomGrade = String(classroom?.grade || "").trim();
-      const classroomLevel = String(classroom?.level || "").trim().toUpperCase();
-      const rowCampus = String(classroom?.campusCode || classroom?.campusAlias || "").toUpperCase();
-      const sameCampus = !campusCode || !rowCampus || rowCampus === campusCode;
-      const sameGrade = !grade || !classroomGrade || classroomGrade === grade;
-      const sameLevel = !level || !classroomLevel || classroomLevel === level;
-
-      return sameCampus && sameGrade && sameLevel;
-    });
-  }, [classroomsQuery.data, student?.campusCode, currentClassroomGrade, currentClassroomLevel]);
+    const rows = Array.isArray(classroomOptionsQuery.data?.items) ? classroomOptionsQuery.data.items : [];
+    return rows;
+  }, [classroomOptionsQuery.data]);
 
   const tutors = useMemo(() => {
     const primaryTutor = familyLink?.primaryTutor_send
@@ -269,29 +244,64 @@ export default function StudentDetailPage() {
   };
 
   const handleClassroomChange = async (targetClassroom) => {
-    const targetClassroomId = getClassroomId(targetClassroom);
+    const targetClassroomId = targetClassroom?.classroomId;
     if (!targetClassroomId) return;
     if (String(currentClassroomId || "") === String(targetClassroomId)) return;
 
-    const accepted = window.confirm(`¿Desea trasladar al alumno al salón ${targetClassroom.displayName || "seleccionado"}?`);
+    const label = targetClassroom?.label || `${targetClassroom?.grade || ""}° - ${targetClassroom?.section || ""}`.trim() || "seleccionado";
+    const campus = targetClassroom?.campusCode || "-";
+    const accepted = window.confirm(`¿Desea trasladar al alumno al salón ${label} (Campus ${campus})?`);
     if (!accepted) return;
 
     await changeClassroomMutation.mutateAsync({ classroomId: targetClassroomId });
     setChangeClassroomOpen(false);
   };
 
-
-  const handleSaveIdentity = async (formValues) => {
-    const payload = {
-      names: String(formValues?.names || "").trim(),
-      lastNames: String(formValues?.lastNames || "").trim(),
-      dni: String(formValues?.dni || "").trim(),
+  const buildIdentityPayload = (formValues = {}) => {
+    const trimOrEmpty = (value) => String(value || "").trim();
+    const original = {
+      names: trimOrEmpty(student?.names),
+      lastNames: trimOrEmpty(student?.lastNames),
+      dni: trimOrEmpty(student?.dni),
+      birthDate: student?.birthDate ? String(student.birthDate).slice(0, 10) : "",
+      gender: trimOrEmpty(student?.gender),
+      phone: trimOrEmpty(student?.phone),
+      address: trimOrEmpty(student?.address),
     };
 
-    if (!payload.names || !payload.lastNames || !payload.dni) return;
+    const next = {
+      names: trimOrEmpty(formValues?.names),
+      lastNames: trimOrEmpty(formValues?.lastNames),
+      dni: trimOrEmpty(formValues?.dni),
+      birthDate: trimOrEmpty(formValues?.birthDate),
+      gender: trimOrEmpty(formValues?.gender),
+      phone: trimOrEmpty(formValues?.phone),
+      address: trimOrEmpty(formValues?.address),
+    };
 
+    if (!next.dni) return { error: "El DNI es obligatorio." };
+    if (!next.names && !next.lastNames) return { error: "Debe completar nombres o apellidos." };
+
+    const payload = {};
+    ["names", "lastNames", "dni", "birthDate", "gender", "phone", "address"].forEach((key) => {
+      if (next[key] !== original[key] && next[key] !== "") payload[key] = next[key];
+    });
+
+    return { payload };
+  };
+
+  const handleSaveIdentity = async (formValues) => {
+    const { payload, error } = buildIdentityPayload(formValues);
+    if (error) {
+      setIdentityFormError(error);
+      return;
+    }
+
+    setIdentityFormError("");
     await updateIdentityMutation.mutateAsync(payload);
     setActiveEditor(null);
+    setIdentityFeedback("Identidad actualizada correctamente.");
+    window.setTimeout(() => setIdentityFeedback(""), 2500);
   };
 
   const handleSaveNotes = async (notes) => {
@@ -353,6 +363,12 @@ export default function StudentDetailPage() {
           </div>
         </div>
       </Card>
+
+      {identityFeedback ? (
+        <Card className="border border-emerald-200 bg-emerald-50 py-2">
+          <p className="text-sm text-emerald-700">{identityFeedback}</p>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-8">
@@ -502,16 +518,22 @@ export default function StudentDetailPage() {
 
       <IdentityEditModal
         open={activeEditor === "identity"}
-        onClose={() => setActiveEditor(null)}
+        onClose={() => {
+          setIdentityFormError("");
+          setActiveEditor(null);
+        }}
         student={student}
         onSave={handleSaveIdentity}
         saving={updateIdentityMutation.isPending}
-        errorMessage={updateIdentityMutation.isError ? getErrorMessage(updateIdentityMutation.error, "No se pudo guardar la identidad") : ""}
+        errorMessage={identityFormError || (updateIdentityMutation.isError ? getErrorMessage(updateIdentityMutation.error, "No se pudo guardar la identidad") : "")}
       />
       <TutorsManageModal open={activeEditor === "tutors"} onClose={() => setActiveEditor(null)} tutors={tutors} />
       <AccountStatementModal
         open={activeEditor === "accountStatement"}
-        onClose={() => setActiveEditor(null)}
+        onClose={() => {
+          setIdentityFormError("");
+          setActiveEditor(null);
+        }}
         debtsSummary={debtsSummary}
         accountQuery={accountStatementQuery}
         onOpenRegisterPayment={() => setPaymentModalOpen(true)}
@@ -529,7 +551,10 @@ export default function StudentDetailPage() {
       />
       <NotesEditModal
         open={activeEditor === "notes"}
-        onClose={() => setActiveEditor(null)}
+        onClose={() => {
+          setIdentityFormError("");
+          setActiveEditor(null);
+        }}
         value={internalNotes}
         onSave={handleSaveNotes}
         saving={updateNotesMutation.isPending}
@@ -619,25 +644,34 @@ export default function StudentDetailPage() {
       >
         <div className="space-y-3 p-5 text-sm text-gray-700">
           <p className="text-sm font-medium text-gray-700">Seleccione el nuevo salón</p>
-          <div className="grid gap-2">
-            {classrooms.map((classroom) => {
-              const classroomId = getClassroomId(classroom);
-              const isCurrent = String(currentClassroomId || "") === String(classroomId || "");
+          {classroomOptionsQuery.isLoading ? (
+            <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">Cargando secciones…</p>
+          ) : null}
 
-              return (
-                <ClassroomChangeButton
-                  key={classroomId || classroom.displayName}
-                  classroom={classroom}
-                  isCurrent={isCurrent}
-                  disabledByCurrent={isCurrent}
-                  onSelect={handleClassroomChange}
-                />
-              );
-            })}
-          </div>
+          {classroomOptionsQuery.isError ? (
+            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">No se pudieron cargar las secciones disponibles.</p>
+          ) : null}
 
-          {!classrooms.length ? (
-            <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">No hay salones disponibles del mismo grado, nivel y sede.</p>
+          {!classroomOptionsQuery.isLoading && !classroomOptionsQuery.isError ? (
+            <div className="grid gap-2">
+              {classrooms.map((classroom) => {
+                const classroomId = classroom?.classroomId;
+                const isCurrent = String(currentClassroomId || "") === String(classroomId || "");
+
+                return (
+                  <ClassroomOptionButton
+                    key={classroomId || classroom?.label}
+                    classroom={classroom}
+                    isCurrent={isCurrent}
+                    onSelect={handleClassroomChange}
+                  />
+                );
+              })}
+            </div>
+          ) : null}
+
+          {!classroomOptionsQuery.isLoading && !classroomOptionsQuery.isError && !classrooms.length ? (
+            <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">No existen secciones configuradas para este grado y nivel.</p>
           ) : null}
 
           {changeClassroomMutation.isError && (
