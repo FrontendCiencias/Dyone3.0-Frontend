@@ -7,7 +7,8 @@ import { ROUTES } from "../../../config/routes";
 import { normalizeSearchText } from "../../students/domain/searchText";
 import FamilyCard from "../components/FamilyCard";
 import FamilyCreateModal from "../components/FamilyCreateModal";
-import { useFamiliesSearchQuery } from "../hooks/useFamiliesSearchQuery";
+import { useFamiliesListQuery } from "../hooks/useFamiliesListQuery";
+import { useFamiliesSearchInfiniteQuery } from "../hooks/useFamiliesSearchInfiniteQuery";
 
 function getFamilyId(payload) {
   return payload?.id || payload?.family?.id || payload?.familyId || payload?._id;
@@ -56,12 +57,16 @@ export default function FamiliesPage() {
   }, [searchInput]);
 
   const normalizedSearch = debouncedSearch.trim();
+  const useSearchResults = normalizedSearch.length >= 2;
 
-  const familiesQuery = useFamiliesSearchQuery({ q: normalizedSearch, enabled: true });
+  const familiesListQuery = useFamiliesListQuery({ enabled: !useSearchResults });
+  const familiesSearchQuery = useFamiliesSearchInfiniteQuery({ q: normalizedSearch, enabled: useSearchResults });
+  const familiesQuery = useSearchResults ? familiesSearchQuery : familiesListQuery;
 
   const normalizedQuery = normalizeSearchText(debouncedSearch);
   const families = useMemo(() => {
-    const rows = Array.isArray(familiesQuery.data?.items) ? familiesQuery.data.items : [];
+    const pages = Array.isArray(familiesQuery.data?.pages) ? familiesQuery.data.pages : [];
+    const rows = pages.flatMap((page) => (Array.isArray(page?.items) ? page.items : []));
     return rows.filter((family) => matchesFamilyQuery(family, normalizedQuery));
   }, [familiesQuery.data, normalizedQuery]);
 
@@ -93,7 +98,7 @@ export default function FamiliesPage() {
         <Card className="border border-red-100 text-sm text-red-700">{getErrorMessage(familiesQuery.error)}</Card>
       )}
 
-      {familiesQuery.isLoading || familiesQuery.isFetching ? (
+      {familiesQuery.isLoading ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => <FamilyCardSkeleton key={index} />)}
         </div>
@@ -107,8 +112,22 @@ export default function FamiliesPage() {
 
           {!families.length ? (
             <Card className="border border-gray-200 text-sm text-gray-500">
-              No se encontraron familias registradas. Intenta con otra búsqueda o crea una nueva familia.
+              {useSearchResults
+                ? "No se encontraron familias para esa búsqueda."
+                : "No se encontraron familias registradas. Crea una nueva familia para comenzar."}
             </Card>
+          ) : null}
+
+          {familiesQuery.hasNextPage ? (
+            <div className="pt-1">
+              <Button
+                variant="secondary"
+                onClick={() => familiesQuery.fetchNextPage()}
+                disabled={familiesQuery.isFetchingNextPage}
+              >
+                {familiesQuery.isFetchingNextPage ? "Cargando..." : "Cargar más"}
+              </Button>
+            </div>
           ) : null}
         </>
       )}

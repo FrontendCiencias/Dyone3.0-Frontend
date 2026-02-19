@@ -156,11 +156,11 @@ export default function DashboardShell() {
       />
 
       <main
-        className="flex-1 overflow-hidden transition-[padding-left] duration-300 ease-out"
+        className="flex flex-1 min-h-0 flex-col overflow-hidden transition-[padding-left] duration-300 ease-out"
         style={{ paddingLeft: leftPad }}
       >
         <div
-          className="flex h-full flex-col gap-4 overflow-hidden px-4 pb-0 pt-0 md:px-6"
+          className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 pb-4 pt-0 md:px-6"
           style={{ paddingTop: DASHBOARD_TOPBAR_HEIGHT + 8 }}
         >
           <BreadcrumbHeader
@@ -170,10 +170,7 @@ export default function DashboardShell() {
             breadcrumbItems={breadcrumbItems}
           />
 
-          <section
-            className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
-            style={{ height: "calc(100vh - 220px)" }}
-          >
+          <section className="flex-1 min-h-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             <div className="h-full overflow-auto p-4 md:p-5">
               <Outlet />
             </div>
