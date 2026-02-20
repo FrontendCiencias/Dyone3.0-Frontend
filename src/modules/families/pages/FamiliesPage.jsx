@@ -70,6 +70,9 @@ export default function FamiliesPage() {
     return rows.filter((family) => matchesFamilyQuery(family, normalizedQuery));
   }, [familiesQuery.data, normalizedQuery]);
 
+  // console.log("[families][dbg] content: ",families)
+  // console.log("[familiesQuery][dbg] content: ",familiesQuery)
+
   const handleCreated = (familyPayload) => {
     const familyId = getFamilyId(familyPayload);
     setCreateOpen(false);

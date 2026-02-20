@@ -39,7 +39,7 @@ export function getPrimaryTutorDisplayName(familyDetail) {
   const tutors = getTutors(familyDetail);
   if (tutors.length > 0) return getTutorFullName(tutors[0]);
 
-  return "Familia";
+  return "Sin tutor";
 }
 
 export function getPrimaryTutorName(family) {

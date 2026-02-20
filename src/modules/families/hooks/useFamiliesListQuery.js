@@ -2,7 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { getToken } from "../../../lib/authStorage";
 import { listFamilies } from "../services/families.service";
 
-export function useFamiliesListQuery({ enabled = true, limit = 20 }) {
+export function useFamiliesListQuery({ enabled = true, limit = 12 }) {
   const token = getToken();
 
   return useInfiniteQuery({
