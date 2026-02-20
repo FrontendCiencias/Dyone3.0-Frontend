@@ -1,6 +1,6 @@
 import React from "react";
-import Card from "../../../../components/ui/Card";
-import SecondaryButton from "../../../../shared/ui/SecondaryButton";
+import Card from "../../../../../components/ui/Card";
+import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
 
 function formatMoney(value) {
   const amount = Number(value || 0);

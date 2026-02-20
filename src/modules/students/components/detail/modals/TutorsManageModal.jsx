@@ -1,6 +1,6 @@
 import React from "react";
-import BaseModal from "../../../../shared/ui/BaseModal";
-import SecondaryButton from "../../../../shared/ui/SecondaryButton";
+import BaseModal from "../../../../../shared/ui/BaseModal";
+import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
 
 function tutorFullName(tutor = {}) {
   const names = String(tutor.names || "").trim();

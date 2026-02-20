@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import BaseModal from "../../../../shared/ui/BaseModal";
-import Button from "../../../../components/ui/Button";
-import SecondaryButton from "../../../../shared/ui/SecondaryButton";
-import Input from "../../../../components/ui/Input";
+import BaseModal from "../../../../../shared/ui/BaseModal";
+import Button from "../../../../../components/ui/Button";
+import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
+import Input from "../../../../../components/ui/Input";
 
 export default function IdentityEditModal({
   open,

@@ -1,9 +1,9 @@
 import React from "react";
-import Button from "../../../../components/ui/Button";
-import Card from "../../../../components/ui/Card";
-import SecondaryButton from "../../../../shared/ui/SecondaryButton";
-import { formatEducationLevel } from "../../../../shared/domain/formatters.js/educationLevel";
-import { formatEnrollmentStatus } from "../../../../shared/domain/formatters.js/enrollmentStatus";
+import Button from "../../../../../components/ui/Button";
+import Card from "../../../../../components/ui/Card";
+import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
+import { formatEducationLevel } from "../../../../../shared/domain/formatters.js/educationLevel";
+import { formatEnrollmentStatus } from "../../../../../shared/domain/formatters.js/enrollmentStatus";
 
 export default function StudentDetailHeader({
   student,
