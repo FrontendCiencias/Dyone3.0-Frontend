@@ -93,3 +93,27 @@ export async function updateFamilyPrimaryTutor({ familyId, tutorId }) {
   logResponse(endpoint, res.status, res.data);
   return res.data;
 }
+
+export async function updateTutor({ tutorId, ...payload }) {
+  const endpoint = API_ROUTES.tutorById(tutorId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function deleteTutor({ tutorId }) {
+  const endpoint = API_ROUTES.tutorById(tutorId);
+  logRequest(endpoint, "DELETE", { tutorId });
+  const res = await axiosInstance.delete(endpoint);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function unlinkStudentFromFamily({ familyId, studentId }) {
+  const endpoint = API_ROUTES.familyUnlinkStudent(familyId, studentId);
+  logRequest(endpoint, "DELETE", { familyId, studentId });
+  const res = await axiosInstance.delete(endpoint);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
