@@ -177,7 +177,7 @@ export default function DashboardShell() {
         style={{ paddingLeft: leftPad }}
       >
         <div
-          className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 pb-4 pt-0 md:px-6"
+          className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 pb-1 pt-0 md:px-6"
           style={{ paddingTop: DASHBOARD_TOPBAR_HEIGHT + 8 }}
         >
           <BreadcrumbHeader

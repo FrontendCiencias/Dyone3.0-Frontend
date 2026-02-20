@@ -81,7 +81,7 @@ export default function FamiliesPage() {
 
   return (
     <div className="space-y-4">
-      <Card className="border border-gray-200 shadow-sm">
+      <Card className="max-h-[15vh] overflow-y-auto border border-gray-200 shadow-sm">
         <div className="grid gap-3 md:grid-cols-12 md:items-end">
           <div className="md:col-span-9">
             <Input
@@ -97,43 +97,47 @@ export default function FamiliesPage() {
         </div>
       </Card>
 
-      {familiesQuery.isError && (
-        <Card className="border border-red-100 text-sm text-red-700">{getErrorMessage(familiesQuery.error)}</Card>
-      )}
+      <Card className="h-[55vh] overflow-y-auto border border-gray-200 shadow-sm">
 
-      {familiesQuery.isLoading ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, index) => <FamilyCardSkeleton key={index} />)}
-        </div>
-      ) : (
-        <>
+
+        {familiesQuery.isError && (
+          <Card className="border border-red-100 text-sm text-red-700">{getErrorMessage(familiesQuery.error)}</Card>
+        )}
+
+        {familiesQuery.isLoading ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {families.map((family) => (
-              <FamilyCard key={family.familyId || family._id} family={family} onOpen={() => navigate(ROUTES.dashboardFamilyDetail(family.familyId || family._id))} />
-            ))}
+            {Array.from({ length: 6 }).map((_, index) => <FamilyCardSkeleton key={index} />)}
           </div>
-
-          {!families.length ? (
-            <Card className="border border-gray-200 text-sm text-gray-500">
-              {useSearchResults
-                ? "No se encontraron familias para esa búsqueda."
-                : "No se encontraron familias registradas. Crea una nueva familia para comenzar."}
-            </Card>
-          ) : null}
-
-          {familiesQuery.hasNextPage ? (
-            <div className="pt-1">
-              <Button
-                variant="secondary"
-                onClick={() => familiesQuery.fetchNextPage()}
-                disabled={familiesQuery.isFetchingNextPage}
-              >
-                {familiesQuery.isFetchingNextPage ? "Cargando..." : "Cargar más"}
-              </Button>
+        ) : (
+          <>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {families.map((family) => (
+                <FamilyCard key={family.familyId || family._id} family={family} onOpen={() => navigate(ROUTES.dashboardFamilyDetail(family.familyId || family._id))} />
+              ))}
             </div>
-          ) : null}
-        </>
-      )}
+
+            {!families.length ? (
+              <Card className="border border-gray-200 text-sm text-gray-500">
+                {useSearchResults
+                  ? "No se encontraron familias para esa búsqueda."
+                  : "No se encontraron familias registradas. Crea una nueva familia para comenzar."}
+              </Card>
+            ) : null}
+
+            {familiesQuery.hasNextPage ? (
+              <div className="pt-1 flex justify-end">
+                <Button
+                  variant="secondary"
+                  onClick={() => familiesQuery.fetchNextPage()}
+                  disabled={familiesQuery.isFetchingNextPage}
+                  >
+                  {familiesQuery.isFetchingNextPage ? "Cargando..." : "Cargar más"}
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )}
+      </Card>
 
       <FamilyCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
     </div>

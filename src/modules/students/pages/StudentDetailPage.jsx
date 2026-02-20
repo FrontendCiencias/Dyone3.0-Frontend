@@ -305,7 +305,7 @@ export default function StudentDetailPage() {
         onGoBack={() => navigate(ROUTES.dashboardStudents)}
       />
 
-      <div className="grid gap-4 lg:grid-cols-12">
+      <div className=" h-[56.5vh] overflow-y-auto grid gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-8">
           <StudentIdentityCard
             student={student}

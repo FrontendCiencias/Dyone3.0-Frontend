@@ -308,30 +308,52 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-4">
-      <Card className="border border-gray-200 shadow-sm">
-        {secretaryMode ? (
-          <StudentsContextBar
-            campus={activeCampusAlias}
-            salonSeleccionado={classroomFilter}
-            q={searchInput}
-            totals={contextTotals}
-            capacity={classroomMetrics?.capacity}
-            occupied={classroomMetrics?.occupied}
-            available={classroomMetrics?.available}
-            reserved={classroomMetrics?.reserved}
-            status={classroomMetrics?.status}
-            loadingCapacity={classroomCapacityQuery.isFetching}
-            capacityError={classroomCapacityQuery.isError}
-          />
-        ) : (
-          <div className="mb-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
-            {globalMode
-              ? "Modo global: busca alumnos en todas las sedes."
-              : `Campus activo: ${activeCampusAlias || "No detectado"}`}
-          </div>
-        )}
 
-        <div className="grid gap-3 md:grid-cols-12 md:items-end">
+      {/* CARD 1 — Contexto + Acciones */}
+      <Card className="border border-gray-200 shadow-sm">
+        <div className="flex flex-col h-[5vh] overflow-y-auto gap-3 md:flex-row md:items-center md:justify-between">
+  
+          {/* IZQUIERDA: Contexto */}
+          <div className="flex-1">
+            {secretaryMode ? (
+              <StudentsContextBar
+                campus={activeCampusAlias}
+                salonSeleccionado={classroomFilter}
+                q={searchInput}
+                totals={contextTotals}
+                capacity={classroomMetrics?.capacity}
+                occupied={classroomMetrics?.occupied}
+                available={classroomMetrics?.available}
+                reserved={classroomMetrics?.reserved}
+                status={classroomMetrics?.status}
+                loadingCapacity={classroomCapacityQuery.isFetching}
+                capacityError={classroomCapacityQuery.isError}
+              />
+            ) : (
+              <div className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
+                {globalMode
+                  ? "Modo global: busca alumnos en todas las sedes."
+                  : `Campus activo: ${activeCampusAlias || "No detectado"}`}
+              </div>
+            )}
+          </div>
+
+          {/* DERECHA: Acción */}
+          <div className="flex justify-end">
+            <SecondaryButton
+              className="w-full md:w-auto"
+              onClick={() => setCreateModalOpen(true)}
+            >
+              + Nuevo alumno
+            </SecondaryButton>
+          </div>
+
+        </div>
+      </Card>
+
+      {/* CARD 2 — Búsqueda + Filtros */}
+      <Card className="mt-3 border border-gray-200 shadow-sm">
+        <div className="grid gap-3 h-[7vh] overflow-y-auto md:grid-cols-12 md:items-end">
           <div className={secretaryMode ? "md:col-span-6" : "md:col-span-9"}>
             <Input
               className="w-full"
@@ -385,21 +407,15 @@ export default function StudentsPage() {
           )}
         </div>
 
-        {secretaryMode && (
-          <div className="mt-3 flex justify-end">
-            <SecondaryButton className="w-full md:w-auto" onClick={() => setCreateModalOpen(true)}>
-              + Nuevo alumno
-            </SecondaryButton>
-          </div>
-        )}
-
         {searchQuery.isError && (
-          <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{getErrorMessage(searchQuery.error)}</p>
+          <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">
+            {getErrorMessage(searchQuery.error)}
+          </p>
         )}
       </Card>
 
       <Card className="border border-gray-200 shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="h-[42vh] overflow-y-auto overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left text-gray-700">

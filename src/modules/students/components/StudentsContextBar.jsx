@@ -22,7 +22,7 @@ export default function StudentsContextBar({
   const hasAnyCapacityData = [capacity, occupied, available, reserved].some((value) => typeof value === "number");
 
   return (
-    <div className="mb-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
+    <div className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <BarItem>Campus: {campus || "No detectado"}</BarItem>
 
