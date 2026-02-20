@@ -32,9 +32,9 @@ export default function ClassroomOptionButton({ classroom, isCurrent, isSelected
       <div className="mb-1 flex items-center justify-between gap-2">
         <p className="font-semibold text-gray-900">{title}</p>
         <div className="flex items-center gap-1">
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{classroom?.campusCode || "-"}</span>
           {isSelected ? <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">Seleccionado</span> : null}
           {isCurrent ? <span className="rounded-full bg-slate-900 px-2 py-0.5 text-xs font-medium text-white">Actual</span> : null}
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{classroom?.campusCode || "-"}</span>
         </div>
       </div>
 

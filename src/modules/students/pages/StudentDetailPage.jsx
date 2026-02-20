@@ -100,7 +100,7 @@ export default function StudentDetailPage() {
   const debtsSummary = detail.debtsSummary || {};
   const enrollment = detail.enrollment || {};
 
-  const status = safeUpper(enrollmentStatus.cycle.status || "?");
+  const status = safeUpper(enrollmentStatus?.cycle?.status || "?");
   const internalNotes = detail.internalNotes || student.internalNotes || "";
 
   const billingConceptsQuery = useBillingConceptsQuery();
