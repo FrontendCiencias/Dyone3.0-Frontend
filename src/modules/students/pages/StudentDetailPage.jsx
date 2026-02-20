@@ -1,12 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
-import BaseModal from "../../../shared/ui/BaseModal";
-import Input from "../../../components/ui/Input";
-import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
-import Spinner from "../../../shared/ui/Spinner";
 import { useAuth } from "../../../lib/auth";
 import { ROUTES } from "../../../config/routes";
 import { useStudentDetailQuery } from "../hooks/useStudentDetailQuery";
@@ -20,17 +15,20 @@ import { useUpdateStudentInternalNotesMutation } from "../hooks/useUpdateStudent
 import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQuery";
 import RegisterPaymentModal from "../../payments/components/RegisterPaymentModal";
 import { useStudentAccountStatementQuery } from "../../payments/hooks/useStudentAccountStatementQuery";
-import IdentityEditModal from "../components/detail/IdentityEditModal";
-import TutorsManageModal from "../components/detail/TutorsManageModal";
-import AccountStatementModal from "../components/detail/AccountStatementModal";
-import NotesEditModal from "../components/detail/NotesEditModal";
-import StudentDetailHeader from "../components/detail/StudentDetailHeader";
-import StudentDetailSkeleton from "../components/detail/StudentDetailSkeleton";
-import StudentIdentityCard from "../components/detail/StudentIdentityCard";
-import StudentFamilyCard from "../components/detail/StudentFamilyCard";
-import StudentAcademicCard from "../components/detail/StudentAcademicCard";
-import StudentFinanceCard from "../components/detail/StudentFinanceCard";
-import { getThemeByCampusCode } from "../../../config/theme";
+import IdentityEditModal from "../components/detail/modals/IdentityEditModal";
+import TutorsManageModal from "../components/detail/modals/TutorsManageModal";
+import AccountStatementModal from "../components/detail/modals/AccountStatementModal";
+import NotesEditModal from "../components/detail/modals/NotesEditModal";
+import ConfirmEnrollmentModal from "../components/detail/modals/ConfirmEnrollmentModal";
+import TransferStudentModal from "../components/detail/modals/TransferStudentModal";
+import ChangeClassroomModal from "../components/detail/modals/ChangeClassroomModal";
+import CreateChargeModal from "../components/detail/modals/CreateChargeModal";
+import StudentDetailHeader from "../components/detail/cards/StudentDetailHeader";
+import StudentDetailSkeleton from "../components/detail/cards/StudentDetailSkeleton";
+import StudentIdentityCard from "../components/detail/cards/StudentIdentityCard";
+import StudentFamilyCard from "../components/detail/cards/StudentFamilyCard";
+import StudentAcademicCard from "../components/detail/cards/StudentAcademicCard";
+import StudentFinanceCard from "../components/detail/cards/StudentFinanceCard";
 
 function safeUpper(value) {
   return String(value || "").toUpperCase();
@@ -60,41 +58,9 @@ function statusChipClass(status) {
   return "bg-slate-100 text-slate-700";
 }
 
-function getClassroomStyleByCampus(campusCode) {
-  const theme = getThemeByCampusCode(campusCode);
-  if (!theme) return { borderColor: "#E5E7EB", backgroundColor: "#FFFFFF" };
-  return { borderColor: theme.main, backgroundColor: theme.softBg };
-}
 
-function ClassroomOptionButton({ classroom, isCurrent, onSelect }) {
-  const noVacancies = Number(classroom?.available) <= 0;
-  const unknownStatus = String(classroom?.status || "").toUpperCase() === "UNKNOWN";
-  const disabled = Boolean(isCurrent || noVacancies || unknownStatus);
-  const style = getClassroomStyleByCampus(classroom?.campusCode);
-  const title = classroom?.label || `${classroom?.grade || ""}° - ${classroom?.section || ""}`.trim() || "Aula";
-
-  return (
-    <button
-      type="button"
-      className={`rounded-xl border p-3 text-left transition ${disabled ? "cursor-not-allowed bg-gray-100 text-gray-500" : "hover:opacity-90"}`}
-      style={isCurrent ? { ...style, boxShadow: `0 0 0 1px ${style.borderColor}` } : style}
-      onClick={() => !disabled && onSelect(classroom)}
-      disabled={disabled}
-      title={unknownStatus ? "No se pudo verificar cupos" : noVacancies ? "Sin vacantes" : undefined}
-    >
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <p className="font-semibold text-gray-900">{title}</p>
-        <div className="flex items-center gap-1">
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">{classroom?.campusCode || "-"}</span>
-          {isCurrent ? <span className="rounded-full bg-slate-900 px-2 py-0.5 text-xs font-medium text-white">Actual</span> : null}
-        </div>
-      </div>
-
-      <p className="text-xs text-gray-600">Cap: {classroom?.capacity ?? "-"} · Disp: {classroom?.available ?? "-"}</p>
-      {unknownStatus ? <p className="mt-1 text-xs text-amber-700">No se pudo verificar cupos</p> : null}
-      {!unknownStatus && noVacancies ? <p className="mt-1 text-xs text-rose-700">Sin vacantes</p> : null}
-    </button>
-  );
+function isObjectId(value) {
+  return /^[a-f\d]{24}$/i.test(String(value || "").trim());
 }
 const initialEnrollmentForm = {
   monthlyFee: "",
@@ -122,8 +88,8 @@ export default function StudentDetailPage() {
   const [createChargeOpen, setCreateChargeOpen] = useState(false);
   const [chargeForm, setChargeForm] = useState(initialChargeForm);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [identityFeedback, setIdentityFeedback] = useState("");
   const [identityFormError, setIdentityFormError] = useState("");
+  const [classroomChangeError, setClassroomChangeError] = useState("");
 
   const detailQuery = useStudentDetailQuery(studentId);
   const detail = detailQuery.data || {};
@@ -222,17 +188,28 @@ export default function StudentDetailPage() {
     setTransferReason("");
   };
 
-  const handleClassroomChange = async (targetClassroom) => {
-    const targetClassroomId = targetClassroom?.classroomId;
-    if (!targetClassroomId) return;
+  const handleClassroomChange = async ({ classroomId, reason }) => {
+    const targetClassroomId = String(classroomId || "").trim();
+    const cycleId = String(enrollmentStatus?.cycleId || enrollmentStatus?.cycle?.id || enrollment?.cycleId || "").trim();
+
+    if (!isObjectId(targetClassroomId)) {
+      setClassroomChangeError("No se pudo identificar el aula seleccionada. Recargue e intente nuevamente.");
+      return;
+    }
+
+    if (!isObjectId(cycleId)) {
+      setClassroomChangeError("No se encontró el ciclo activo del alumno. No es posible cambiar de aula.");
+      return;
+    }
+
+    setClassroomChangeError("");
     if (String(currentClassroomId || "") === String(targetClassroomId)) return;
 
-    const label = targetClassroom?.label || `${targetClassroom?.grade || ""}° - ${targetClassroom?.section || ""}`.trim() || "seleccionado";
-    const campus = targetClassroom?.campusCode || "-";
-    const accepted = window.confirm(`¿Desea trasladar al alumno al salón ${label} (Campus ${campus})?`);
-    if (!accepted) return;
-
-    await changeClassroomMutation.mutateAsync({ classroomId: targetClassroomId });
+    await changeClassroomMutation.mutateAsync({
+      classroomId: targetClassroomId,
+      cycleId,
+      reason: String(reason || "").trim() || undefined,
+    });
     setChangeClassroomOpen(false);
   };
 
@@ -278,8 +255,6 @@ export default function StudentDetailPage() {
     setIdentityFormError("");
     await updateIdentityMutation.mutateAsync(payload);
     setActiveEditor(null);
-    setIdentityFeedback("Identidad actualizada correctamente.");
-    window.setTimeout(() => setIdentityFeedback(""), 2500);
   };
 
   const handleSaveNotes = async (notes) => {
@@ -463,178 +438,51 @@ export default function StudentDetailPage() {
         errorMessage={updateNotesMutation.isError ? getErrorMessage(updateNotesMutation.error, "No se pudo guardar las notas") : ""}
       />
 
-      <BaseModal
+      <ConfirmEnrollmentModal
         open={confirmEnrollmentOpen}
         onClose={() => setConfirmEnrollmentOpen(false)}
-        title="Confirmar matrícula"
-        footer={
-          <div className="flex justify-end gap-2">
-            <SecondaryButton onClick={() => setConfirmEnrollmentOpen(false)} disabled={confirmEnrollmentMutation.isPending}>
-              Cancelar
-            </SecondaryButton>
-            <Button onClick={handleConfirmEnrollment} disabled={confirmEnrollmentMutation.isPending}>
-              Confirmar matrícula
-            </Button>
-          </div>
-        }
-      >
-        <div className="relative space-y-3 p-5">
-          <Input
-            label="Pensión mensual"
-            type="number"
-            min="0"
-            value={enrollmentForm.monthlyFee}
-            onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, monthlyFee: e.target.value }))}
-          />
-          <label className="block text-sm font-medium text-gray-700">Descuentos / exoneraciones</label>
-          <textarea
-            value={enrollmentForm.discountsDescription}
-            onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, discountsDescription: e.target.value }))}
-            className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2"
-          />
-          <label className="block text-sm font-medium text-gray-700">Observaciones</label>
-          <textarea
-            value={enrollmentForm.observations}
-            onChange={(e) => setEnrollmentForm((prev) => ({ ...prev, observations: e.target.value }))}
-            className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2"
-          />
-          {confirmEnrollmentMutation.isError && (
-            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(confirmEnrollmentMutation.error)}</p>
-          )}
-          <LoadingOverlay open={confirmEnrollmentMutation.isPending}>
-            <Spinner />
-            <p className="mt-3 text-sm">Confirmando matrícula...</p>
-          </LoadingOverlay>
-        </div>
-      </BaseModal>
+        form={enrollmentForm}
+        setForm={setEnrollmentForm}
+        onConfirm={handleConfirmEnrollment}
+        isPending={confirmEnrollmentMutation.isPending}
+        errorMessage={confirmEnrollmentMutation.isError ? getErrorMessage(confirmEnrollmentMutation.error) : ""}
+      />
 
-      <BaseModal
+      <TransferStudentModal
         open={transferOpen}
         onClose={() => setTransferOpen(false)}
-        title="Marcar como trasladado"
-        footer={
-          <div className="flex justify-end gap-2">
-            <SecondaryButton onClick={() => setTransferOpen(false)} disabled={transferMutation.isPending}>Cancelar</SecondaryButton>
-            <Button onClick={handleTransfer} disabled={transferMutation.isPending || !transferReason.trim()}>Confirmar</Button>
-          </div>
-        }
-      >
-        <div className="space-y-3 p-5 text-sm text-gray-700">
-          <label className="block text-sm font-medium text-gray-700">Motivo</label>
-          <textarea
-            value={transferReason}
-            onChange={(e) => setTransferReason(e.target.value)}
-            className="min-h-[110px] w-full rounded-lg border border-gray-300 px-3 py-2"
-          />
-          {transferMutation.isError && (
-            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(transferMutation.error)}</p>
-          )}
-        </div>
-      </BaseModal>
+        reason={transferReason}
+        setReason={setTransferReason}
+        onConfirm={handleTransfer}
+        isPending={transferMutation.isPending}
+        errorMessage={transferMutation.isError ? getErrorMessage(transferMutation.error) : ""}
+      />
 
-      <BaseModal
+      <ChangeClassroomModal
         open={changeClassroomOpen}
-        onClose={() => setChangeClassroomOpen(false)}
-        title="Cambiar aula"
-        footer={
-          <div className="flex justify-end gap-2">
-            <SecondaryButton onClick={() => setChangeClassroomOpen(false)} disabled={changeClassroomMutation.isPending}>
-              Cancelar
-            </SecondaryButton>
-          </div>
-        }
-      >
-        <div className="space-y-3 p-5 text-sm text-gray-700">
-          <p className="text-sm font-medium text-gray-700">Seleccione el nuevo salón</p>
-          {classroomOptionsQuery.isLoading ? (
-            <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">Cargando secciones…</p>
-          ) : null}
+        onClose={() => {
+          setClassroomChangeError("");
+          setChangeClassroomOpen(false);
+        }}
+        classrooms={classrooms}
+        currentClassroomId={currentClassroomId}
+        onSave={handleClassroomChange}
+        isLoading={classroomOptionsQuery.isLoading}
+        isError={classroomOptionsQuery.isError}
+        mutationPending={changeClassroomMutation.isPending}
+        mutationErrorMessage={classroomChangeError || (changeClassroomMutation.isError ? getErrorMessage(changeClassroomMutation.error, "No se pudo cambiar el aula") : "")}
+      />
 
-          {classroomOptionsQuery.isError ? (
-            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">No se pudieron cargar las secciones disponibles.</p>
-          ) : null}
-
-          {!classroomOptionsQuery.isLoading && !classroomOptionsQuery.isError ? (
-            <div className="grid gap-2">
-              {classrooms.map((classroom) => {
-                const classroomId = classroom?.classroomId;
-                const isCurrent = String(currentClassroomId || "") === String(classroomId || "");
-
-                return (
-                  <ClassroomOptionButton
-                    key={classroomId || classroom?.label}
-                    classroom={classroom}
-                    isCurrent={isCurrent}
-                    onSelect={handleClassroomChange}
-                  />
-                );
-              })}
-            </div>
-          ) : null}
-
-          {!classroomOptionsQuery.isLoading && !classroomOptionsQuery.isError && !classrooms.length ? (
-            <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">No existen secciones configuradas para este grado y nivel.</p>
-          ) : null}
-
-          {changeClassroomMutation.isError && (
-            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(changeClassroomMutation.error)}</p>
-          )}
-          <LoadingOverlay open={changeClassroomMutation.isPending}>
-            <Spinner />
-            <p className="mt-3 text-sm">Cambiando aula...</p>
-          </LoadingOverlay>
-        </div>
-      </BaseModal>
-
-      <BaseModal
+      <CreateChargeModal
         open={createChargeOpen}
         onClose={() => setCreateChargeOpen(false)}
-        title="Crear cargo"
-        footer={
-          <div className="flex justify-end gap-2">
-            <SecondaryButton onClick={() => setCreateChargeOpen(false)} disabled={createChargeMutation.isPending}>Cancelar</SecondaryButton>
-            <Button onClick={handleCreateCharge} disabled={createChargeMutation.isPending}>Crear cargo</Button>
-          </div>
-        }
-      >
-        <div className="space-y-3 p-5 text-sm text-gray-700">
-          <label className="block text-sm font-medium text-gray-700">Concepto</label>
-          <select
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-            value={chargeForm.billingConceptId}
-            onChange={(e) => setChargeForm((prev) => ({ ...prev, billingConceptId: e.target.value }))}
-          >
-            <option value="">Selecciona un concepto</option>
-            {billingConcepts.map((concept) => (
-              <option key={concept.id} value={concept.id}>
-                {concept.name || concept.code || concept.label || "Concepto"}
-              </option>
-            ))}
-          </select>
-          <Input
-            label="Monto"
-            type="number"
-            min="0"
-            value={chargeForm.amount}
-            onChange={(e) => setChargeForm((prev) => ({ ...prev, amount: e.target.value }))}
-          />
-          <Input
-            label="Fecha vencimiento"
-            type="date"
-            value={chargeForm.dueDate}
-            onChange={(e) => setChargeForm((prev) => ({ ...prev, dueDate: e.target.value }))}
-          />
-          <label className="block text-sm font-medium text-gray-700">Observación</label>
-          <textarea
-            value={chargeForm.observation}
-            onChange={(e) => setChargeForm((prev) => ({ ...prev, observation: e.target.value }))}
-            className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2"
-          />
-          {createChargeMutation.isError && (
-            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(createChargeMutation.error)}</p>
-          )}
-        </div>
-      </BaseModal>
+        chargeForm={chargeForm}
+        setChargeForm={setChargeForm}
+        billingConcepts={billingConcepts}
+        onCreate={handleCreateCharge}
+        isPending={createChargeMutation.isPending}
+        errorMessage={createChargeMutation.isError ? getErrorMessage(createChargeMutation.error) : ""}
+      />
     </div>
   );
 }

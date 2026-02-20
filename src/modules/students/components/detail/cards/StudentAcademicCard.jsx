@@ -1,7 +1,7 @@
 import React from "react";
-import Card from "../../../../components/ui/Card";
-import SecondaryButton from "../../../../shared/ui/SecondaryButton";
-import { formatEnrollmentStatus } from "../../../../shared/domain/formatters.js/enrollmentStatus";
+import Card from "../../../../../components/ui/Card";
+import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
+import { formatEnrollmentStatus } from "../../../../../shared/domain/formatters.js/enrollmentStatus";
 
 export default function StudentAcademicCard({ enrollmentStatus, status, canChangeClassroom, onChangeClassroom }) {
   return (

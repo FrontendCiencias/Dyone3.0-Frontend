@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import BaseModal from "../../../../shared/ui/BaseModal";
-import Button from "../../../../components/ui/Button";
-import SecondaryButton from "../../../../shared/ui/SecondaryButton";
+import BaseModal from "../../../../../shared/ui/BaseModal";
+import Button from "../../../../../components/ui/Button";
+import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
 
 export default function NotesEditModal({ open, onClose, value = "", onSave, saving = false, errorMessage = "" }) {
   const [notes, setNotes] = useState("");

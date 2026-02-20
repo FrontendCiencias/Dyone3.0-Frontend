@@ -1,6 +1,6 @@
 import React from "react";
-import BaseModal from "../../../../shared/ui/BaseModal";
-import SecondaryButton from "../../../../shared/ui/SecondaryButton";
+import BaseModal from "../../../../../shared/ui/BaseModal";
+import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
 
 function formatMoney(value) {
   const amount = Number(value || 0);
