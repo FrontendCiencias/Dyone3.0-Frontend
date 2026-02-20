@@ -106,7 +106,7 @@ export default function FamiliesPage() {
         <>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {families.map((family) => (
-              <FamilyCard key={family.id || family._id} family={family} onOpen={() => navigate(ROUTES.dashboardFamilyDetail(family.id || family._id))} />
+              <FamilyCard key={family.familyId || family._id} family={family} onOpen={() => navigate(ROUTES.dashboardFamilyDetail(family.familyId || family._id))} />
             ))}
           </div>
 

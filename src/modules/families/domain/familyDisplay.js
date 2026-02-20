@@ -3,9 +3,9 @@ export function getFamilyIdLabel(family) {
 }
 
 export function getTutors(familyDetail) {
-  const family = familyDetail?.family || familyDetail || {};
-  const primary = family?.primaryTutor || family?.primaryTutor_send;
-  const others = family?.otherTutors || family?.otherTutors_send || family?.tutors || [];
+  // const family = familyDetail?.family || familyDetail || {};
+  const primary = familyDetail?.primaryTutor || familyDetail?.primaryTutor_send;
+  const others = familyDetail?.otherTutors || familyDetail?.otherTutors_send || familyDetail?.tutors || [];
   return [primary, ...(Array.isArray(others) ? others : [])].filter(Boolean);
 }
 
@@ -15,7 +15,7 @@ export function getStudents(familyDetail) {
 }
 
 export function getPrimaryTutorName(family) {
-  const tutor = family?.primaryTutor || family?.primaryTutor_send || family?.tutors?.find?.((item) => item?.isPrimary);
+  const tutor = family?.primaryTutor || family?.tutors?.find?.((item) => item?.isPrimary);
   if (!tutor) return "Sin tutor principal";
   return [tutor?.lastNames, tutor?.names].filter(Boolean).join(", ") || tutor?.fullName || "Sin nombre";
 }

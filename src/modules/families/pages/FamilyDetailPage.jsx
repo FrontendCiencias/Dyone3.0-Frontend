@@ -14,7 +14,7 @@ import { useUpdateFamilyPrimaryTutorMutation } from "../hooks/useUpdateFamilyPri
 import { getFamilyIdLabel, getStudents, getTutors } from "../domain/familyDisplay";
 
 function tutorFullName(tutor) {
-  return [tutor?.lastNames, tutor?.names].filter(Boolean).join(", ") || "Sin nombre";
+  return [tutor?.tutorPerson?.lastNames, tutor?.tutorPerson?.names].filter(Boolean).join(", ") || "Sin nombre";
 }
 
 function getTutorId(tutor) {
@@ -35,16 +35,19 @@ export default function FamilyDetailPage() {
   const createStudentMutation = useCreateFamilyStudentMutation();
   const updatePrimaryTutorMutation = useUpdateFamilyPrimaryTutorMutation();
 
-  const familyData = familyQuery.data?.family || familyQuery.data || {};
+  const familyData = familyQuery.data || {};
   const tutors = useMemo(() => getTutors(familyQuery.data), [familyQuery.data]);
   const students = useMemo(() => getStudents(familyQuery.data), [familyQuery.data]);
+
+  console.log("[familyDetail][dbg] content: ", familyData)
 
   const linkedStudentIds = useMemo(
     () => students.map((student) => student?.id).filter(Boolean),
     [students],
   );
 
-  const primaryTutor = tutors.find((tutor) => tutor?.isPrimary) || tutors[0] || null;
+  const primaryTutor = familyData?.primaryTutor || familyData?.primaryTutor_send;
+  const otherTutors = familyData?.otherTutors || familyData?.otherTutors_send;
 
   const handleLinkStudent = async (studentId) => {
     await linkMutation.mutateAsync({ familyId, studentId });
@@ -78,18 +81,14 @@ export default function FamilyDetailPage() {
 
   return (
     <div className="space-y-4">
-      <Card className="border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-bold text-gray-900">Familia #{getFamilyIdLabel(familyData)}</h2>
-        <p className="text-sm text-gray-600">Resumen de tutores y alumnos vinculados.</p>
-      </Card>
 
       <Card className="border border-gray-200 shadow-sm">
         <h3 className="mb-2 text-lg font-semibold text-gray-900">Resumen</h3>
         <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2">
           <p><span className="font-medium">Family ID:</span> {getFamilyIdLabel(familyData)}</p>
           <p><span className="font-medium">Tutor principal:</span> {primaryTutor ? tutorFullName(primaryTutor) : "Sin tutor principal"}</p>
-          <p><span className="font-medium">DNI tutor:</span> {primaryTutor?.dni || "-"}</p>
-          <p><span className="font-medium">Teléfono:</span> {primaryTutor?.phone || "-"}</p>
+          <p><span className="font-medium">DNI tutor:</span> {primaryTutor?.tutorPerson?.dni || "?"}</p>
+          <p><span className="font-medium">Teléfono:</span> {primaryTutor?.tutorPerson?.phone || "?"}</p>
         </div>
       </Card>
 
@@ -110,8 +109,8 @@ export default function FamilyDetailPage() {
                     </SecondaryButton>
                   )}
                 </div>
-                <p>Relación: {tutor.relationship || "-"}</p>
-                <p>DNI: {tutor.dni || "-"} · Celular: {tutor.phone || "-"}</p>
+                <p>Relación: {tutor.relationship || "?"}</p>
+                <p>DNI: {tutor.tutorPerson?.dni || "?"} · Celular: {tutor.tutorPerson?.phone || "?"}</p>
               </div>
             );
           }) : <p className="text-gray-500">Sin tutores registrados.</p>}
@@ -122,8 +121,8 @@ export default function FamilyDetailPage() {
         <h3 className="mb-2 text-lg font-semibold text-gray-900">Hijos / alumnos vinculados</h3>
         <div className="space-y-2 text-sm">
           {students.length ? students.map((student) => (
-            <div key={student.id} className="rounded-md border border-gray-200 p-3">
-              {[student.lastNames, student.names].filter(Boolean).join(", ") || "Sin nombre"} · DNI: {student.dni || "-"}
+            <div key={student._id} className="rounded-md border border-gray-200 p-3">
+              {[student.personId?.lastNames, student.personId?.names].filter(Boolean).join(", ") || "Sin nombre"} · DNI: {student.personId?.dni || "-"}
             </div>
           )) : <p className="text-gray-500">Sin alumnos vinculados.</p>}
         </div>

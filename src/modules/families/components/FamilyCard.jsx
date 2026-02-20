@@ -9,9 +9,9 @@ export default function FamilyCard({ family, onOpen }) {
   const { copied, copy } = useClipboard();
   const familyId = getFamilyIdLabel(family);
   const studentsCount = Number(family?.studentsCount ?? family?.childrenCount ?? family?.students?.length ?? 0);
-  const tutorsCount = Number(family?.tutorsCount ?? family?.tutors?.length ?? family?.otherTutors?.length ?? 0) + (family?.primaryTutor || family?.primaryTutor_send ? 1 : 0);
+  const tutorsCount = Number(family?.tutorsCount || 0);
   const tutor = family?.primaryTutor || family?.primaryTutor_send || {};
-
+  // console.log("[Family][dbg] content: ", family)
   return (
     <Card className="border border-gray-200 shadow-sm">
       <div className="space-y-2">
@@ -30,7 +30,7 @@ export default function FamilyCard({ family, onOpen }) {
         <p className="text-sm font-semibold text-gray-900">Tutor principal: {getPrimaryTutorName(family)}</p>
         <p className="text-sm text-gray-600">DNI: {tutor?.dni || family?.dni || "-"} · Teléfono: {tutor?.phone || family?.phone || "-"}</p>
         <p className="text-sm text-gray-600">Hijos: {studentsCount} · Tutores: {Math.max(tutorsCount, 0)}</p>
-        <p className="text-sm text-gray-600">Campus: {family?.campusCode || family?.campusAlias || "-"}</p>
+        {/* <p className="text-sm text-gray-600">Campus: {family?.campusCode || family?.campusAlias || "-"}</p> */}
         <div className="pt-1">
           <SecondaryButton onClick={onOpen}>Abrir</SecondaryButton>
         </div>
