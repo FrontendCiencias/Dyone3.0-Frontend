@@ -9,6 +9,7 @@ import { useAuth } from "../../lib/auth";
 import { ROUTES } from "../../config/routes";
 import { useStudentSummaryQuery } from "../students/hooks/useStudentSummaryQuery";
 import { useFamilyDetailQuery } from "../families/hooks/useFamilyDetailQuery";
+import { getPrimaryTutorDisplayName } from "../families/domain/familyDisplay";
 
 const PAGE_META = {
   dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del día." },
@@ -90,8 +91,9 @@ export default function DashboardShell() {
 
   const pageMeta = useMemo(() => {
     if (pageKey === "familyDetail") {
+      const familyLabel = familyDetailQuery.isLoading ? "Familia..." : getPrimaryTutorDisplayName(familyDetailQuery.data);
       return {
-        title: `Familia: ${familyId || "Detalle"}`,
+        title: `Familia: ${familyLabel}`,
         description: PAGE_META.familyDetail.description,
       };
     }
@@ -106,14 +108,11 @@ export default function DashboardShell() {
       title: `Expediente: ${label}`,
       description: PAGE_META.studentDetail.description,
     };
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyId]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyDetailQuery.isLoading, familyDetailQuery.data]);
 
   const breadcrumbItems = useMemo(() => {
     if (pageKey === "familyDetail") {
-      const tutor = familyDetailQuery.data?.family?.primaryTutor || familyDetailQuery.data?.primaryTutor;
-      const label = tutor
-        ? [tutor?.lastNames, tutor?.names].filter(Boolean).join(", ")
-        : `ID ${familyId || "-"}`;
+      const label = familyDetailQuery.isLoading ? "Familia..." : getPrimaryTutorDisplayName(familyDetailQuery.data);
 
       return [
         { label: "Inicio", to: ROUTES.dashboard },
@@ -149,12 +148,12 @@ export default function DashboardShell() {
       { label: "Alumnos", to: ROUTES.dashboardStudents },
       { label },
     ];
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyDetailQuery.data, familyId]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyDetailQuery.isLoading, familyDetailQuery.data]);
 
   const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
       <Sidebar
         navItems={navItems}
         activeItemTo={activeItemTo}
@@ -174,7 +173,7 @@ export default function DashboardShell() {
       />
 
       <main
-        className="flex flex-1 min-h-0 flex-col overflow-hidden transition-[padding-left] duration-300 ease-out"
+        className="flex h-full min-h-0 flex-1 flex-col overflow-hidden transition-[padding-left] duration-300 ease-out"
         style={{ paddingLeft: leftPad }}
       >
         <div
@@ -188,8 +187,8 @@ export default function DashboardShell() {
             breadcrumbItems={breadcrumbItems}
           />
 
-          <section className="flex-1 min-h-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-            <div className="h-full overflow-auto p-4 md:p-5">
+          <section className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="h-full min-h-0 overflow-y-auto p-4 md:p-5">
               <Outlet />
             </div>
           </section>
