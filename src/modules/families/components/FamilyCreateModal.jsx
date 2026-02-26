@@ -5,11 +5,10 @@ import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
 import Spinner from "../../../shared/ui/Spinner";
-import StatusFeedback from "../../../shared/ui/StatusFeedback";
+import ModalFeedbackOverlay from "../../../shared/ui/ModalFeedbackOverlay";
 import { useCreateFamilyMutation } from "../hooks/useCreateFamilyMutation";
 import { useCreateTutorMutation } from "../hooks/useCreateTutorMutation";
 
-const AUTO_CLOSE_MS = 2000;
 const initialTutor = { names: "", lastNames: "", dni: "", phone: "", relationship: "PADRE", isPrimary: true };
 
 function getErrorMessage(error) {
@@ -31,7 +30,7 @@ export default function FamilyCreateModal({ open, onClose, onCreated }) {
   const createFamilyMutation = useCreateFamilyMutation();
   const createTutorMutation = useCreateTutorMutation();
 
-  const overlayOpen = status === "submitting" || status === "success" || status === "error";
+  const overlayOpen = status === "submitting";
 
   useEffect(() => {
     if (!open) return;
@@ -42,13 +41,25 @@ export default function FamilyCreateModal({ open, onClose, onCreated }) {
     createTutorMutation.reset();
   }, [open]);
 
-  useEffect(() => {
-    if (!open || (status !== "success" && status !== "error")) return undefined;
-    const timer = window.setTimeout(() => onClose?.(), AUTO_CLOSE_MS);
-    return () => window.clearTimeout(timer);
-  }, [status, open, onClose]);
-
   const canSubmit = useMemo(() => status === "idle", [status]);
+  const feedbackOpen = status === "success" || status === "error";
+
+  const handleFeedbackClose = () => {
+    if (status === "success") {
+      onClose?.();
+      return;
+    }
+    setStatus("idle");
+    setServerError("");
+  };
+
+  const handleModalClose = () => {
+    if (feedbackOpen) {
+      handleFeedbackClose();
+      return;
+    }
+    onClose?.();
+  };
 
   const handleSubmit = async () => {
     setStatus("submitting");
@@ -84,13 +95,13 @@ export default function FamilyCreateModal({ open, onClose, onCreated }) {
   return (
     <BaseModal
       open={open}
-      onClose={status === "submitting" ? undefined : onClose}
+      onClose={status === "submitting" ? undefined : handleModalClose}
       title="Nueva familia"
       maxWidthClass="max-w-xl"
       closeOnBackdrop={status !== "submitting"}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
+          <SecondaryButton onClick={handleModalClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
           <Button onClick={handleSubmit} disabled={!canSubmit}>Crear familia</Button>
         </div>
       }
@@ -112,15 +123,16 @@ export default function FamilyCreateModal({ open, onClose, onCreated }) {
               <Spinner />
               <p className="mt-3 text-sm font-medium text-gray-700">Creando familia...</p>
             </>
-          ) : (
-            <StatusFeedback
-              status={status}
-              successText="Familia creada correctamente"
-              errorText="No se pudo crear la familia"
-              errorDetail={serverError}
-            />
-          )}
+          ) : null}
         </LoadingOverlay>
+
+        <ModalFeedbackOverlay
+          status={status}
+          successText="Familia creada correctamente"
+          errorText="No se pudo crear la familia"
+          errorDetail={serverError}
+          onClose={handleFeedbackClose}
+        />
       </div>
     </BaseModal>
   );

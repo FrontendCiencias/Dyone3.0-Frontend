@@ -23,7 +23,7 @@ export default function StatusFeedback({ status, successText, errorText, errorDe
       <>
         <ErrorIcon />
         <p className="mt-3 text-sm font-semibold text-red-700">{errorText || "No se pudo completar"}</p>
-        {errorDetail ? <p className="mt-1 max-w-xs text-xs text-red-600">{errorDetail}</p> : null}
+        {errorDetail ? <p className="mt-1 text-xs text-red-600 whitespace-pre-wrap break-words">{errorDetail}</p> : null}
       </>
     );
   }

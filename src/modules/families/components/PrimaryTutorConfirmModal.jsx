@@ -4,9 +4,7 @@ import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
 import Spinner from "../../../shared/ui/Spinner";
-import StatusFeedback from "../../../shared/ui/StatusFeedback";
-
-const AUTO_CLOSE_MS = 2000;
+import ModalFeedbackOverlay from "../../../shared/ui/ModalFeedbackOverlay";
 
 function getErrorMessage(error) {
   if (error?.response?.status === 404) {
@@ -29,13 +27,6 @@ export default function PrimaryTutorConfirmModal({ open, onClose, tutorName, onC
     setServerError("");
   }, [open]);
 
-  useEffect(() => {
-    if (!open || (status !== "success" && status !== "error")) return undefined;
-
-    const timer = window.setTimeout(() => onClose?.(), AUTO_CLOSE_MS);
-    return () => window.clearTimeout(timer);
-  }, [status, open, onClose]);
-
   const handleConfirm = async () => {
     setStatus("submitting");
     setServerError("");
@@ -49,17 +40,35 @@ export default function PrimaryTutorConfirmModal({ open, onClose, tutorName, onC
     }
   };
 
-  const overlayOpen = status === "submitting" || status === "success" || status === "error";
+  const overlayOpen = status === "submitting";
+  const feedbackOpen = status === "success" || status === "error";
+
+  const handleFeedbackClose = () => {
+    if (status === "success") {
+      onClose?.();
+      return;
+    }
+    setStatus("idle");
+    setServerError("");
+  };
+
+  const handleModalClose = () => {
+    if (feedbackOpen) {
+      handleFeedbackClose();
+      return;
+    }
+    onClose?.();
+  };
 
   return (
     <BaseModal
       open={open}
-      onClose={status === "submitting" ? undefined : onClose}
+      onClose={status === "submitting" ? undefined : handleModalClose}
       title="Confirmar tutor principal"
       closeOnBackdrop={status !== "submitting"}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
+          <SecondaryButton onClick={handleModalClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
           <Button onClick={handleConfirm} disabled={status !== "idle"}>Confirmar</Button>
         </div>
       }
@@ -73,15 +82,16 @@ export default function PrimaryTutorConfirmModal({ open, onClose, tutorName, onC
               <Spinner />
               <p className="mt-3 text-sm font-medium text-gray-700">Actualizando tutor principal...</p>
             </>
-          ) : (
-            <StatusFeedback
-              status={status}
-              successText="Tutor principal actualizado"
-              errorText="No se pudo actualizar el tutor principal"
-              errorDetail={serverError}
-            />
-          )}
+          ) : null}
         </LoadingOverlay>
+
+        <ModalFeedbackOverlay
+          status={status}
+          successText="Tutor principal actualizado"
+          errorText="No se pudo actualizar el tutor principal"
+          errorDetail={serverError}
+          onClose={handleFeedbackClose}
+        />
       </div>
     </BaseModal>
   );

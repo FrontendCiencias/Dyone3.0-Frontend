@@ -4,7 +4,6 @@ import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import { ROUTES } from "../../../config/routes";
-import { normalizeSearchText } from "../../students/domain/searchText";
 import FamilyCard from "../components/FamilyCard";
 import FamilyCreateModal from "../components/FamilyCreateModal";
 import { useFamiliesListQuery } from "../hooks/useFamiliesListQuery";
@@ -19,26 +18,6 @@ function getErrorMessage(error) {
   if (Array.isArray(msg)) return msg.join(". ");
   if (typeof msg === "string") return msg;
   return "No se pudo cargar las familias";
-}
-
-function matchesFamilyQuery(family, query) {
-  if (!query) return true;
-
-  const tutor = family?.primaryTutor || family?.primaryTutor_send || {};
-  const fields = [
-    family?.id,
-    family?._id,
-    tutor?.names,
-    tutor?.lastNames,
-    tutor?.dni,
-    tutor?.phone,
-    family?.dni,
-    family?.phone,
-  ]
-    .filter(Boolean)
-    .map((value) => normalizeSearchText(value));
-
-  return fields.some((field) => field.includes(query));
 }
 
 function FamilyCardSkeleton() {
@@ -63,12 +42,10 @@ export default function FamiliesPage() {
   const familiesSearchQuery = useFamiliesSearchInfiniteQuery({ q: normalizedSearch, enabled: useSearchResults });
   const familiesQuery = useSearchResults ? familiesSearchQuery : familiesListQuery;
 
-  const normalizedQuery = normalizeSearchText(debouncedSearch);
   const families = useMemo(() => {
     const pages = Array.isArray(familiesQuery.data?.pages) ? familiesQuery.data.pages : [];
-    const rows = pages.flatMap((page) => (Array.isArray(page?.items) ? page.items : []));
-    return rows.filter((family) => matchesFamilyQuery(family, normalizedQuery));
-  }, [familiesQuery.data, normalizedQuery]);
+    return pages.flatMap((page) => (Array.isArray(page?.items) ? page.items : []));
+  }, [familiesQuery.data]);
 
   // console.log("[families][dbg] content: ",families)
   // console.log("[familiesQuery][dbg] content: ",familiesQuery)

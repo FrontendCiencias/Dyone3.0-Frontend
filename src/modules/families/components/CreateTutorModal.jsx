@@ -5,9 +5,7 @@ import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
 import Spinner from "../../../shared/ui/Spinner";
-import StatusFeedback from "../../../shared/ui/StatusFeedback";
-
-const AUTO_CLOSE_MS = 2000;
+import ModalFeedbackOverlay from "../../../shared/ui/ModalFeedbackOverlay";
 const initialTutorForm = {
   names: "",
   lastNames: "",
@@ -37,12 +35,6 @@ export default function CreateTutorModal({ open, onClose, onCreate, endpointRead
     setServerError("");
   }, [open]);
 
-  useEffect(() => {
-    if (!open || (status !== "success" && status !== "error")) return undefined;
-    const timer = window.setTimeout(() => onClose?.(), AUTO_CLOSE_MS);
-    return () => window.clearTimeout(timer);
-  }, [status, open, onClose]);
-
   const canSubmit = useMemo(() => {
     if (!endpointReady) return false;
     return form.names.trim() && form.lastNames.trim() && form.dni.trim() && status === "idle";
@@ -66,17 +58,35 @@ export default function CreateTutorModal({ open, onClose, onCreate, endpointRead
     }
   };
 
-  const overlayOpen = status === "submitting" || status === "success" || status === "error";
+  const overlayOpen = status === "submitting";
+  const feedbackOpen = status === "success" || status === "error";
+
+  const handleFeedbackClose = () => {
+    if (status === "success") {
+      onClose?.();
+      return;
+    }
+    setStatus("idle");
+    setServerError("");
+  };
+
+  const handleModalClose = () => {
+    if (feedbackOpen) {
+      handleFeedbackClose();
+      return;
+    }
+    onClose?.();
+  };
 
   return (
     <BaseModal
       open={open}
-      onClose={status === "submitting" ? undefined : onClose}
+      onClose={status === "submitting" ? undefined : handleModalClose}
       title="Crear tutor"
       closeOnBackdrop={status !== "submitting"}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
+          <SecondaryButton onClick={handleModalClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
           <Button onClick={handleSubmit} disabled={!canSubmit}>Crear tutor</Button>
         </div>
       }
@@ -98,15 +108,16 @@ export default function CreateTutorModal({ open, onClose, onCreate, endpointRead
               <Spinner />
               <p className="mt-3 text-sm font-medium text-gray-700">Creando tutor...</p>
             </>
-          ) : (
-            <StatusFeedback
-              status={status}
-              successText="Tutor creado correctamente"
-              errorText="No se pudo crear el tutor"
-              errorDetail={serverError}
-            />
-          )}
+          ) : null}
         </LoadingOverlay>
+
+        <ModalFeedbackOverlay
+          status={status}
+          successText="Tutor creado correctamente"
+          errorText="No se pudo crear el tutor"
+          errorDetail={serverError}
+          onClose={handleFeedbackClose}
+        />
       </div>
     </BaseModal>
   );
