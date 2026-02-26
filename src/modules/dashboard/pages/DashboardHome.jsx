@@ -4,10 +4,10 @@ import SecretaryHome from "../../overwiew/secretary/pages/SecretaryHome";
 
 function roleGroup(role) {
   const r = String(role || "").toUpperCase();
-  if (r.startsWith("SECRETARY")) return "SECRETARY";
-  if (r.startsWith("ADMIN")) return "ADMIN";
-  if (r.startsWith("DIRECTOR")) return "DIRECTOR";
-  if (r.startsWith("PROMOTER")) return "PROMOTER";
+  if (["SECRETARY", "SECRETARY_VIEWER", "AUXILIAR"].includes(r)) return "SECRETARY";
+  if (r === "ADMIN") return "ADMIN";
+  if (r === "DIRECTOR") return "DIRECTOR";
+  if (r === "PROMOTER") return "PROMOTER";
   return "DEFAULT";
 }
 

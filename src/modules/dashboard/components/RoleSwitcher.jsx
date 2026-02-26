@@ -1,26 +1,20 @@
 // src/modules/dashboard/components/RoleSwitcher.jsx
 import React from "react";
 import { ChevronDown } from "lucide-react";
-import { getRoleTheme } from "../config/roleTheme";
 import Button from "../../../components/ui/Button";
+import { formatAccountLabel } from "../utils/accounts";
+import { getThemeByCampusCode } from "../../../config/theme";
 
-const roleLabel = (role) => {
-  const r = String(role || "").toUpperCase();
-  if (r.startsWith("SECRETARY_CIMAS")) return "Secretaría - Cimas";
-  if (r.startsWith("SECRETARY_CIENCIAS_APLICADAS")) return "Secretaría - Ciencias Aplicadas";
-  if (r.startsWith("SECRETARY_CIENCIAS")) return "Secretaría - Ciencias";
-  if (r.startsWith("DIRECTOR")) return "Director";
-  if (r.startsWith("PROMOTER")) return "Promotor";
-  if (r.startsWith("ADMIN")) return "Admin";
-  return "Usuario";
-};
+function accountKey(option) {
+  return `${option.role}:${option.campus}`;
+}
 
-export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
+export default function RoleSwitcher({ accountOptions = [], activeAccount, onChange }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef(null);
 
-  const safeRoles = Array.isArray(roles) ? roles : [];
-  const current = activeRole || safeRoles[0] || "";
+  const safeOptions = Array.isArray(accountOptions) ? accountOptions : [];
+  const current = activeAccount || safeOptions[0] || { role: "", campus: "CIENCIAS" };
 
   React.useEffect(() => {
     const onClickOutside = (e) => {
@@ -36,9 +30,9 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
     };
   }, []);
 
-  const theme = getRoleTheme(current);
+  const currentTheme = getThemeByCampusCode(current.campus);
 
-  const canSwitch = safeRoles.length > 1;
+  const canSwitch = safeOptions.length > 1;
 
   return (
     <div className="relative" ref={ref}>
@@ -50,14 +44,14 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
         className={`border border-gray-200 !bg-white !text-gray-800 ${canSwitch ? "hover:bg-gray-50" : "cursor-default opacity-90"}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        title={roleLabel(current)}
+        title={formatAccountLabel(current)}
       >
         <span
           className="w-2.5 h-2.5 rounded-full"
-          style={{ backgroundColor: theme.main }}
+          style={{ backgroundColor: currentTheme.main }}
         />
-        <span className="hidden sm:block max-w-[180px] truncate text-gray-800">
-          {roleLabel(current)}
+        <span className="hidden sm:block max-w-[220px] truncate text-gray-800">
+          {formatAccountLabel(current)}
         </span>
         {canSwitch && <ChevronDown className="w-4 h-4 text-gray-400" />}
       </Button>
@@ -65,7 +59,7 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
       {open && (
         <div
           className="
-            absolute right-0 mt-2 w-72
+            absolute right-0 mt-2 w-80
             rounded-2xl overflow-hidden
             bg-white shadow-xl
             border border-gray-100
@@ -75,27 +69,27 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
           <div
             className="h-1 w-full"
             style={{
-              backgroundImage: `linear-gradient(to right, ${theme.main}, ${theme.dark})`,
+              backgroundImage: `linear-gradient(to right, ${currentTheme.main}, ${currentTheme.dark})`,
             }}
           />
 
           <div className="px-3 py-2">
             <div className="text-xs font-semibold text-gray-500 mb-2">
-              Cambiar rol
+              Cambiar subcuenta
             </div>
 
             <div className="space-y-1">
-              {safeRoles.map((r) => {
-                const isActive = r === current;
-                const t = getRoleTheme(r);
+              {safeOptions.map((opt) => {
+                const isActive = opt.role === current.role && opt.campus === current.campus;
+                const theme = getThemeByCampusCode(opt.campus);
 
                 return (
                   <Button
-                    key={r}
+                    key={accountKey(opt)}
                     type="button"
                     onClick={() => {
                       setOpen(false);
-                      if (!isActive) onChange?.(r);
+                      if (!isActive) onChange?.(opt);
                     }}
                     className={`
                       w-full flex items-center justify-between
@@ -109,9 +103,9 @@ export default function RoleSwitcher({ roles = [], activeRole, onChange }) {
                     <span className="flex items-center gap-2 min-w-0">
                       <span
                         className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: t.main }}
+                        style={{ backgroundColor: theme.main }}
                       />
-                      <span className="truncate text-gray-800">{roleLabel(r)}</span>
+                      <span className="truncate text-gray-800">{formatAccountLabel(opt)}</span>
                     </span>
 
                     {isActive && (

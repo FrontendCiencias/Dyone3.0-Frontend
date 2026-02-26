@@ -30,12 +30,13 @@ export function useLoginMutation({ onSuccessNavigate } = {}) {
       });
 
       const roles = Array.isArray(meData?.roles) ? meData.roles : [];
+      const scope = Array.isArray(meData?.campusScope) ? meData.campusScope : meData?.user?.campusScope;
 
       // 3) Actualiza state + storage inmediatamente (sin refresh)
       setSession({
         user: meData?.user || null,
         roles,
-        activeRole: roles[0] || null,
+        campusScope: scope,
       });
 
       // 4) Deja cache consistente

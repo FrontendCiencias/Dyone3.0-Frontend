@@ -3,6 +3,8 @@ const TOKEN_KEY = "token";
 const ROLES_KEY = "roles";
 const CURRENT_ROLE_KEY = "activeRole";
 const USER_KEY = "user";
+const CAMPUS_SCOPE_KEY = "campusScope";
+const ACTIVE_CAMPUS_KEY = "activeCampus";
 
 export function getToken() {
   const t = localStorage.getItem(TOKEN_KEY);
@@ -78,9 +80,48 @@ export function clearActiveRole() {
   localStorage.removeItem(CURRENT_ROLE_KEY);
 }
 
+
+export function getCampusScope() {
+  try {
+    const raw = localStorage.getItem(CAMPUS_SCOPE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setCampusScope(campusScope) {
+  const safe = Array.isArray(campusScope) ? campusScope : [];
+  localStorage.setItem(CAMPUS_SCOPE_KEY, JSON.stringify(safe));
+}
+
+export function clearCampusScope() {
+  localStorage.removeItem(CAMPUS_SCOPE_KEY);
+}
+
+export function getActiveCampus() {
+  const c = localStorage.getItem(ACTIVE_CAMPUS_KEY);
+  return c && c.trim() ? c : null;
+}
+
+export function setActiveCampus(campus) {
+  if (!campus) {
+    localStorage.removeItem(ACTIVE_CAMPUS_KEY);
+    return;
+  }
+  localStorage.setItem(ACTIVE_CAMPUS_KEY, campus);
+}
+
+export function clearActiveCampus() {
+  localStorage.removeItem(ACTIVE_CAMPUS_KEY);
+}
+
 export function clearSession() {
   clearToken();
   clearUserRoles();
   clearActiveRole();
   clearUser();
+  clearCampusScope();
+  clearActiveCampus();
 }

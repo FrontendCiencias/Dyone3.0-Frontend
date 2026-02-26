@@ -21,16 +21,6 @@ function getErrorMessage(error) {
   return "Ocurrió un error inesperado.";
 }
 
-function resolveCampusAlias(activeRole) {
-  const role = String(activeRole || "").toUpperCase();
-
-  if (role.includes("CIMAS")) return "CIMAS";
-  if (role.includes("CIENCIAS_APLICADAS") || role.includes("CIENCIAS_PRIM")) return "CIENCIAS_APLICADAS";
-  if (role.includes("CIENCIAS")) return "CIENCIAS";
-
-  return null;
-}
-
 function isGlobalRole(activeRole) {
   const role = String(activeRole || "").toUpperCase();
   return role.startsWith("ADMIN") || role.startsWith("PROMOTER");
@@ -108,7 +98,7 @@ function pickNumericValue(source, candidates) {
 }
 
 export default function StudentsPage() {
-  const { activeRole } = useAuth();
+  const { activeRole, activeCampus } = useAuth();
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -122,7 +112,7 @@ export default function StudentsPage() {
 
   const secretaryMode = isSecretaryRole(activeRole);
   const globalMode = isGlobalRole(activeRole);
-  const activeCampusAlias = resolveCampusAlias(activeRole);
+  const activeCampusAlias = activeCampus === "ALL" ? null : activeCampus;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

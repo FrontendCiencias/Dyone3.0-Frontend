@@ -12,24 +12,24 @@ export const SIDEBAR_WIDTHS = {
   expanded: SIDEBAR_EXPANDED,
 };
 
-function getBrandByRole(role) {
-  const r = String(role || "").toUpperCase();
-  if (r.includes("CIMAS")) return { short: "CI", name: "CIMAS", subtitle: "Colegio" };
-  if (r.includes("CIENCIAS_APLICADAS")) return { short: "CA", name: "Ciencias Aplicadas", subtitle: "Plataforma" };
-  if (r.includes("CIENCIAS")) return { short: "C++", name: "Ciencias", subtitle: "Plataforma" };
-  if (r.startsWith("ADMIN")) return { short: "DY", name: "Dyone", subtitle: "Administración" };
+function getBrandByCampus(campus) {
+  const c = String(campus || "").toUpperCase();
+  if (c === "CIMAS") return { short: "CI", name: "CIMAS", subtitle: "Colegio" };
+  if (c === "CIENCIAS_APLICADAS") return { short: "CA", name: "Ciencias Aplicadas", subtitle: "Plataforma" };
+  if (c === "CIENCIAS") return { short: "C++", name: "Ciencias", subtitle: "Plataforma" };
+  if (c === "ALL") return { short: "DY", name: "Dyone", subtitle: "Administración" };
   return { short: "DY", name: "Dyone", subtitle: "Plataforma" };
 }
 
 export default function Sidebar({
   navItems = [],
   activeItemTo,
-  activeRole,
+  activeCampus,
   onLogout,
   onExpandChange,
 }) {
-  const theme = getRoleTheme(activeRole);
-  const brand = getBrandByRole(activeRole);
+  const theme = getRoleTheme(activeCampus);
+  const brand = getBrandByCampus(activeCampus);
   const [logoutHover, setLogoutHover] = React.useState(false);
 
 

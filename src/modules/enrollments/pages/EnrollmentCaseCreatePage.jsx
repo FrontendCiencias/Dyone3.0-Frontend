@@ -21,14 +21,6 @@ import {
   validateCase,
 } from "../domain/enrollmentCaseValidation";
 
-function roleCampus(role) {
-  const value = String(role || "").toUpperCase();
-  if (value.includes("CIENCIAS_APLICADAS") || value.includes("CIENCIAS_PRIM")) return "CIENCIAS_APLICADAS";
-  if (value.includes("CIENCIAS")) return "CIENCIAS";
-  if (value.includes("CIMAS")) return "CIMAS";
-  return "";
-}
-
 function isPendingBackendError(error) {
   const status = error?.response?.status;
   return status === 404 || status === 501;
@@ -55,12 +47,12 @@ function emptyStudentAgreement(student) {
 
 export default function EnrollmentCaseCreatePage() {
   const navigate = useNavigate();
-  const { activeRole } = useAuth();
+  const { activeCampus } = useAuth();
   const [caseId, setCaseId] = useState(null);
   const [familyQuery, setFamilyQuery] = useState("");
   const [selectedFamily, setSelectedFamily] = useState(null);
   const [cycleId, setCycleId] = useState("");
-  const [campusCode, setCampusCode] = useState(roleCampus(activeRole));
+  const [campusCode, setCampusCode] = useState(activeCampus === "ALL" ? "" : activeCampus);
   const [students, setStudents] = useState([]);
   const [capacityByStudentId, setCapacityByStudentId] = useState({});
   const [studentModalOpen, setStudentModalOpen] = useState(false);
