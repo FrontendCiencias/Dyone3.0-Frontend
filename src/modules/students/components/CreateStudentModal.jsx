@@ -5,31 +5,14 @@ import BaseModal from "../../../shared/ui/BaseModal";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
 import Spinner from "../../../shared/ui/Spinner";
+import ModalFeedbackOverlay from "../../../shared/ui/ModalFeedbackOverlay";
 import { useCreateStudentMutation } from "../hooks/useCreateStudentMutation";
-
-const AUTO_CLOSE_MS = 2000;
 
 function getErrorMessage(error) {
   const msg = error?.response?.data?.message;
   if (Array.isArray(msg)) return msg.join(". ");
   if (typeof msg === "string") return msg;
   return "No se pudo crear el alumno";
-}
-
-function SuccessIcon() {
-  return (
-    <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-600">
-      ✓
-    </span>
-  );
-}
-
-function ErrorIcon() {
-  return (
-    <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl text-red-600">
-      ✕
-    </span>
-  );
 }
 
 const initialValues = {
@@ -46,7 +29,8 @@ export default function CreateStudentModal({ open, onClose }) {
   const [status, setStatus] = useState("idle");
   const [serverError, setServerError] = useState("");
 
-  const overlayOpen = status === "submitting" || status === "success" || status === "error";
+  const overlayOpen = status === "submitting";
+  const feedbackOpen = status === "success" || status === "error";
 
   useEffect(() => {
     if (!open) return;
@@ -56,16 +40,6 @@ export default function CreateStudentModal({ open, onClose }) {
     setServerError("");
     resetMutation();
   }, [open, resetMutation]);
-
-  useEffect(() => {
-    if (!open || (status !== "success" && status !== "error")) return undefined;
-
-    const timer = window.setTimeout(() => {
-      onClose?.();
-    }, AUTO_CLOSE_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [status, open, onClose]);
 
   const canSubmit = useMemo(
     () => values.names.trim() && values.lastNames.trim() && status === "idle",
@@ -114,16 +88,33 @@ export default function CreateStudentModal({ open, onClose }) {
     }
   };
 
+  const handleFeedbackClose = () => {
+    if (status === "success") {
+      onClose?.();
+      return;
+    }
+    setStatus("idle");
+    setServerError("");
+  };
+
+  const handleModalClose = () => {
+    if (feedbackOpen) {
+      handleFeedbackClose();
+      return;
+    }
+    onClose?.();
+  };
+
   return (
     <BaseModal
       open={open}
-      onClose={status === "submitting" ? undefined : onClose}
+      onClose={status === "submitting" ? undefined : handleModalClose}
       title="Nuevo alumno"
       maxWidthClass="max-w-xl"
       closeOnBackdrop={status !== "submitting"}
       footer={
         <div className="flex items-center justify-between gap-3">
-          <SecondaryButton onClick={onClose} disabled={status === "submitting"}>
+          <SecondaryButton onClick={handleModalClose} disabled={status === "submitting"}>
             Cancelar
           </SecondaryButton>
           <Button type="submit" form="create-student-form" disabled={!canSubmit}>
@@ -152,19 +143,16 @@ export default function CreateStudentModal({ open, onClose }) {
               <Spinner />
               <p className="mt-3 text-sm font-medium text-gray-700">Procesando...</p>
             </>
-          ) : status === "success" ? (
-            <>
-              <SuccessIcon />
-              <p className="mt-3 text-sm font-semibold text-emerald-700">Alumno creado correctamente</p>
-            </>
-          ) : (
-            <>
-              <ErrorIcon />
-              <p className="mt-3 text-sm font-semibold text-red-700">No se pudo crear el alumno</p>
-              {serverError ? <p className="mt-1 max-w-xs text-xs text-red-600">{serverError}</p> : null}
-            </>
-          )}
+          ) : null}
         </LoadingOverlay>
+
+        <ModalFeedbackOverlay
+          status={status}
+          successText="Alumno creado correctamente"
+          errorText="No se pudo crear el alumno"
+          errorDetail={serverError}
+          onClose={handleFeedbackClose}
+        />
       </div>
     </BaseModal>
   );

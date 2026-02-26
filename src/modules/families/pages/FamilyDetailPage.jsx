@@ -33,13 +33,6 @@ function getStudentId(student) {
   return student?.id || student?._id || student?.studentId || null;
 }
 
-function getErrorMessage(error, fallback) {
-  const msg = error?.response?.data?.message || error?.message;
-  if (Array.isArray(msg)) return msg.join(". ");
-  if (typeof msg === "string") return msg;
-  return fallback;
-}
-
 export default function FamilyDetailPage() {
   const { familyId } = useParams();
   const [linkOpen, setLinkOpen] = useState(false);
@@ -52,10 +45,6 @@ export default function FamilyDetailPage() {
   const [deleteTutorModalOpen, setDeleteTutorModalOpen] = useState(false);
   const [unlinkStudentModalOpen, setUnlinkStudentModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-
-  const [editTutorError, setEditTutorError] = useState("");
-  const [deleteTutorError, setDeleteTutorError] = useState("");
-  const [unlinkStudentError, setUnlinkStudentError] = useState("");
 
   const familyQuery = useFamilyDetailQuery(familyId);
   const linkMutation = useLinkStudentMutation();
@@ -76,7 +65,9 @@ export default function FamilyDetailPage() {
     [students],
   );
 
-  const handleLinkStudent = async (studentId) => {
+  const handleLinkStudent = async (selection) => {
+    const studentId = typeof selection === "string" ? selection : selection?.studentId;
+    if (!studentId) throw new Error("No se pudo identificar el alumno seleccionado");
     await linkMutation.mutateAsync({ familyId, studentId });
   };
 
@@ -106,27 +97,17 @@ export default function FamilyDetailPage() {
 
   const openEditTutorModal = (tutor) => {
     setSelectedTutor(tutor);
-    setEditTutorError("");
     setEditTutorModalOpen(true);
   };
 
   const handleEditTutor = async (payload) => {
     const tutorId = getTutorId(selectedTutor);
     if (!tutorId) return;
-
-    setEditTutorError("");
-    try {
-      await updateTutorMutation.mutateAsync({ tutorId, familyId, ...payload });
-      setEditTutorModalOpen(false);
-      setSelectedTutor(null);
-    } catch (error) {
-      setEditTutorError(getErrorMessage(error, "No se pudo editar el tutor"));
-    }
+    await updateTutorMutation.mutateAsync({ tutorId, familyId, ...payload });
   };
 
   const openDeleteTutorModal = (tutor) => {
     setSelectedTutor(tutor);
-    setDeleteTutorError("");
     setDeleteTutorModalOpen(true);
   };
 
@@ -134,19 +115,11 @@ export default function FamilyDetailPage() {
     const tutorId = getTutorId(selectedTutor);
     if (!tutorId) return;
 
-    setDeleteTutorError("");
-    try {
-      await deleteTutorMutation.mutateAsync({ tutorId, familyId });
-      setDeleteTutorModalOpen(false);
-      setSelectedTutor(null);
-    } catch (error) {
-      setDeleteTutorError(getErrorMessage(error, "No se pudo eliminar el tutor"));
-    }
+    await deleteTutorMutation.mutateAsync({ tutorId, familyId });
   };
 
   const openUnlinkStudentModal = (student) => {
     setSelectedStudent(student);
-    setUnlinkStudentError("");
     setUnlinkStudentModalOpen(true);
   };
 
@@ -154,14 +127,7 @@ export default function FamilyDetailPage() {
     const studentId = getStudentId(selectedStudent);
     if (!studentId) return;
 
-    setUnlinkStudentError("");
-    try {
-      await unlinkStudentMutation.mutateAsync({ familyId, studentId });
-      setUnlinkStudentModalOpen(false);
-      setSelectedStudent(null);
-    } catch (error) {
-      setUnlinkStudentError(getErrorMessage(error, "No se pudo desvincular el estudiante"));
-    }
+    await unlinkStudentMutation.mutateAsync({ familyId, studentId });
   };
 
   if (familyQuery.isLoading) return <Card className="border border-gray-200">Cargando familia...</Card>;
@@ -223,26 +189,32 @@ export default function FamilyDetailPage() {
       <EditTutorModal
         open={editTutorModalOpen}
         tutor={selectedTutor}
-        onClose={() => setEditTutorModalOpen(false)}
+        onClose={() => {
+          setEditTutorModalOpen(false);
+          setSelectedTutor(null);
+        }}
         onConfirm={handleEditTutor}
         isPending={updateTutorMutation.isPending}
-        errorMessage={editTutorError}
       />
       <DeleteTutorConfirmModal
         open={deleteTutorModalOpen}
         tutor={selectedTutor}
-        onClose={() => setDeleteTutorModalOpen(false)}
+        onClose={() => {
+          setDeleteTutorModalOpen(false);
+          setSelectedTutor(null);
+        }}
         onConfirm={handleDeleteTutor}
         isPending={deleteTutorMutation.isPending}
-        errorMessage={deleteTutorError}
       />
       <UnlinkStudentConfirmModal
         open={unlinkStudentModalOpen}
         student={selectedStudent}
-        onClose={() => setUnlinkStudentModalOpen(false)}
+        onClose={() => {
+          setUnlinkStudentModalOpen(false);
+          setSelectedStudent(null);
+        }}
         onConfirm={handleUnlinkStudent}
         isPending={unlinkStudentMutation.isPending}
-        errorMessage={unlinkStudentError}
       />
     </div>
   );

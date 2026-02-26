@@ -5,12 +5,10 @@ import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import Input from "../../../components/ui/Input";
 import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
 import Spinner from "../../../shared/ui/Spinner";
-import StatusFeedback from "../../../shared/ui/StatusFeedback";
+import ModalFeedbackOverlay from "../../../shared/ui/ModalFeedbackOverlay";
 import { normalizeSearchText } from "../../students/domain/searchText";
 import { useStudentsSearchQuery } from "../../students/hooks/useStudentsSearchQuery";
 import { useCreatePaymentMutation } from "../hooks/useCreatePaymentMutation";
-
-const AUTO_CLOSE_MS = 2000;
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -59,12 +57,6 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
     setFormError({});
   }, [open, fixedStudent]);
 
-  useEffect(() => {
-    if (!open || status !== "success") return undefined;
-    const timer = window.setTimeout(() => onClose?.(), AUTO_CLOSE_MS);
-    return () => window.clearTimeout(timer);
-  }, [open, status, onClose]);
-
   const students = useMemo(
     () => (Array.isArray(studentsQuery.data?.items) ? studentsQuery.data.items : []),
     [studentsQuery.data]
@@ -84,7 +76,25 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
 
   const isSubmitDisabled = status === "submitting" || Object.keys(validateForm()).length > 0;
 
-  const overlayOpen = status === "submitting" || status === "success" || status === "error";
+  const overlayOpen = status === "submitting";
+  const feedbackOpen = status === "success" || status === "error";
+
+  const handleFeedbackClose = () => {
+    if (status === "success") {
+      onClose?.();
+      return;
+    }
+    setStatus("idle");
+    setServerError("");
+  };
+
+  const handleModalClose = () => {
+    if (feedbackOpen) {
+      handleFeedbackClose();
+      return;
+    }
+    onClose?.();
+  };
 
   const handleSubmit = async () => {
     const errors = validateForm();
@@ -124,12 +134,12 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
   return (
     <BaseModal
       open={open}
-      onClose={status === "submitting" ? undefined : onClose}
+      onClose={status === "submitting" ? undefined : handleModalClose}
       title={title}
       closeOnBackdrop={status !== "submitting"}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
+          <SecondaryButton onClick={handleModalClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
           <Button onClick={handleSubmit} disabled={isSubmitDisabled}>Registrar pago</Button>
         </div>
       }
@@ -190,15 +200,16 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
               <Spinner />
               <p className="mt-2 text-sm text-gray-700">Registrando pago...</p>
             </>
-          ) : (
-            <StatusFeedback
-              status={status}
-              successText="Pago registrado correctamente"
-              errorText="No se pudo registrar el pago"
-              errorDetail={serverError}
-            />
-          )}
+          ) : null}
         </LoadingOverlay>
+
+        <ModalFeedbackOverlay
+          status={status}
+          successText="Pago registrado correctamente"
+          errorText="No se pudo registrar el pago"
+          errorDetail={serverError}
+          onClose={handleFeedbackClose}
+        />
       </div>
     </BaseModal>
   );
