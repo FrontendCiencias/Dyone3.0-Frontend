@@ -10,54 +10,70 @@ import {
   getActiveRole,
   setActiveRole as persistActiveRole,
   clearSession,
+  getCampusScope,
+  setCampusScope as persistCampusScope,
+  getActiveCampus,
+  setActiveCampus as persistActiveCampus,
 } from "./authStorage";
+import {
+  buildAccountOptions,
+  isValidAccountSelection,
+  normalizeCampusScopeForRoles,
+  normalizeRoles,
+  pickDefaultActiveAccount,
+} from "../modules/dashboard/utils/accounts";
 
 const AuthContext = createContext(null);
-
-function pickValidActiveRole(nextRoles, preferred) {
-  const roles = Array.isArray(nextRoles) ? nextRoles : [];
-  if (!roles.length) return null;
-
-  const pref = preferred || null;
-  if (pref && roles.includes(pref)) return pref;
-
-  const stored = getActiveRole();
-  if (stored && roles.includes(stored)) return stored;
-
-  return roles[0] || null;
-}
 
 export function AuthProvider({ children }) {
   const [token, setTokenState] = useState(() => getToken());
   const [user, setUserState] = useState(() => getUser());
-  const [roles, setRolesState] = useState(() => getUserRoles());
+  const [roles, setRolesState] = useState(() => normalizeRoles(getUserRoles()));
+  const [campusScope, setCampusScopeState] = useState(() =>
+    normalizeCampusScopeForRoles({ roles: normalizeRoles(getUserRoles()), campusScope: getCampusScope() }),
+  );
 
-  const [activeRole, setActiveRoleState] = useState(() => {
-    const stored = getActiveRole();
-    const storedRoles = getUserRoles();
-    return stored && storedRoles.includes(stored) ? stored : storedRoles[0] || null;
-  });
+  const [activeRole, setActiveRoleState] = useState(() => getActiveRole());
+  const [activeCampus, setActiveCampusState] = useState(() => getActiveCampus());
 
   const isAuthenticated = Boolean(token);
 
-  const setActiveRole = useCallback(
-    (role) => {
-      const next = role || null;
+  const applyActiveSelection = useCallback(
+    ({ role, campus }) => {
+      const options = buildAccountOptions({ roles, campusScope });
+      const next = { role, campus };
 
-      // Evita guardar un rol inválido que no exista en roles actuales
-      if (next && Array.isArray(roles) && roles.length && !roles.includes(next)) return;
+      if (!isValidAccountSelection(next, options)) {
+        const fallback = pickDefaultActiveAccount({ roles, campusScope, preferred: next });
+        setActiveRoleState(fallback.role);
+        setActiveCampusState(fallback.campus);
+        persistActiveRole(fallback.role || "");
+        persistActiveCampus(fallback.campus || "");
+        return fallback;
+      }
 
-      setActiveRoleState(next);
-      if (next) persistActiveRole(next);
-      else persistActiveRole("");
+      const safeRole = String(role || "").toUpperCase();
+      const safeCampus = String(campus || "").toUpperCase();
+      setActiveRoleState(safeRole);
+      setActiveCampusState(safeCampus);
+      persistActiveRole(safeRole || "");
+      persistActiveCampus(safeCampus || "");
+      return { role: safeRole, campus: safeCampus };
     },
-    [roles]
+    [roles, campusScope],
+  );
+
+  const setActiveAccount = useCallback(
+    ({ role, campus }) => {
+      return applyActiveSelection({ role, campus });
+    },
+    [applyActiveSelection],
   );
 
   /**
    * setSession:
    * Actualiza state + localStorage en una sola operación.
-   * next: { token?, user?, roles?, activeRole? }
+   * next: { token?, user?, roles?, campusScope?, activeRole?, activeCampus?, activeAccount? }
    */
   const setSession = useCallback(
     (next = {}) => {
@@ -74,22 +90,38 @@ export function AuthProvider({ children }) {
         setUserState(u);
       }
 
-      if ("roles" in next) {
-        const r = Array.isArray(next.roles) ? next.roles : [];
-        setUserRoles(r);
-        setRolesState(r);
+      const incomingRoles = "roles" in next ? normalizeRoles(next.roles) : roles;
+      const rawCampusScope = "campusScope" in next ? next.campusScope : ("user" in next ? next.user?.campusScope : campusScope);
+      const incomingCampusScope = normalizeCampusScopeForRoles({ roles: incomingRoles, campusScope: rawCampusScope });
 
-        const computedActive = pickValidActiveRole(r, next.activeRole);
-        setActiveRoleState(computedActive);
-        persistActiveRole(computedActive || "");
-      } else if ("activeRole" in next) {
-        // Solo cambiar activeRole si roles ya están cargados
-        const computedActive = pickValidActiveRole(roles, next.activeRole);
-        setActiveRoleState(computedActive);
-        persistActiveRole(computedActive || "");
+      if ("roles" in next) {
+        setUserRoles(incomingRoles);
+        setRolesState(incomingRoles);
+      }
+
+      if ("campusScope" in next || "roles" in next || "user" in next) {
+        persistCampusScope(incomingCampusScope);
+        setCampusScopeState(incomingCampusScope);
+      }
+
+      if ("roles" in next || "campusScope" in next || "activeRole" in next || "activeCampus" in next || "activeAccount" in next || "user" in next) {
+        const options = buildAccountOptions({ roles: incomingRoles, campusScope: incomingCampusScope });
+        const preferred = next.activeAccount || {
+          role: next.activeRole || getActiveRole(),
+          campus: next.activeCampus || getActiveCampus(),
+        };
+
+        const computed = isValidAccountSelection(preferred, options)
+          ? { role: String(preferred.role).toUpperCase(), campus: String(preferred.campus).toUpperCase() }
+          : pickDefaultActiveAccount({ roles: incomingRoles, campusScope: incomingCampusScope, preferred });
+
+        setActiveRoleState(computed.role);
+        setActiveCampusState(computed.campus);
+        persistActiveRole(computed.role || "");
+        persistActiveCampus(computed.campus || "");
       }
     },
-    [roles]
+    [roles, campusScope],
   );
 
   const logout = useCallback(() => {
@@ -97,21 +129,31 @@ export function AuthProvider({ children }) {
     setTokenState(null);
     setUserState(null);
     setRolesState([]);
+    setCampusScopeState([]);
     setActiveRoleState(null);
+    setActiveCampusState(null);
   }, []);
+
+  const accountOptions = useMemo(
+    () => buildAccountOptions({ roles, campusScope }).map((option) => ({ ...option })),
+    [roles, campusScope],
+  );
 
   const value = useMemo(
     () => ({
       token,
       user,
       roles,
+      campusScope,
       activeRole,
+      activeCampus,
+      accountOptions,
       isAuthenticated,
-      setActiveRole,
-      setSession, // ✅ nuevo
+      setActiveAccount,
+      setSession,
       logout,
     }),
-    [token, user, roles, activeRole, isAuthenticated, setActiveRole, setSession, logout]
+    [token, user, roles, campusScope, activeRole, activeCampus, accountOptions, isAuthenticated, setActiveAccount, setSession, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

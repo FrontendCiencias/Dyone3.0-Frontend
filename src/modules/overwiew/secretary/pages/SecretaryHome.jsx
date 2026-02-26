@@ -26,7 +26,7 @@ function ErrorBlock() {
 }
 
 export default function SecretaryHome() {
-  const { activeRole } = useAuth();
+  const { activeCampus } = useAuth();
 
   const q = useSecretaryOverviewQuery({ enabled: true });
 
@@ -40,7 +40,7 @@ export default function SecretaryHome() {
 
   return (
     <div className="space-y-4">
-      <SecretaryKpis data={data} activeRole={activeRole} />
+      <SecretaryKpis data={data} activeCampus={activeCampus} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 space-y-4">

@@ -27,7 +27,7 @@ function pickDefaultPrivateRoute(roles = []) {
   const list = Array.isArray(roles) ? roles : [];
 
   const role = list[0] || "";
-  if (String(role).toUpperCase().startsWith("ADMIN")) return ROUTES.dashboardAdminSettings;
+  if (String(role).toUpperCase() === "ADMIN") return ROUTES.dashboardAdminSettings;
   return ROUTES.dashboard;
 }
 
@@ -48,10 +48,10 @@ function PublicRoute() {
 }
 
 export default function AppRoutes() {
-  const { activeRole } = useAuth();
+  const { activeCampus } = useAuth();
 
   return (
-    <ThemeProvider role={activeRole}>
+    <ThemeProvider campus={activeCampus}>
       <Routes>
         <Route element={<PublicRoute />}>
           <Route element={<PublicLayout />}>

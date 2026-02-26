@@ -27,14 +27,14 @@ const prettify = (seg, labels) => {
 };
 
 export default function BreadcrumbHeader({
-  activeRole,
+  activeCampus,
   title = "Inicio",
   description,
   breadcrumbLabels = DEFAULT_LABELS,
   hideIdsInBreadcrumbs = true,
   breadcrumbItems,
 }) {
-  const theme = getRoleTheme(activeRole);
+  const theme = getRoleTheme(activeCampus);
   const location = useLocation();
 
   const autoCrumbs = useMemo(() => {

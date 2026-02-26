@@ -28,8 +28,8 @@ function KpiCard({ icon: Icon, label, value, hint, accent }) {
   );
 }
 
-export default function SecretaryKpis({ data, activeRole }) {
-  const theme = getRoleTheme(activeRole);
+export default function SecretaryKpis({ data, activeCampus }) {
+  const theme = getRoleTheme(activeCampus);
 
   const k = data?.kpis || {};
   const todayEnrollments = k.todayEnrollments ?? 0;

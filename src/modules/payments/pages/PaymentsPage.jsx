@@ -23,14 +23,6 @@ function getErrorMessage(error) {
   return "No se pudo cargar la caja.";
 }
 
-function resolveCampusAlias(activeRole) {
-  const role = String(activeRole || "").toUpperCase();
-  if (role.includes("CIMAS")) return "CIMAS";
-  if (role.includes("CIENCIAS_APLICADAS") || role.includes("CIENCIAS_PRIM")) return "CIENCIAS_APLICADAS";
-  if (role.includes("CIENCIAS")) return "CIENCIAS";
-  return "";
-}
-
 function isSecretaryRole(activeRole) {
   return String(activeRole || "").toUpperCase().startsWith("SECRETARY");
 }
@@ -53,10 +45,10 @@ function mapDebtor(item, index) {
 
 export default function PaymentsPage() {
   const navigate = useNavigate();
-  const { activeRole } = useAuth();
+  const { activeRole, activeCampus } = useAuth();
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [campusFilter, setCampusFilter] = useState(resolveCampusAlias(activeRole));
+  const [campusFilter, setCampusFilter] = useState(activeCampus === "ALL" ? "" : activeCampus);
   const [onlyOverdue, setOnlyOverdue] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -71,9 +63,9 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     if (secretaryMode) {
-      setCampusFilter(resolveCampusAlias(activeRole));
+      setCampusFilter(activeCampus === "ALL" ? "" : activeCampus);
     }
-  }, [activeRole, secretaryMode]);
+  }, [activeRole, activeCampus, secretaryMode]);
 
   const debtorsQuery = usePaymentsDebtorsQuery(
     { q: debouncedSearch, campus: campusFilter || undefined, limit: 100 },

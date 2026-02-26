@@ -1,12 +1,12 @@
 // src/modules/dashboard/config/roleTheme.js
-import { getThemeByRole } from "../../../config/theme";
+import { getThemeByCampusCode } from "../../../config/theme";
 
 /**
  * Normaliza el theme para el dashboard
  * Retorna siempre: { main, dark, softBg }
  */
-export function getRoleTheme(activeRole) {
-  const t = getThemeByRole(activeRole);
+export function getRoleTheme(activeCampus) {
+  const t = getThemeByCampusCode(activeCampus);
 
   return {
     main: t.main,

@@ -141,7 +141,7 @@ export default function StudentDetailPage() {
     return rows;
   }, [billingConceptsQuery.data]);
 
-  const isAdminOrSecretary = ["ADMIN", "SECRETARY"].some((role) => safeUpper(activeRole).startsWith(role));
+  const isAdminOrSecretary = ["ADMIN", "SECRETARY"].includes(safeUpper(activeRole));
   const lockEdition = activeEditor !== null;
 
   const upcomingCharges = Array.isArray(debtsSummary?.upcomingCharges) ? debtsSummary.upcomingCharges.slice(0, 3) : [];

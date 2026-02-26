@@ -1,6 +1,13 @@
 import React, { createContext, useEffect, useMemo, useState } from "react";
 
 export const THEMES = {
+  ALL: {
+    main: "#111827",
+    dark: "#000000",
+    softBg: "rgba(17,24,39,0.10)",
+    gradientFrom: "#111827",
+    gradientTo: "#000000",
+  },
   CIMAS: {
     main: "#E53E3E",
     dark: "#C53030",
@@ -22,41 +29,23 @@ export const THEMES = {
     gradientFrom: "#63B3ED",
     gradientTo: "#2B6CB0",
   },
-  ADMIN: {
-    main: "#111827",
-    dark: "#000000",
-    softBg: "rgba(17,24,39,0.10)",
-    gradientFrom: "#111827",
-    gradientTo: "#000000",
-  },
 };
 
-export const DEFAULT_ROLE = "SECRETARY_CIENCIAS";
+export const DEFAULT_CAMPUS = "CIENCIAS";
 
 export function getThemeByCampusCode(campusCode) {
   const code = String(campusCode || "").toUpperCase();
 
+  if (code === "ALL") return THEMES.ALL;
   if (code.includes("CIMAS")) return THEMES.CIMAS;
   if (code.includes("CIENCIAS_APLICADAS") || code.includes("CIENCIAS_PRIM")) return THEMES.CIENCIAS_APLICADAS;
   if (code.includes("CIENCIAS") || code.includes("CIENCIAS_SEC")) return THEMES.CIENCIAS;
-
-  return null;
-}
-
-export function getThemeByRole(role) {
-  const r = String(role || "").toUpperCase();
-
-  if (!r) return THEMES.CIENCIAS;
-  if (r.startsWith("ADMIN")) return THEMES.ADMIN;
-  if (r.includes("CIMAS")) return THEMES.CIMAS;
-  if (r.includes("CIENCIAS_APLICADAS") || r.includes("CIENCIAS_PRIM")) return THEMES.CIENCIAS_APLICADAS;
-  if (r.includes("CIENCIAS") || r.includes("CIENCIAS_SEC")) return THEMES.CIENCIAS;
 
   return THEMES.CIENCIAS;
 }
 
 function normalizeTheme(baseTheme) {
-  const main = baseTheme?.main || "#DD6B20";
+  const main = baseTheme?.main || THEMES.CIENCIAS.main;
   const dark = baseTheme?.dark || main;
 
   return {
@@ -65,7 +54,7 @@ function normalizeTheme(baseTheme) {
     dark,
     primary: main,
     accent: dark,
-    accentSoft: baseTheme?.softBg || "rgba(221,107,32,0.10)",
+    accentSoft: baseTheme?.softBg || THEMES.CIENCIAS.softBg,
     gradientFrom: baseTheme?.gradientFrom || main,
     gradientVia: baseTheme?.gradientVia || main,
     gradientTo: baseTheme?.gradientTo || dark,
@@ -74,31 +63,31 @@ function normalizeTheme(baseTheme) {
 
 export const ThemeContext = createContext({
   theme: normalizeTheme(THEMES.CIENCIAS),
-  role: DEFAULT_ROLE,
-  setRole: () => {},
+  campus: DEFAULT_CAMPUS,
+  setCampus: () => {},
 });
 
-const STORAGE_KEY = "activeRole";
+const STORAGE_KEY = "activeCampus";
 
-export function ThemeProvider({ children, role: controlledRole }) {
-  const [internalRole, setInternalRole] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) || DEFAULT_ROLE;
+export function ThemeProvider({ children, campus: controlledCampus }) {
+  const [internalCampus, setInternalCampus] = useState(() => {
+    return localStorage.getItem(STORAGE_KEY) || DEFAULT_CAMPUS;
   });
 
-  const role = controlledRole || internalRole;
+  const campus = controlledCampus || internalCampus;
 
-  const theme = useMemo(() => normalizeTheme(getThemeByRole(role)), [role]);
-
-  useEffect(() => {
-    if (!controlledRole) localStorage.setItem(STORAGE_KEY, internalRole);
-  }, [internalRole, controlledRole]);
+  const theme = useMemo(() => normalizeTheme(getThemeByCampusCode(campus)), [campus]);
 
   useEffect(() => {
-    if (controlledRole) localStorage.setItem(STORAGE_KEY, controlledRole);
-  }, [controlledRole]);
+    if (!controlledCampus) localStorage.setItem(STORAGE_KEY, internalCampus);
+  }, [internalCampus, controlledCampus]);
+
+  useEffect(() => {
+    if (controlledCampus) localStorage.setItem(STORAGE_KEY, controlledCampus);
+  }, [controlledCampus]);
 
   return (
-    <ThemeContext.Provider value={{ theme, role, setRole: setInternalRole }}>
+    <ThemeContext.Provider value={{ theme, campus, setCampus: setInternalCampus }}>
       {children}
     </ThemeContext.Provider>
   );

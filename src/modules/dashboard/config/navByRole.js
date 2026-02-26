@@ -11,10 +11,10 @@ import {
 
 import { ROUTES } from "../../../config/routes";
 
-const isAdmin = (r) => String(r || "").toUpperCase().startsWith("ADMIN");
-const isSecretary = (r) => String(r || "").toUpperCase().startsWith("SECRETARY");
-const isDirector = (r) => String(r || "").toUpperCase().startsWith("DIRECTOR");
-const isPromoter = (r) => String(r || "").toUpperCase().startsWith("PROMOTER");
+const isAdmin = (r) => String(r || "").toUpperCase() === "ADMIN";
+const isSecretary = (r) => ["SECRETARY", "SECRETARY_VIEWER", "AUXILIAR"].includes(String(r || "").toUpperCase());
+const isDirector = (r) => String(r || "").toUpperCase() === "DIRECTOR";
+const isPromoter = (r) => String(r || "").toUpperCase() === "PROMOTER";
 
 export function getNavItemsByRole(activeRole) {
   const role = String(activeRole || "").toUpperCase();

@@ -6,7 +6,7 @@ import { useAuth } from "../../../lib/auth";
 
 export function useMeQuery() {
   const token = getToken();
-  const { setSession, logout, activeRole } = useAuth();
+  const { setSession, logout, activeRole, activeCampus } = useAuth();
 
   return useQuery({
     queryKey: ["auth", "me"],
@@ -20,11 +20,12 @@ export function useMeQuery() {
     staleTime: 1000 * 60 * 5,
     onSuccess: (data) => {
       const roles = Array.isArray(data?.roles) ? data.roles : [];
-      const RoleNow = activeRole;
+      const scope = Array.isArray(data?.campusScope) ? data.campusScope : data?.user?.campusScope;
       setSession({
         user: data?.user || null,
         roles,
-        activeRole: RoleNow?RoleNow:roles[0] || null,
+        campusScope: scope,
+        activeAccount: activeRole && activeCampus ? { role: activeRole, campus: activeCampus } : undefined,
       });
     },
     onError: () => {

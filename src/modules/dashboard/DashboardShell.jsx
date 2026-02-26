@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import Topbar, { DASHBOARD_TOPBAR_HEIGHT } from "./components/Topbar";
 import Sidebar, { SIDEBAR_WIDTHS } from "./components/Sidebar";
 import BreadcrumbHeader from "./components/BreadcrumbHeader";
@@ -46,9 +47,10 @@ function getStudentBreadcrumbLabel(summary) {
 }
 
 export default function DashboardShell() {
-  const { roles, activeRole, setActiveRole, logout, isAuthenticated } = useAuth();
+  const { accountOptions, activeRole, activeCampus, setActiveAccount, logout, isAuthenticated } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -152,22 +154,29 @@ export default function DashboardShell() {
 
   const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
 
+  const activeAccount = useMemo(() => ({ role: activeRole, campus: activeCampus }), [activeRole, activeCampus]);
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
       <Sidebar
         navItems={navItems}
         activeItemTo={activeItemTo}
-        activeRole={activeRole}
+        activeCampus={activeCampus}
         onLogout={logout}
         onExpandChange={setExpanded}
       />
 
       <Topbar
-        roles={roles}
-        activeRole={activeRole}
-        onRoleChange={(r) => {
-          setActiveRole?.(r);
+        accountOptions={accountOptions}
+        activeAccount={activeAccount}
+        onAccountChange={(account) => {
+          setActiveAccount?.(account);
           navigate(ROUTES.dashboard, { replace: true });
+          queryClient.invalidateQueries({ queryKey: ["students"] });
+          queryClient.invalidateQueries({ queryKey: ["families"] });
+          queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+          queryClient.invalidateQueries({ queryKey: ["payments"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
         }}
         offsetLeft={leftPad}
       />
@@ -181,7 +190,7 @@ export default function DashboardShell() {
           style={{ paddingTop: DASHBOARD_TOPBAR_HEIGHT + 8 }}
         >
           <BreadcrumbHeader
-            activeRole={activeRole}
+            activeCampus={activeCampus}
             title={pageMeta.title}
             description={pageMeta.description}
             breadcrumbItems={breadcrumbItems}
