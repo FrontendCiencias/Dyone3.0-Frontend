@@ -21,6 +21,7 @@ export const API_ROUTES = {
   studentsSearch: "/api/students/search",
   createTutor: "/api/tutors",
   tutorById: (id) => `/api/tutors/${id}`,
+  personById: (id) => `/api/people/${id}`,
 
   familiesSearch: "/api/families/search",
   familyDetail: (id) => `/api/families/${id}`,

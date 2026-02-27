@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import Input from "../../../components/ui/Input";
 import { useStudentsSearchQuery } from "../hooks/useStudentsSearchQuery";
 import StudentSummaryModal from "../components/StudentSummaryModal";
-import CreateStudentModal from "../components/CreateStudentModal";
 import { useAuth } from "../../../lib/auth";
+import { ROUTES } from "../../../config/routes";
 import StudentsContextBar from "../components/StudentsContextBar";
 import { normalizeSearchText } from "../domain/searchText";
 import { getClassroomCapacityStatus } from "../domain/classroomCapacityStatus";
@@ -98,6 +99,7 @@ function pickNumericValue(source, candidates) {
 }
 
 export default function StudentsPage() {
+  const navigate = useNavigate();
   const { activeRole, activeCampus } = useAuth();
 
   const [searchInput, setSearchInput] = useState("");
@@ -108,7 +110,6 @@ export default function StudentsPage() {
   const [cursor, setCursor] = useState(null);
   const [results, setResults] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const secretaryMode = isSecretaryRole(activeRole);
   const globalMode = isGlobalRole(activeRole);
@@ -332,7 +333,7 @@ export default function StudentsPage() {
           <div className="flex justify-end">
             <SecondaryButton
               className="w-full md:w-auto"
-              onClick={() => setCreateModalOpen(true)}
+              onClick={() => navigate(ROUTES.dashboardEnrollmentCaseNew)}
             >
               + Nuevo alumno
             </SecondaryButton>
@@ -463,7 +464,6 @@ export default function StudentsPage() {
         )}
       </Card>
 
-      <CreateStudentModal open={createModalOpen} onClose={() => setCreateModalOpen(false)} />
 
       <StudentSummaryModal
         open={Boolean(selectedStudentId)}

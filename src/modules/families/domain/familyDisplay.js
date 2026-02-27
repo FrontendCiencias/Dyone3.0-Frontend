@@ -6,8 +6,19 @@ export function getTutorId(tutor) {
   return tutor?.id || tutor?._id || tutor?.tutorId || tutor?.tutor?._id || null;
 }
 
+export function getTutorPerson(tutor) {
+  return tutor?.tutorPerson || tutor?.person || tutor?.tutorPersonId || null;
+}
+
+export function getTutorPersonId(tutor) {
+  const person = getTutorPerson(tutor);
+  if (!person) return null;
+  if (typeof person === "string") return person;
+  return person?.id || person?._id || tutor?.tutorPersonId || tutor?.personId || null;
+}
+
 export function getTutorFullName(tutor) {
-  const person = tutor?.tutorPerson || tutor?.person || tutor;
+  const person = getTutorPerson(tutor) || tutor;
   return [person?.lastNames, person?.names].filter(Boolean).join(", ") || person?.fullName || "Sin nombre";
 }
 

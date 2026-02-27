@@ -5,6 +5,7 @@ function BarItem({ children }) {
 }
 
 export default function StudentsContextBar({
+  items,
   campus,
   salonSeleccionado,
   q,
@@ -17,6 +18,22 @@ export default function StudentsContextBar({
   loadingCapacity,
   capacityError,
 }) {
+  const customItems = Array.isArray(items) ? items.filter((item) => String(item || "").trim()) : null;
+  if (customItems?.length) {
+    return (
+      <div className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {customItems.map((item, index) => (
+            <React.Fragment key={`${item}-${index}`}>
+              {index > 0 ? <span>·</span> : null}
+              <BarItem>{item}</BarItem>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const hasSalon = Boolean(salonSeleccionado);
   const hasSearch = Boolean(String(q || "").trim());
   const hasAnyCapacityData = [capacity, occupied, available, reserved].some((value) => typeof value === "number");

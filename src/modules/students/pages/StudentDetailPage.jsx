@@ -16,7 +16,6 @@ import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQue
 import RegisterPaymentModal from "../../payments/components/RegisterPaymentModal";
 import { useStudentAccountStatementQuery } from "../../payments/hooks/useStudentAccountStatementQuery";
 import IdentityEditModal from "../components/detail/modals/IdentityEditModal";
-import TutorsManageModal from "../components/detail/modals/TutorsManageModal";
 import AccountStatementModal from "../components/detail/modals/AccountStatementModal";
 import NotesEditModal from "../components/detail/modals/NotesEditModal";
 import ConfirmEnrollmentModal from "../components/detail/modals/ConfirmEnrollmentModal";
@@ -41,21 +40,9 @@ function getErrorMessage(error, fallback = "No se pudo completar la operación")
   return fallback;
 }
 
-function fullName(student = {}) {
-  const lastNames = String(student.lastNames || "").trim();
-  const names = String(student.names || "").trim();
-  return [lastNames, names].filter(Boolean).join(" ") || "-";
-}
-
 function formatMoney(value) {
   const amount = Number(value || 0);
   return `S/ ${amount.toFixed(2)}`;
-}
-
-function statusChipClass(status) {
-  if (status === "ENROLLED") return "bg-emerald-100 text-emerald-800";
-  if (status === "TRANSFERRED") return "bg-amber-100 text-amber-800";
-  return "bg-slate-100 text-slate-700";
 }
 
 
@@ -130,6 +117,22 @@ export default function StudentDetailPage() {
     const others = Array.isArray(familyLink?.otherTutors_send) ? familyLink.otherTutors_send : [];
     return [primaryTutor, ...others].filter(Boolean);
   }, [familyLink]);
+
+  const familyId = useMemo(() => {
+    const candidates = [
+      detail?.familyId,
+      detail?.family?.id,
+      detail?.family?._id,
+      familyLink?.familyId,
+      familyLink?.id,
+      familyLink?._id,
+      familyLink?.family?.id,
+      familyLink?.family?._id,
+    ];
+
+    const match = candidates.find((value) => String(value || "").trim());
+    return match ? String(match).trim() : "";
+  }, [detail, familyLink]);
 
   const billingConcepts = useMemo(() => {
     const rows = Array.isArray(billingConceptsQuery.data)
@@ -294,14 +297,11 @@ export default function StudentDetailPage() {
   return (
     <div className="space-y-4 pb-4">
       <StudentDetailHeader
-        student={student}
         status={status}
         campus={enrollmentStatus.campus}
-        statusClassName={statusChipClass(status)}
         classroom={enrollmentStatus.classroom || null}
-        fullName={fullName(student)}
-        showConfirmEnrollment={status === "ABSENT"}
-        onConfirmEnrollment={openConfirmEnrollment}
+        studentCode={student?.internalCode}
+        studentDocument={student?.dni}
         onGoBack={() => navigate(ROUTES.dashboardStudents)}
       />
 
@@ -315,8 +315,12 @@ export default function StudentDetailPage() {
 
           <StudentFamilyCard
             tutors={tutors}
-            disabled={lockEdition && activeEditor !== "tutors"}
-            onManage={() => openEditor("tutors")}
+            disabled={!familyId}
+            onManage={() => {
+              if (!familyId) return;
+              navigate(ROUTES.dashboardFamilyDetail(familyId));
+            }}
+            manageDisabledReason={!familyId ? "Sin familia vinculada para gestionar." : ""}
           />
 
           <Card className="border border-gray-200 shadow-sm">
@@ -404,7 +408,6 @@ export default function StudentDetailPage() {
         saving={updateIdentityMutation.isPending}
         errorMessage={identityFormError || (updateIdentityMutation.isError ? getErrorMessage(updateIdentityMutation.error, "No se pudo guardar la identidad") : "")}
       />
-      <TutorsManageModal open={activeEditor === "tutors"} onClose={() => setActiveEditor(null)} tutors={tutors} />
       <AccountStatementModal
         open={activeEditor === "accountStatement"}
         onClose={() => {
