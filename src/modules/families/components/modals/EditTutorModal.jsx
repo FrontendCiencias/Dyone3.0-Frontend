@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import BaseModal from "../../../../shared/ui/BaseModal";
+import Input from "../../../../components/ui/Input";
 import Button from "../../../../components/ui/Button";
 import SecondaryButton from "../../../../shared/ui/SecondaryButton";
 import LoadingOverlay from "../../../../shared/ui/LoadingOverlay";
@@ -9,12 +10,50 @@ import ModalFeedbackOverlay from "../../../../shared/ui/ModalFeedbackOverlay";
 const RELATIONSHIP_OPTIONS = ["MADRE", "PADRE", "APODERADO", "ABUELO", "ABUELA", "TÍO", "TÍA", "OTRO"];
 
 function getInitialForm(tutor) {
+  const person = tutor?.tutorPerson || tutor?.person || {};
+
   return {
+    names: person?.names || "",
+    lastNames: person?.lastNames || "",
+    dni: person?.dni || "",
+    phone: person?.phone || "",
     relationship: tutor?.relationship || "MADRE",
     isPrimary: Boolean(tutor?.isPrimary),
     livesWithStudent: Boolean(tutor?.livesWithStudent),
     notes: tutor?.notes || "",
   };
+}
+
+function getValidationErrors(form) {
+  const errors = {};
+  const names = form.names.trim();
+  const lastNames = form.lastNames.trim();
+  const dni = form.dni.trim();
+  const phone = form.phone.trim();
+
+  if (!names) errors.names = "Los nombres son obligatorios.";
+  if (!lastNames) errors.lastNames = "Los apellidos son obligatorios.";
+
+  if (dni && (!/^\d+$/.test(dni) || dni.length !== 8)) {
+    errors.dni = "El DNI debe tener 8 dígitos numéricos.";
+  }
+
+  if (phone && (!/^\d+$/.test(phone) || phone.length !== 9)) {
+    errors.phone = "El celular debe tener 9 dígitos numéricos.";
+  }
+
+  return errors;
+}
+
+function getErrorMessage(error, fallback = "No se pudo editar el tutor") {
+  if (error?.response?.status === 409) {
+    return "No se pudo guardar porque el DNI ya está registrado en otra persona.";
+  }
+
+  const msg = error?.response?.data?.message || error?.message;
+  if (Array.isArray(msg)) return msg.join(". ");
+  if (typeof msg === "string") return msg;
+  return fallback;
 }
 
 export default function EditTutorModal({ open, tutor, onClose, onConfirm, isPending, errorMessage }) {
@@ -29,7 +68,13 @@ export default function EditTutorModal({ open, tutor, onClose, onConfirm, isPend
     setServerError("");
   }, [open, tutor]);
 
-  const canSave = useMemo(() => form.relationship && status === "idle" && !isPending, [form.relationship, isPending, status]);
+  const validationErrors = useMemo(() => getValidationErrors(form), [form]);
+  const hasValidationErrors = Object.keys(validationErrors).length > 0;
+
+  const canSave = useMemo(
+    () => form.relationship && !hasValidationErrors && status === "idle" && !isPending,
+    [form.relationship, hasValidationErrors, isPending, status],
+  );
 
   const handleFeedbackClose = () => {
     if (status === "success") {
@@ -49,10 +94,16 @@ export default function EditTutorModal({ open, tutor, onClose, onConfirm, isPend
   };
 
   const handleSubmit = async () => {
+    if (!canSave) return;
+
     setStatus("submitting");
     setServerError("");
     try {
       await onConfirm?.({
+        names: form.names.trim(),
+        lastNames: form.lastNames.trim(),
+        dni: form.dni.trim() || undefined,
+        phone: form.phone.trim() || undefined,
         relationship: form.relationship,
         isPrimary: form.isPrimary,
         livesWithStudent: form.livesWithStudent,
@@ -60,8 +111,7 @@ export default function EditTutorModal({ open, tutor, onClose, onConfirm, isPend
       });
       setStatus("success");
     } catch (error) {
-      const msg = error?.response?.data?.message || error?.message || errorMessage || "No se pudo editar el tutor";
-      setServerError(Array.isArray(msg) ? msg.join(". ") : String(msg));
+      setServerError(getErrorMessage(error, errorMessage));
       setStatus("error");
     }
   };
@@ -80,6 +130,34 @@ export default function EditTutorModal({ open, tutor, onClose, onConfirm, isPend
       }
     >
       <div className="relative space-y-3 p-5">
+        <Input
+          label="Nombres"
+          value={form.names}
+          onChange={(e) => setForm((prev) => ({ ...prev, names: e.target.value }))}
+        />
+        {validationErrors.names ? <p className="text-xs text-red-600">{validationErrors.names}</p> : null}
+
+        <Input
+          label="Apellidos"
+          value={form.lastNames}
+          onChange={(e) => setForm((prev) => ({ ...prev, lastNames: e.target.value }))}
+        />
+        {validationErrors.lastNames ? <p className="text-xs text-red-600">{validationErrors.lastNames}</p> : null}
+
+        <Input
+          label="DNI"
+          value={form.dni}
+          onChange={(e) => setForm((prev) => ({ ...prev, dni: e.target.value }))}
+        />
+        {validationErrors.dni ? <p className="text-xs text-red-600">{validationErrors.dni}</p> : null}
+
+        <Input
+          label="Celular"
+          value={form.phone}
+          onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+        />
+        {validationErrors.phone ? <p className="text-xs text-red-600">{validationErrors.phone}</p> : null}
+
         <label className="block text-sm font-medium text-gray-700" htmlFor="relationship">Relación</label>
         <select
           id="relationship"

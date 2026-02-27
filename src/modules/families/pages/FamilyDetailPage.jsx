@@ -1,31 +1,30 @@
 import React, { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import StudentsContextBar from "../../students/components/StudentsContextBar";
+import { ROUTES } from "../../../config/routes";
 import LinkStudentModal from "../components/LinkStudentModal";
-import CreateStudentInlineModal from "../components/CreateStudentInlineModal";
 import CreateTutorModal from "../components/CreateTutorModal";
 import PrimaryTutorConfirmModal from "../components/PrimaryTutorConfirmModal";
 import TutorsCard from "../components/detail/cards/TutorsCard";
 import StudentsCard from "../components/detail/cards/StudentsCard";
 import EditTutorModal from "../components/modals/EditTutorModal";
 import DeleteTutorConfirmModal from "../components/modals/DeleteTutorConfirmModal";
-import UnlinkStudentConfirmModal from "../components/modals/UnlinkStudentConfirmModal";
 import { useFamilyDetailQuery } from "../hooks/useFamilyDetailQuery";
 import { useLinkStudentMutation } from "../hooks/useLinkStudentMutation";
 import { useCreateTutorMutation } from "../hooks/useCreateTutorMutation";
-import { useCreateFamilyStudentMutation } from "../hooks/useCreateFamilyStudentMutation";
 import { useUpdateFamilyPrimaryTutorMutation } from "../hooks/useUpdateFamilyPrimaryTutorMutation";
 import { useDeleteTutorMutation } from "../hooks/useDeleteTutorMutation";
 import { useUpdateTutorMutation } from "../hooks/useUpdateTutorMutation";
-import { useUnlinkStudentFromFamilyMutation } from "../hooks/useUnlinkStudentFromFamilyMutation";
+import { useUpdatePersonMutation } from "../hooks/useUpdatePersonMutation";
 import {
   getFamilyIdLabel,
   getPrimaryTutor,
-  getPrimaryTutorDisplayName,
   getStudents,
   getTutorFullName,
   getTutorId,
+  getTutorPersonId,
   getTutors,
 } from "../domain/familyDisplay";
 
@@ -34,26 +33,23 @@ function getStudentId(student) {
 }
 
 export default function FamilyDetailPage() {
+  const navigate = useNavigate();
   const { familyId } = useParams();
   const [linkOpen, setLinkOpen] = useState(false);
-  const [createStudentOpen, setCreateStudentOpen] = useState(false);
   const [createTutorOpen, setCreateTutorOpen] = useState(false);
   const [primaryTutorModalOpen, setPrimaryTutorModalOpen] = useState(false);
   const [selectedTutor, setSelectedTutor] = useState(null);
 
   const [editTutorModalOpen, setEditTutorModalOpen] = useState(false);
   const [deleteTutorModalOpen, setDeleteTutorModalOpen] = useState(false);
-  const [unlinkStudentModalOpen, setUnlinkStudentModalOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const familyQuery = useFamilyDetailQuery(familyId);
   const linkMutation = useLinkStudentMutation();
   const createTutorMutation = useCreateTutorMutation();
-  const createStudentMutation = useCreateFamilyStudentMutation();
   const updatePrimaryTutorMutation = useUpdateFamilyPrimaryTutorMutation();
   const updateTutorMutation = useUpdateTutorMutation();
+  const updatePersonMutation = useUpdatePersonMutation();
   const deleteTutorMutation = useDeleteTutorMutation();
-  const unlinkStudentMutation = useUnlinkStudentFromFamilyMutation();
 
   const familyData = familyQuery.data || {};
   const tutors = useMemo(() => getTutors(familyQuery.data), [familyQuery.data]);
@@ -71,16 +67,25 @@ export default function FamilyDetailPage() {
     await linkMutation.mutateAsync({ familyId, studentId });
   };
 
+  const studentCodes = useMemo(
+    () => students
+      .map((student) => student?.code || student?.studentCod || student?.studentCode || student?.internalCode)
+      .filter((value) => String(value || "").trim())
+      .map((value) => String(value).trim()),
+    [students],
+  );
+
   const handleCreateTutor = async (payload) => {
-    await createTutorMutation.mutateAsync({ ...payload, familyId });
-  };
+    const normalizedCodes = studentCodes;
+    const studentCod = normalizedCodes[0];
 
-  const handleCreateStudent = async (studentPayload) => {
-    const created = await createStudentMutation.mutateAsync({ ...studentPayload, familyId });
-    const studentId = created?.id || created?.student?.id;
-    if (!studentId) throw new Error("No se pudo obtener el ID del alumno creado");
-
-    await linkMutation.mutateAsync({ familyId, studentId });
+    await createTutorMutation.mutateAsync({
+      ...payload,
+      familyId,
+      studentCod,
+      studentCods: normalizedCodes,
+      studentsCod: normalizedCodes,
+    });
   };
 
   const openChangePrimaryTutorModal = (tutor) => {
@@ -102,8 +107,28 @@ export default function FamilyDetailPage() {
 
   const handleEditTutor = async (payload) => {
     const tutorId = getTutorId(selectedTutor);
-    if (!tutorId) return;
-    await updateTutorMutation.mutateAsync({ tutorId, familyId, ...payload });
+    const personId = getTutorPersonId(selectedTutor);
+
+    if (!tutorId) throw new Error("No se pudo identificar el tutor seleccionado");
+    if (!personId) throw new Error("No se pudo identificar la persona asociada al tutor");
+
+    await updatePersonMutation.mutateAsync({
+      personId,
+      familyId,
+      names: payload.names,
+      lastNames: payload.lastNames,
+      dni: payload.dni,
+      phone: payload.phone,
+    });
+
+    await updateTutorMutation.mutateAsync({
+      tutorId,
+      familyId,
+      relationship: payload.relationship,
+      isPrimary: payload.isPrimary,
+      livesWithStudent: payload.livesWithStudent,
+      notes: payload.notes,
+    });
   };
 
   const openDeleteTutorModal = (tutor) => {
@@ -118,29 +143,22 @@ export default function FamilyDetailPage() {
     await deleteTutorMutation.mutateAsync({ tutorId, familyId });
   };
 
-  const openUnlinkStudentModal = (student) => {
-    setSelectedStudent(student);
-    setUnlinkStudentModalOpen(true);
-  };
-
-  const handleUnlinkStudent = async () => {
-    const studentId = getStudentId(selectedStudent);
-    if (!studentId) return;
-
-    await unlinkStudentMutation.mutateAsync({ familyId, studentId });
-  };
 
   if (familyQuery.isLoading) return <Card className="border border-gray-200">Cargando familia...</Card>;
 
   return (
     <div className="space-y-4">
       <Card className="border border-gray-200 shadow-sm">
-        <h3 className="mb-2 text-lg font-semibold text-gray-900">Resumen</h3>
-        <div className="grid gap-2 text-sm text-gray-700 md:grid-cols-2">
-          <p><span className="font-medium">Family ID:</span> {getFamilyIdLabel(familyData)}</p>
-          <p><span className="font-medium">Tutor principal:</span> {getPrimaryTutorDisplayName(familyData)}</p>
-          <p><span className="font-medium">DNI tutor:</span> {primaryTutor?.tutorPerson?.dni || "?"}</p>
-          <p><span className="font-medium">Teléfono:</span> {primaryTutor?.tutorPerson?.phone || "?"}</p>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex-1">
+            <StudentsContextBar items={[`Family ID: ${getFamilyIdLabel(familyData)}`]} />
+          </div>
+
+          <div className="flex justify-end">
+            <SecondaryButton className="w-full md:w-auto" onClick={() => navigate(ROUTES.dashboardFamilies)}>
+              Lista de Familias
+            </SecondaryButton>
+          </div>
         </div>
       </Card>
 
@@ -152,14 +170,14 @@ export default function FamilyDetailPage() {
         onDeleteTutor={openDeleteTutorModal}
       />
 
-      <StudentsCard students={students} onUnlinkStudent={openUnlinkStudentModal} />
+      <StudentsCard students={students} />
 
       <Card className="border border-gray-200 shadow-sm">
         <h3 className="mb-3 text-lg font-semibold text-gray-900">Acciones</h3>
         <div className="flex flex-wrap gap-2">
           <SecondaryButton onClick={() => setLinkOpen(true)}>Vincular alumno existente</SecondaryButton>
-          <SecondaryButton onClick={() => setCreateTutorOpen(true)}>Crear tutor</SecondaryButton>
-          <SecondaryButton onClick={() => setCreateStudentOpen(true)}>Crear alumno y vincular</SecondaryButton>
+          <SecondaryButton onClick={() => setCreateTutorOpen(true)} disabled={!studentCodes.length} title={!studentCodes.length ? "La familia no tiene alumnos con código disponible." : undefined}>Crear tutor</SecondaryButton>
+          <SecondaryButton onClick={() => navigate(ROUTES.dashboardEnrollmentCaseNew, { state: { prefillFamily: familyData, familyId: getFamilyIdLabel(familyData) } })}>Crear alumno e iniciar matrícula</SecondaryButton>
         </div>
       </Card>
 
@@ -175,11 +193,6 @@ export default function FamilyDetailPage() {
         onCreate={handleCreateTutor}
         endpointReady
       />
-      <CreateStudentInlineModal
-        open={createStudentOpen}
-        onClose={() => setCreateStudentOpen(false)}
-        onCreate={handleCreateStudent}
-      />
       <PrimaryTutorConfirmModal
         open={primaryTutorModalOpen}
         onClose={() => setPrimaryTutorModalOpen(false)}
@@ -194,7 +207,7 @@ export default function FamilyDetailPage() {
           setSelectedTutor(null);
         }}
         onConfirm={handleEditTutor}
-        isPending={updateTutorMutation.isPending}
+        isPending={updateTutorMutation.isPending || updatePersonMutation.isPending}
       />
       <DeleteTutorConfirmModal
         open={deleteTutorModalOpen}
@@ -205,16 +218,6 @@ export default function FamilyDetailPage() {
         }}
         onConfirm={handleDeleteTutor}
         isPending={deleteTutorMutation.isPending}
-      />
-      <UnlinkStudentConfirmModal
-        open={unlinkStudentModalOpen}
-        student={selectedStudent}
-        onClose={() => {
-          setUnlinkStudentModalOpen(false);
-          setSelectedStudent(null);
-        }}
-        onConfirm={handleUnlinkStudent}
-        isPending={unlinkStudentMutation.isPending}
       />
     </div>
   );

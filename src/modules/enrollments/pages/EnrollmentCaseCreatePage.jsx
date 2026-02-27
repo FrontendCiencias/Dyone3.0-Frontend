@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
@@ -47,6 +47,7 @@ function emptyStudentAgreement(student) {
 
 export default function EnrollmentCaseCreatePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeCampus } = useAuth();
   const [caseId, setCaseId] = useState(null);
   const [familyQuery, setFamilyQuery] = useState("");
@@ -78,6 +79,31 @@ export default function EnrollmentCaseCreatePage() {
 
   const familyRows = useMemo(() => (Array.isArray(familiesQuery.data?.items) ? familiesQuery.data.items : []), [familiesQuery.data]);
 
+  const prefilledFamily = useMemo(() => {
+    const state = location.state || {};
+    const candidate = state.prefillFamily || null;
+    const idFromState = state.familyId || candidate?.id || candidate?._id || candidate?.familyId;
+    if (!idFromState) return null;
+
+    return {
+      id: candidate?.id || candidate?._id || candidate?.familyId || idFromState,
+      _id: candidate?._id || candidate?.id || idFromState,
+      familyId: candidate?.familyId || idFromState,
+      ...candidate,
+    };
+  }, [location.state]);
+
+
+  useEffect(() => {
+    if (!prefilledFamily) return;
+    setSelectedFamily((prev) => {
+      const prevId = prev?.id || prev?._id || prev?.familyId;
+      const nextId = prefilledFamily?.id || prefilledFamily?._id || prefilledFamily?.familyId;
+      if (String(prevId || "") === String(nextId || "")) return prev;
+      return prefilledFamily;
+    });
+    setFamilyQuery((prev) => prev || String(prefilledFamily?.id || prefilledFamily?._id || prefilledFamily?.familyId || ""));
+  }, [prefilledFamily]);
   const normalizedStudents = useMemo(
     () => students.map((item) => ({ ...item, pensionMonthlyAmounts: normalizePensionArray(item.pensionMonthlyAmounts, -1) })),
     [students],

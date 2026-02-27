@@ -117,3 +117,11 @@ export async function unlinkStudentFromFamily({ familyId, studentId }) {
   logResponse(endpoint, res.status, res.data);
   return res.data;
 }
+
+export async function updatePerson({ personId, ...payload }) {
+  const endpoint = API_ROUTES.personById(personId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
