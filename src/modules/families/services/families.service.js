@@ -69,6 +69,20 @@ export async function searchStudentsForFamily({ q = "", limit = 10 }) {
   return res.data;
 }
 
+
+export async function listOrphanStudents({ limit = 20, cursor = null }) {
+  const params = { limit };
+  if (cursor) params.cursor = cursor;
+
+  logRequest(API_ROUTES.studentsOrphans, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.studentsOrphans, { params });
+  logResponse(API_ROUTES.studentsOrphans, res.status, {
+    count: res.data?.items?.length || 0,
+    nextCursor: res.data?.nextCursor || null,
+  });
+  return res.data;
+}
+
 export async function createStudentFromFamily(payload) {
   logRequest(API_ROUTES.students, "POST", payload);
   const res = await axiosInstance.post(API_ROUTES.students, payload);
@@ -106,6 +120,16 @@ export async function deleteTutor({ tutorId }) {
   const endpoint = API_ROUTES.tutorById(tutorId);
   logRequest(endpoint, "DELETE", { tutorId });
   const res = await axiosInstance.delete(endpoint);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+
+export async function linkStudentToFamily({ familyId, studentId }) {
+  const endpoint = API_ROUTES.familyStudents(familyId);
+  const payload = { studentId };
+  logRequest(endpoint, "POST", payload);
+  const res = await axiosInstance.post(endpoint, payload);
   logResponse(endpoint, res.status, res.data);
   return res.data;
 }

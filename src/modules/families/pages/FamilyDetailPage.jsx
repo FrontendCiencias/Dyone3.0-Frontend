@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import { useAuth } from "../../../lib/auth";
 import StudentsContextBar from "../../students/components/StudentsContextBar";
 import { ROUTES } from "../../../config/routes";
 import LinkStudentModal from "../components/LinkStudentModal";
@@ -17,14 +18,12 @@ import { useCreateTutorMutation } from "../hooks/useCreateTutorMutation";
 import { useUpdateFamilyPrimaryTutorMutation } from "../hooks/useUpdateFamilyPrimaryTutorMutation";
 import { useDeleteTutorMutation } from "../hooks/useDeleteTutorMutation";
 import { useUpdateTutorMutation } from "../hooks/useUpdateTutorMutation";
-import { useUpdatePersonMutation } from "../hooks/useUpdatePersonMutation";
 import {
   getFamilyIdLabel,
   getPrimaryTutor,
   getStudents,
   getTutorFullName,
   getTutorId,
-  getTutorPersonId,
   getTutors,
 } from "../domain/familyDisplay";
 
@@ -33,6 +32,7 @@ function getStudentId(student) {
 }
 
 export default function FamilyDetailPage() {
+  const { activeRole } = useAuth();
   const navigate = useNavigate();
   const { familyId } = useParams();
   const [linkOpen, setLinkOpen] = useState(false);
@@ -48,8 +48,8 @@ export default function FamilyDetailPage() {
   const createTutorMutation = useCreateTutorMutation();
   const updatePrimaryTutorMutation = useUpdateFamilyPrimaryTutorMutation();
   const updateTutorMutation = useUpdateTutorMutation();
-  const updatePersonMutation = useUpdatePersonMutation();
   const deleteTutorMutation = useDeleteTutorMutation();
+  const canDeleteTutor = String(activeRole || "").toUpperCase() === "ADMIN";
 
   const familyData = familyQuery.data || {};
   const tutors = useMemo(() => getTutors(familyQuery.data), [familyQuery.data]);
@@ -107,23 +107,19 @@ export default function FamilyDetailPage() {
 
   const handleEditTutor = async (payload) => {
     const tutorId = getTutorId(selectedTutor);
-    const personId = getTutorPersonId(selectedTutor);
+    const tutorPerson = selectedTutor?.tutorPerson || selectedTutor?.person || {};
+    const gender = payload.gender ?? tutorPerson?.gender;
 
     if (!tutorId) throw new Error("No se pudo identificar el tutor seleccionado");
-    if (!personId) throw new Error("No se pudo identificar la persona asociada al tutor");
 
-    await updatePersonMutation.mutateAsync({
-      personId,
+    await updateTutorMutation.mutateAsync({
+      tutorId,
       familyId,
       names: payload.names,
       lastNames: payload.lastNames,
       dni: payload.dni,
       phone: payload.phone,
-    });
-
-    await updateTutorMutation.mutateAsync({
-      tutorId,
-      familyId,
+      gender,
       relationship: payload.relationship,
       isPrimary: payload.isPrimary,
       livesWithStudent: payload.livesWithStudent,
@@ -167,7 +163,7 @@ export default function FamilyDetailPage() {
         primaryTutorId={getTutorId(primaryTutor)}
         onMakePrimary={openChangePrimaryTutorModal}
         onEditTutor={openEditTutorModal}
-        onDeleteTutor={openDeleteTutorModal}
+        onDeleteTutor={canDeleteTutor ? openDeleteTutorModal : undefined}
       />
 
       <StudentsCard students={students} />
@@ -207,7 +203,7 @@ export default function FamilyDetailPage() {
           setSelectedTutor(null);
         }}
         onConfirm={handleEditTutor}
-        isPending={updateTutorMutation.isPending || updatePersonMutation.isPending}
+        isPending={updateTutorMutation.isPending}
       />
       <DeleteTutorConfirmModal
         open={deleteTutorModalOpen}
