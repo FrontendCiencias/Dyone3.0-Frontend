@@ -22,6 +22,22 @@ const PURE_ROLES = [
   "STUDENT",
 ];
 
+const ACCOUNT_OPTION_ROLE_PRIORITY = [
+  "ADMIN",
+  "SECRETARY",
+  "PROMOTER",
+  "DIRECTOR",
+  "AUXILIAR",
+  "TEACHER",
+  "STUDENT",
+  "SECRETARY_VIEWER",
+];
+
+function accountOptionRoleIndex(role) {
+  const idx = ACCOUNT_OPTION_ROLE_PRIORITY.indexOf(String(role || "").toUpperCase());
+  return idx === -1 ? 999 : idx;
+}
+
 function uniq(list = []) {
   return [...new Set(list)];
 }
@@ -48,16 +64,15 @@ export function normalizeRoles(inputRoles = []) {
 export function normalizeCampusScopeForRoles({ roles = [], campusScope = [] }) {
   const roleList = normalizeRoles(roles);
 
-  if (roleList.includes("ADMIN")) return ["ALL"];
-  if (roleList.includes("PROMOTER")) return ["ALL"];
-
-  const safeCampuses = uniq(
+  const safeScope = uniq(
     (Array.isArray(campusScope) ? campusScope : [])
       .map((c) => String(c || "").toUpperCase().trim())
-      .filter((c) => CAMPUS_ORDER.includes(c)),
+      .filter((c) => c === "ALL" || CAMPUS_ORDER.includes(c)),
   );
 
-  return safeCampuses.length ? safeCampuses : ["CIENCIAS"];
+  if (safeScope.length) return safeScope;
+  if (roleList.includes("ADMIN") || roleList.includes("PROMOTER")) return ["ALL"];
+  return ["CIENCIAS"];
 }
 
 export function rolePriorityIndex(role) {
@@ -86,24 +101,31 @@ export function buildAccountOptions({ roles = [], campusScope = [] }) {
     options.push({ role: "PROMOTER", campus: "ALL" });
   }
 
-  const scopedCampuses = uniq(
+  const normalizedScope = uniq(
     (Array.isArray(campusScope) ? campusScope : [])
       .map((c) => String(c || "").toUpperCase().trim())
-      .filter((c) => CAMPUS_ORDER.includes(c)),
+      .filter((c) => c === "ALL" || CAMPUS_ORDER.includes(c)),
   );
 
-  const campusSorted = CAMPUS_ORDER.filter((c) => scopedCampuses.includes(c));
+  const scopedCampuses = CAMPUS_ORDER.filter((c) => normalizedScope.includes(c));
+  const campusesForSecretary = scopedCampuses.length ? scopedCampuses : CAMPUS_ORDER;
 
-  const campusRoles = roleList.filter((r) => r !== "ADMIN" && r !== "PROMOTER");
+  const campusRoles = roleList.filter((r) => r !== "ADMIN" && r !== "PROMOTER" && r !== "SECRETARY");
+
+  if (roleList.includes("SECRETARY")) {
+    for (const campus of campusesForSecretary) {
+      options.push({ role: "SECRETARY", campus });
+    }
+  }
 
   for (const role of campusRoles) {
-    for (const campus of campusSorted) {
+    for (const campus of scopedCampuses) {
       options.push({ role, campus });
     }
   }
 
   return options.sort((a, b) => {
-    const byRole = rolePriorityIndex(a.role) - rolePriorityIndex(b.role);
+    const byRole = accountOptionRoleIndex(a.role) - accountOptionRoleIndex(b.role);
     if (byRole !== 0) return byRole;
 
     const aCampusRank = a.campus === "ALL" ? -1 : CAMPUS_ORDER.indexOf(a.campus);

@@ -30,9 +30,11 @@ export default function TutorsCard({ tutors = [], primaryTutorId, onMakePrimary,
                 <SecondaryButton className="px-2 py-1 text-xs" onClick={() => onEditTutor?.(tutor)}>
                   Editar
                 </SecondaryButton>
-                <SecondaryButton className="px-2 py-1 text-xs" onClick={() => onDeleteTutor?.(tutor)}>
-                  Eliminar
-                </SecondaryButton>
+                {onDeleteTutor ? (
+                  <SecondaryButton className="px-2 py-1 text-xs" onClick={() => onDeleteTutor?.(tutor)}>
+                    Eliminar
+                  </SecondaryButton>
+                ) : null}
               </div>
             </div>
           );

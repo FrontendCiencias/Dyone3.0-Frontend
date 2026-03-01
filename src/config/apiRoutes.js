@@ -19,6 +19,7 @@ export const API_ROUTES = {
   studentInternalNotes: (id) => `/api/students/${id}/internal-notes`,
   createStudentWithPerson: "/api/students/with-person",
   studentsSearch: "/api/students/search",
+  studentsOrphans: "/api/students/orphans",
   createTutor: "/api/tutors",
   tutorById: (id) => `/api/tutors/${id}`,
   personById: (id) => `/api/people/${id}`,
@@ -29,6 +30,7 @@ export const API_ROUTES = {
   familiesLinkStudent: "/api/families/link-student",
   familyTutors: (id) => `/api/families/${id}/tutors`,
   familyPrimaryTutor: (id) => `/api/families/${id}/primary-tutor`,
+  familyStudents: (familyId) => `/api/families/${familyId}/students`,
   familyUnlinkStudent: (familyId, studentId) => `/api/families/${familyId}/students/${studentId}`,
 
   enrollments: "/api/enrollments",
