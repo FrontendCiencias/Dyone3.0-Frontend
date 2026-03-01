@@ -6,7 +6,8 @@ export default function ModalFeedbackOverlay({ status, successText, errorText, e
 
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/85 px-6" onClick={onClose} role="presentation">
-      <div className="max-w-md rounded-xl border border-gray-200 bg-white p-5 text-center shadow" onClick={(event) => event.stopPropagation()}>
+      {/* <div className="max-w-md rounded-xl border border-gray-200 bg-white p-5 text-center shadow" onClick={(event) => event.stopPropagation()}> */}
+      <div className="max-w-md p-5 text-center" onClick={(event) => event.stopPropagation()}>
         <StatusFeedback status={status} successText={successText} errorText={errorText} errorDetail={errorDetail} />
         <button
           type="button"

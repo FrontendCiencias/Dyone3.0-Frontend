@@ -7,7 +7,7 @@ import LoadingOverlay from "../../../../shared/ui/LoadingOverlay";
 import Spinner from "../../../../shared/ui/Spinner";
 import ModalFeedbackOverlay from "../../../../shared/ui/ModalFeedbackOverlay";
 
-const RELATIONSHIP_OPTIONS = ["MADRE", "PADRE", "APODERADO", "ABUELO", "ABUELA", "TÍO", "TÍA", "OTRO"];
+const RELATIONSHIP_OPTIONS = ["Madre", "Padre", "Apoderado", "Abuelo", "Abuela", "Hermano", "Hermana", "Tío", "Tía", "Otro"];
 
 function getInitialForm(tutor) {
   const person = tutor?.tutorPerson || tutor?.person || {};
@@ -60,6 +60,8 @@ export default function EditTutorModal({ open, tutor, onClose, onConfirm, isPend
   const [form, setForm] = useState(getInitialForm(null));
   const [status, setStatus] = useState("idle");
   const [serverError, setServerError] = useState("");
+
+  // console.log("[dbg] [tutor]: ",tutor)
 
   useEffect(() => {
     if (!open) return;
