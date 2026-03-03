@@ -82,7 +82,7 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
                   <span className="font-medium">F. Nacimiento:</span> {student.birthDate || "?"}
                 </p>
                 <p>
-                  <span className="font-medium">Estado:</span> {student.isActive ? "Activo" : "Inactivo"}
+                  <span className="font-medium">Estado:</span> {student.activeStatus == "ACTIVE" ? "Activo" : student.activeStatus == "GRADUATED" ? "Egresado" :"Inactivo"}
                 </p>
                 <p>
                   <span className="font-medium">Código:</span> {student.internalCode || "-"}
