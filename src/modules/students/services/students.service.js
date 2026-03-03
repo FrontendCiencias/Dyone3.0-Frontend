@@ -135,14 +135,25 @@ export async function getStudentDetail(studentId) {
   return getStudentSummary(studentId);
 }
 
-export async function getClassroomOptions({ level, grade }) {
+export async function getClassroomOptions({ level, grade, includeCapacity = true }) {
   const endpoint = API_ROUTES.classroomOptions;
-  const params = { level, grade };
+  const params = { level, grade, includeCapacity };
 
   logRequest(endpoint, "GET", params);
   const res = await axiosInstance.get(endpoint, { params });
   logResponse(endpoint, res.status, { count: Array.isArray(res.data?.items) ? res.data.items.length : 0 });
 
+  return res.data;
+}
+
+export async function getStudentCycleStatus(studentId, { cycleId } = {}) {
+  const endpoint = API_ROUTES.studentCycleStatus(studentId);
+  const params = {};
+  if (cycleId) params.cycleId = cycleId;
+
+  logRequest(endpoint, "GET", params);
+  const res = await axiosInstance.get(endpoint, { params });
+  logResponse(endpoint, res.status, res.data);
   return res.data;
 }
 
