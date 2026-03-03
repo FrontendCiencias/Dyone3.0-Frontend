@@ -1,342 +1,499 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useQueries } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import Card from "../../../components/ui/Card";
-import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
-import { useAuth } from "../../../lib/auth";
 import { useCyclesQuery } from "../../admin/hooks/useCyclesQuery";
-import { useCampusesQuery } from "../../admin/hooks/useCampusesQuery";
-import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
 import { useFamiliesSearchQuery } from "../../families/hooks/useFamiliesSearchQuery";
-import EnrollmentStudentCard from "../components/EnrollmentStudentCard";
-import SearchOrCreateStudentModal from "../components/SearchOrCreateStudentModal";
-import { useEnrollmentCaseDraftMutation } from "../hooks/useEnrollmentCaseDraftMutation";
-import { useConfirmEnrollmentCaseMutation } from "../hooks/useConfirmEnrollmentCaseMutation";
-import { useRemoveEnrollmentCaseStudentMutation } from "../hooks/useRemoveEnrollmentCaseStudentMutation";
-import {
-  buildPensionArrayFromGeneralAmount,
-  normalizePensionArray,
-  validateCase,
-} from "../domain/enrollmentCaseValidation";
+import { useFamilyDetailQuery } from "../../families/hooks/useFamilyDetailQuery";
+import { getPrimaryTutorName, getStudents } from "../../families/domain/familyDisplay";
+import { useQuickEnrollmentMutation } from "../hooks/useQuickEnrollmentMutation";
+import { ENROLLMENT_CASE_MONTHS, buildPensionArrayFromGeneralAmount } from "../domain/enrollmentCaseValidation";
+import { getClassroomOptions, getStudentCycleStatus } from "../../students/services/students.service";
 
-function isPendingBackendError(error) {
-  const status = error?.response?.status;
-  return status === 404 || status === 501;
+const EXEMPT_SCHOOL_TYPES = new Set(["CIENCIAS", "CIENCIAS_APLICADAS", "CIMAS"]);
+
+function getFamilyId(row) {
+  return row?.id || row?._id || row?.familyId || "";
 }
 
-function emptyStudentAgreement(student) {
+function getStudentId(student) {
+  return student?.id || student?._id || student?.studentId || "";
+}
+
+function getStudentFullName(student) {
+  const direct = student?.fullName || student?.studentFullName;
+  if (direct) return direct;
+  return [student?.lastNames, student?.names].filter(Boolean).join(", ") || "Alumno sin nombre";
+}
+
+function getStudentInternalCode(student) {
+  return student?.internalCode || student?.code || student?.studentCode || "Sin código";
+}
+
+function resolveLevelGrade(student) {
   return {
-    localId: `${student?.id || student?._id}-${Date.now()}`,
-    enrollmentStudentId: null,
-    student,
-    classroomId: "",
-    previousSchoolType: "CIMAS",
-    previousSchoolName: "",
-    enrollmentFeeAmount: 0,
-    enrollmentFeeExempt: false,
-    admissionFeeAmount: 0,
-    admissionFeeExempt: false,
-    startMonthIndex: 0,
-    pensionGeneral: 0,
-    isPensionCustomized: false,
-    pensionMonthlyAmounts: buildPensionArrayFromGeneralAmount(0, 0),
+    level: student?.level || student?.educationLevel || student?.currentLevel,
+    grade: student?.grade || student?.currentGrade,
   };
+}
+
+function toMoney(value) {
+  const safe = Number(value || 0);
+  return `S/ ${Number.isNaN(safe) ? "0.00" : safe.toFixed(2)}`;
 }
 
 export default function EnrollmentCaseCreatePage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { activeCampus } = useAuth();
-  const [caseId, setCaseId] = useState(null);
   const [familyQuery, setFamilyQuery] = useState("");
+  const [familyLocked, setFamilyLocked] = useState(false);
   const [selectedFamily, setSelectedFamily] = useState(null);
-  const [cycleId, setCycleId] = useState("");
-  const [campusCode, setCampusCode] = useState(activeCampus === "ALL" ? "" : activeCampus);
-  const [students, setStudents] = useState([]);
-  const [capacityByStudentId, setCapacityByStudentId] = useState({});
-  const [studentModalOpen, setStudentModalOpen] = useState(false);
+  const [agreements, setAgreements] = useState({});
+  const [advancedPension, setAdvancedPension] = useState({});
   const [feedback, setFeedback] = useState("");
 
   const cyclesQuery = useCyclesQuery();
-  const campusesQuery = useCampusesQuery();
-  const classroomsQuery = useClassroomsQuery();
-  const familiesQuery = useFamiliesSearchQuery({ q: familyQuery, enabled: true, limit: 10 });
+  const activeCycle = useMemo(() => {
+    const rows = Array.isArray(cyclesQuery.data?.items) ? cyclesQuery.data.items : Array.isArray(cyclesQuery.data) ? cyclesQuery.data : [];
+    return rows.find((cycle) => cycle?.isActive) || null;
+  }, [cyclesQuery.data]);
 
-  const draftMutation = useEnrollmentCaseDraftMutation();
-  const confirmMutation = useConfirmEnrollmentCaseMutation();
-  const removeStudentMutation = useRemoveEnrollmentCaseStudentMutation();
+  const familiesQuery = useFamiliesSearchQuery({
+    q: familyQuery,
+    enabled: !familyLocked && String(familyQuery).trim().length >= 2,
+    limit: 8,
+  });
+  const familyRows = Array.isArray(familiesQuery.data?.items) ? familiesQuery.data.items : [];
 
-  const classrooms = useMemo(() => {
-    const rows = Array.isArray(classroomsQuery.data?.items) ? classroomsQuery.data.items : Array.isArray(classroomsQuery.data) ? classroomsQuery.data : [];
-    if (!campusCode) return rows;
-    return rows.filter((row) => {
-      const code = String(row?.campusCode || row?.campusAlias || "").toUpperCase();
-      return !code || code === String(campusCode).toUpperCase();
-    });
-  }, [classroomsQuery.data, campusCode]);
-
-  const familyRows = useMemo(() => (Array.isArray(familiesQuery.data?.items) ? familiesQuery.data.items : []), [familiesQuery.data]);
-
-  const prefilledFamily = useMemo(() => {
-    const state = location.state || {};
-    const candidate = state.prefillFamily || null;
-    const idFromState = state.familyId || candidate?.id || candidate?._id || candidate?.familyId;
-    if (!idFromState) return null;
-
-    return {
-      id: candidate?.id || candidate?._id || candidate?.familyId || idFromState,
-      _id: candidate?._id || candidate?.id || idFromState,
-      familyId: candidate?.familyId || idFromState,
-      ...candidate,
-    };
-  }, [location.state]);
-
+  const familyId = getFamilyId(selectedFamily);
+  const familyDetailQuery = useFamilyDetailQuery(familyId, Boolean(familyId));
+  const familyStudents = useMemo(() => getStudents(familyDetailQuery.data), [familyDetailQuery.data]);
 
   useEffect(() => {
-    if (!prefilledFamily) return;
-    setSelectedFamily((prev) => {
-      const prevId = prev?.id || prev?._id || prev?.familyId;
-      const nextId = prefilledFamily?.id || prefilledFamily?._id || prefilledFamily?.familyId;
-      if (String(prevId || "") === String(nextId || "")) return prev;
-      return prefilledFamily;
+    if (!familyStudents.length) return;
+
+    setAgreements((prev) => {
+      const next = { ...prev };
+      familyStudents.forEach((student) => {
+        const studentId = getStudentId(student);
+        if (!studentId || next[studentId]) return;
+
+        const previousSchoolType = student?.previousSchoolType || "OTHER";
+        const exempt = EXEMPT_SCHOOL_TYPES.has(previousSchoolType);
+        next[studentId] = {
+          include: false,
+          classroomId: "",
+          previousSchoolType,
+          admissionFeeAmount: exempt ? 0 : 0,
+          admissionFeeExempt: exempt,
+          enrollmentFeeAmount: 0,
+          enrollmentFeeExempt: false,
+          enrollmentFeeExemptReason: "",
+          pensionSimpleAmount: 0,
+          pensionMonthlyAmounts: buildPensionArrayFromGeneralAmount(0, 0),
+        };
+      });
+      return next;
     });
-    setFamilyQuery((prev) => prev || String(prefilledFamily?.id || prefilledFamily?._id || prefilledFamily?.familyId || ""));
-  }, [prefilledFamily]);
-  const normalizedStudents = useMemo(
-    () => students.map((item) => ({ ...item, pensionMonthlyAmounts: normalizePensionArray(item.pensionMonthlyAmounts, -1) })),
-    [students],
+  }, [familyStudents]);
+
+  const cycleStatusQueries = useQueries({
+    queries: familyStudents.map((student) => {
+      const studentId = getStudentId(student);
+      return {
+        queryKey: ["students", "cycle-status", studentId, activeCycle?.id],
+        queryFn: () => getStudentCycleStatus(studentId, { cycleId: activeCycle?.id }),
+        enabled: Boolean(studentId) && Boolean(activeCycle?.id),
+        retry: false,
+      };
+    }),
+  });
+
+  const enrollmentMutation = useQuickEnrollmentMutation();
+
+  const statusByStudentId = useMemo(() => {
+    const map = {};
+    familyStudents.forEach((student, index) => {
+      const studentId = getStudentId(student);
+      const query = cycleStatusQueries[index];
+      const rows = Array.isArray(query?.data?.items) ? query.data.items : Array.isArray(query?.data?.studentCycles) ? query.data.studentCycles : Array.isArray(query?.data) ? query.data : [];
+      const enrolled = rows.some((row) => String(row?.cycleId || row?.cycle?.id || "") === String(activeCycle?.id || "") && String(row?.status || "").toUpperCase() === "ENROLLED");
+      map[studentId] = {
+        enrolled,
+        loading: query?.isLoading,
+      };
+    });
+    return map;
+  }, [familyStudents, cycleStatusQueries, activeCycle?.id]);
+
+  const classroomQueries = useQueries({
+    queries: familyStudents.map((student) => {
+      const studentId = getStudentId(student);
+      const item = agreements[studentId];
+      const { level, grade } = resolveLevelGrade(student);
+
+      return {
+        queryKey: ["classroom-options", studentId, level, grade],
+        queryFn: () => getClassroomOptions({ level, grade, includeCapacity: true }),
+        enabled: Boolean(item?.include) && Boolean(level) && Boolean(grade),
+        retry: false,
+      };
+    }),
+  });
+
+  const includedStudents = useMemo(
+    () => familyStudents.filter((student) => agreements[getStudentId(student)]?.include),
+    [familyStudents, agreements],
   );
 
-  const caseValidation = useMemo(() => validateCase({
-    cycleId,
-    campusCode,
-    familyId: selectedFamily?.id || selectedFamily?._id,
-    students: normalizedStudents,
-  }, capacityByStudentId), [cycleId, campusCode, selectedFamily, normalizedStudents, capacityByStudentId]);
+  const summaryTotals = useMemo(() => {
+    const admission = includedStudents.reduce((acc, student) => {
+      const item = agreements[getStudentId(student)] || {};
+      if (item.admissionFeeExempt) return acc;
+      return acc + Number(item.admissionFeeAmount || 0);
+    }, 0);
 
-  const hasCapacityCheckBlock = useMemo(
-    () => Object.values(capacityByStudentId).some((state) => state?.isError || state?.isLoading),
-    [capacityByStudentId],
-  );
+    const enrollment = includedStudents.reduce((acc, student) => {
+      const item = agreements[getStudentId(student)] || {};
+      if (item.enrollmentFeeExempt) return acc;
+      return acc + Number(item.enrollmentFeeAmount || 0);
+    }, 0);
 
-  const computedCanConfirm = caseValidation.isValid && !hasCapacityCheckBlock && !confirmMutation.isPending;
+    const monthly = includedStudents.reduce((acc, student) => {
+      const item = agreements[getStudentId(student)] || {};
+      const firstValid = (item.pensionMonthlyAmounts || []).find((value) => Number(value) >= 0);
+      return acc + Number(firstValid || 0);
+    }, 0);
 
-  const payload = useMemo(() => ({
-    cycleId,
-    campusCode,
-    familyId: selectedFamily?.id || selectedFamily?._id,
-    enrollmentStudents: normalizedStudents.map((item) => ({
-      id: item.enrollmentStudentId || undefined,
-      studentId: item?.student?.id || item?.student?._id,
-      classroomId: item.classroomId,
-      previousSchoolType: item.previousSchoolType,
-      previousSchoolName: item.previousSchoolType === "OTHER" ? item.previousSchoolName : undefined,
-      enrollmentFee: { amount: Number(item.enrollmentFeeAmount || 0), isExempt: Boolean(item.enrollmentFeeExempt) },
-      admissionFee: {
-        applies: item.previousSchoolType === "OTHER",
-        amount: item.previousSchoolType === "OTHER" ? Number(item.admissionFeeAmount || 0) : 0,
-        isExempt: item.previousSchoolType === "OTHER" ? Boolean(item.admissionFeeExempt) : false,
-      },
-      startMonthIndex: Number(item.startMonthIndex || 0),
-      pensionMonthlyAmounts: normalizePensionArray(item.pensionMonthlyAmounts, -1),
-      notes: item.notes || "",
-    })),
-  }), [cycleId, campusCode, selectedFamily, normalizedStudents]);
+    return { admission, enrollment, monthly };
+  }, [includedStudents, agreements]);
 
-  const saveDraft = async () => {
-    setFeedback("");
-    try {
-      const data = await draftMutation.mutateAsync({ caseId, payload });
-      const newCaseId = data?.id || data?.case?.id || caseId;
-      if (newCaseId) setCaseId(newCaseId);
-      setFeedback("Borrador guardado correctamente.");
-    } catch (error) {
-      if (isPendingBackendError(error)) {
-        setFeedback("Borrador local: endpoint pendiente de backend (/api/enrollment-cases).");
-        return;
-      }
-      setFeedback("No se pudo guardar borrador.");
-    }
+  const validations = useMemo(() => {
+    if (!activeCycle?.id) return "No existe ciclo activo configurado.";
+    if (!familyId) return "Selecciona una familia.";
+    if (!includedStudents.length) return "Selecciona al menos un alumno a matricular.";
+
+    const missingClassroom = includedStudents.some((student) => !agreements[getStudentId(student)]?.classroomId);
+    if (missingClassroom) return "Todos los alumnos incluidos deben tener un aula.";
+
+    const missingAmounts = includedStudents.some((student) => {
+      const item = agreements[getStudentId(student)];
+      if (!item) return true;
+      const pensionInvalid = !Array.isArray(item.pensionMonthlyAmounts) || item.pensionMonthlyAmounts.some((value) => Number.isNaN(Number(value)));
+      if (pensionInvalid) return true;
+      if (!item.admissionFeeExempt && Number(item.admissionFeeAmount) < 0) return true;
+      if (!item.enrollmentFeeExempt && Number(item.enrollmentFeeAmount) < 0) return true;
+      return false;
+    });
+
+    if (missingAmounts) return "Hay montos obligatorios pendientes o inválidos.";
+
+    return "";
+  }, [activeCycle?.id, familyId, includedStudents, agreements]);
+
+  const canConfirm = !validations && !enrollmentMutation.isPending;
+
+  const setAgreement = (studentId, patch) => {
+    setAgreements((prev) => ({ ...prev, [studentId]: { ...(prev[studentId] || {}), ...patch } }));
   };
 
-  const confirmCase = async () => {
+  const selectFamily = (family) => {
+    setSelectedFamily(family);
+    setFamilyLocked(true);
     setFeedback("");
+  };
 
-    if (!computedCanConfirm) {
-      setFeedback(caseValidation.blockingReason || "No se puede confirmar: revisa los datos del paquete.");
+  const resetFamily = () => {
+    setFamilyLocked(false);
+    setSelectedFamily(null);
+    setAgreements({});
+    setAdvancedPension({});
+    setFamilyQuery("");
+  };
+
+  const confirmEnrollment = async () => {
+    if (!canConfirm) {
+      setFeedback(validations || "No se puede confirmar la matrícula.");
       return;
     }
 
-    let activeCaseId = caseId;
+    const payload = {
+      familyId,
+      cycleId: activeCycle.id,
+      enrollmentStudents: includedStudents.map((student) => {
+        const studentId = getStudentId(student);
+        const item = agreements[studentId];
+        return {
+          studentId,
+          classroomId: item.classroomId,
+          admissionFee: {
+            applies: !item.admissionFeeExempt,
+            amount: item.admissionFeeExempt ? 0 : Number(item.admissionFeeAmount || 0),
+            isExempt: Boolean(item.admissionFeeExempt),
+          },
+          enrollmentFee: {
+            amount: item.enrollmentFeeExempt ? 0 : Number(item.enrollmentFeeAmount || 0),
+            isExempt: Boolean(item.enrollmentFeeExempt),
+            reason: item.enrollmentFeeExempt ? item.enrollmentFeeExemptReason || "Exoneración manual" : undefined,
+          },
+          pensionMonthlyAmounts: item.pensionMonthlyAmounts.map((value) => Number(value || 0)),
+        };
+      }),
+    };
+
     try {
-      if (!activeCaseId) {
-        const created = await draftMutation.mutateAsync({ caseId: null, payload });
-        activeCaseId = created?.id || created?.case?.id;
-        if (activeCaseId) setCaseId(activeCaseId);
-      }
-
-      if (!activeCaseId) {
-        setFeedback("No se pudo obtener id del caso para confirmar.");
-        return;
-      }
-
-      const result = await confirmMutation.mutateAsync({ caseId: activeCaseId, payload: {} });
-      const summary = result?.summary;
-      setFeedback(summary ? `Confirmado. Alumnos: ${summary.studentsConfirmedCount || 0} · Cargos: ${summary.chargesCreatedCount || 0}` : "Matrícula confirmada.");
+      await enrollmentMutation.mutateAsync(payload);
       navigate(ROUTES.dashboardEnrollments);
     } catch (error) {
-      if (isPendingBackendError(error)) {
-        setFeedback("Confirmación pendiente de backend: implementar POST /api/enrollment-cases/:id/confirm.");
-        return;
-      }
-      setFeedback("No se pudo confirmar la matrícula completa.");
-    }
-  };
-
-  const handleRemoveStudent = async (studentDraft) => {
-    const confirmed = window.confirm("¿Quitar alumno del paquete?");
-    if (!confirmed) return;
-
-    const localId = studentDraft?.localId;
-    setStudents((prev) => prev.filter((row) => row.localId !== localId));
-    setCapacityByStudentId((prev) => {
-      const copy = { ...prev };
-      delete copy[localId];
-      return copy;
-    });
-
-    if (!caseId || !studentDraft?.enrollmentStudentId) {
-      setFeedback("Alumno retirado del paquete local. No persistido en backend.");
-      return;
-    }
-
-    try {
-      await removeStudentMutation.mutateAsync({ caseId, enrollmentStudentId: studentDraft.enrollmentStudentId });
-      setFeedback("Alumno retirado del paquete.");
-    } catch (error) {
-      if (isPendingBackendError(error)) {
-        setFeedback("Alumno retirado localmente. Endpoint DELETE pendiente de backend.");
-        return;
-      }
-      setFeedback("No se pudo persistir el retiro del alumno en backend.");
+      setFeedback(error?.response?.data?.message || "No se pudo confirmar la matrícula.");
     }
   };
 
   return (
-    <div className="space-y-4 pb-8">
+    <div className="space-y-4 pb-10">
       <Card className="border border-gray-200 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">Nueva Matrícula</h1>
-            <p className="text-sm text-gray-600">Flujo de matrícula completa por paquete familiar.</p>
+            <p className="text-sm text-gray-600">Flujo familiar de matrícula en ciclo activo.</p>
+            <p className="mt-1 text-xs text-gray-500">Ciclo activo: <span className="font-semibold text-gray-700">{activeCycle?.name || activeCycle?.label || "No disponible"}</span></p>
           </div>
-          <SecondaryButton onClick={() => navigate(ROUTES.dashboardEnrollments)}>Volver al tablero</SecondaryButton>
+          <SecondaryButton onClick={() => navigate(ROUTES.dashboardEnrollments)}>Volver</SecondaryButton>
         </div>
       </Card>
 
-      {hasCapacityCheckBlock ? (
-        <Card className="border border-amber-200 bg-amber-50 text-sm text-amber-800">
-          No se puede confirmar sin validar cupos. Revisa salones con cupo pendiente o error de consulta.
-        </Card>
-      ) : null}
-
-      {feedback ? (
-        <Card className={`text-sm ${feedback.toLowerCase().includes("no se pudo") ? "border border-red-200 bg-red-50 text-red-700" : "border border-gray-200 text-gray-700"}`}>
-          {feedback}
-        </Card>
-      ) : null}
-
-      <Card className="border border-gray-200 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Contexto del caso</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Ciclo</label>
-            <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" value={cycleId} onChange={(e) => setCycleId(e.target.value)}>
-              <option value="">Seleccionar ciclo</option>
-              {(Array.isArray(cyclesQuery.data?.items) ? cyclesQuery.data.items : cyclesQuery.data || []).map((cycle) => (
-                <option key={cycle.id} value={cycle.id}>{cycle.name || cycle.label || cycle.id}</option>
-              ))}
-            </select>
+      <Card className="relative border border-gray-200 shadow-sm">
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Input
+              label="Buscar familia"
+              value={familyQuery}
+              onChange={(event) => setFamilyQuery(event.target.value)}
+              placeholder="Tutor, DNI o teléfono"
+              disabled={familyLocked}
+            />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Campus</label>
-            <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" value={campusCode} onChange={(e) => setCampusCode(e.target.value)}>
-              <option value="">Seleccionar campus</option>
-              {(Array.isArray(campusesQuery.data?.items) ? campusesQuery.data.items : campusesQuery.data || []).map((campus) => (
-                <option key={campus.id || campus.code} value={campus.code || campus.alias || campus.name}>{campus.name || campus.code || campus.alias}</option>
-              ))}
-            </select>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-            Estado del caso: <span className="font-semibold">DRAFT</span>
-          </div>
+          {familyLocked ? <SecondaryButton onClick={resetFamily}>Cambiar familia</SecondaryButton> : null}
         </div>
 
-        <div className="mt-3 space-y-2">
-          <Input label="Buscar familia" value={familyQuery} onChange={(e) => setFamilyQuery(e.target.value)} placeholder="DNI, nombres o teléfono" />
-          <div className="max-h-40 space-y-2 overflow-auto">
+        {!familyLocked && familyRows.length > 0 ? (
+          <div className="absolute left-6 right-6 top-[88px] z-20 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-white p-2 shadow-xl">
             {familyRows.map((family) => (
-              <button key={family.id || family._id} type="button" onClick={() => setSelectedFamily(family)} className="w-full rounded-lg border border-gray-200 p-2 text-left text-sm hover:bg-gray-50">
-                Family ID: {family.id || family._id} · Tutor: {family?.primaryTutor?.lastNames || family?.primaryTutor_send?.lastNames || "-"}
+              <button
+                key={getFamilyId(family)}
+                type="button"
+                className="mb-1 w-full rounded-md border border-transparent px-3 py-2 text-left text-sm hover:border-gray-200 hover:bg-gray-50"
+                onClick={() => selectFamily(family)}
+              >
+                <p className="font-medium text-gray-900">{getPrimaryTutorName(family)}</p>
+                <p className="text-xs text-gray-500">Alumnos: {(family?.students || []).slice(0, 3).map((student) => getStudentFullName(student)).join(" · ") || "Sin alumnos"}</p>
               </button>
             ))}
           </div>
-          {selectedFamily ? <p className="text-xs text-emerald-700">Familia vinculada: {selectedFamily.id || selectedFamily._id}</p> : null}
-        </div>
+        ) : null}
       </Card>
 
-      <Card className="border border-gray-200 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Alumnos del paquete</h2>
-          <Button onClick={() => setStudentModalOpen(true)}>Agregar alumno</Button>
-        </div>
+      {familyId ? (
+        <Card className="space-y-4 border border-gray-200 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900">Alumnos de la familia</h2>
 
-        <div className="space-y-3">
-          {students.map((item) => (
-            <EnrollmentStudentCard
-              key={item.localId}
-              student={item.student}
-              data={item}
-              classrooms={classrooms}
-              errors={caseValidation.errorsByStudentId[item.localId] || []}
-              onCapacityStateChange={(studentLocalId, state) => {
-                setCapacityByStudentId((prev) => ({ ...prev, [studentLocalId]: state }));
-              }}
-              onChange={(changes) => setStudents((prev) => prev.map((row) => (row.localId === item.localId ? { ...row, ...changes } : row)))}
-              onRemove={() => handleRemoveStudent(item)}
-              onOpenDetail={() => navigate(ROUTES.dashboardStudentDetail(item.student?.id || item.student?._id))}
-            />
-          ))}
-          {!students.length ? <p className="text-sm text-gray-500">Aún no agregas alumnos al paquete. Debes agregar al menos uno para confirmar.</p> : null}
-        </div>
-      </Card>
+          {familyStudents.map((student, index) => {
+            const studentId = getStudentId(student);
+            const status = statusByStudentId[studentId] || {};
+            const isInactive = student?.isActive === false;
+            const blocked = status.enrolled || isInactive;
+            const item = agreements[studentId] || {};
+            const classroomRows = Array.isArray(classroomQueries[index]?.data?.items)
+              ? classroomQueries[index].data.items
+              : Array.isArray(classroomQueries[index]?.data)
+                ? classroomQueries[index].data
+                : [];
 
-      <Card className="sticky bottom-3 border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="text-sm text-gray-600">
-            {caseValidation.blockingReason || "Listo para guardar/confirmar."}
+            return (
+              <div key={studentId} className="rounded-lg border border-gray-200 p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-semibold text-gray-900">{getStudentFullName(student)}</p>
+                    <p className="text-xs text-gray-500">{getStudentInternalCode(student)}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                    {status.loading ? <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">Validando ciclo...</span> : null}
+                    {status.enrolled ? <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-700">Ya matriculado</span> : null}
+                    {isInactive ? <span className="rounded-full bg-red-100 px-2 py-1 text-red-700">Inactivo</span> : null}
+                  </div>
+                </div>
+
+                <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    disabled={blocked}
+                    checked={Boolean(item.include) && !blocked}
+                    onChange={(event) => setAgreement(studentId, { include: event.target.checked })}
+                  />
+                  Incluir en matrícula
+                </label>
+
+                {item.include && !blocked ? (
+                  <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Aula</label>
+                      <select
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        value={item.classroomId || ""}
+                        onChange={(event) => setAgreement(studentId, { classroomId: event.target.value })}
+                      >
+                        <option value="">Selecciona aula</option>
+                        {classroomRows.map((row) => {
+                          const classroomId = row?.id || row?._id;
+                          const disabled = String(row?.status || "").toUpperCase() === "FULL";
+                          return (
+                            <option key={classroomId} value={classroomId} disabled={disabled}>
+                              {row?.label || row?.name} · {row?.campusCode || "--"} · Disp: {row?.available ?? "--"} · {row?.status || "OK"}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div>
+                        <p className="text-xs text-gray-600">Colegio anterior: <span className="font-semibold">{item.previousSchoolType || "OTHER"}</span></p>
+                        <p className="text-xs text-gray-600">Derecho de ingreso: <span className="font-semibold">{item.admissionFeeExempt ? "Exonerado" : toMoney(item.admissionFeeAmount)}</span></p>
+                        {!item.admissionFeeExempt ? (
+                          <input
+                            type="number"
+                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            value={Number(item.admissionFeeAmount || 0)}
+                            onChange={(event) => setAgreement(studentId, { admissionFeeAmount: Number(event.target.value || 0) })}
+                            placeholder="Derecho de ingreso"
+                          />
+                        ) : null}
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-700">Matrícula</label>
+                        <input
+                          type="number"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                          value={Number(item.enrollmentFeeAmount || 0)}
+                          onChange={(event) => setAgreement(studentId, { enrollmentFeeAmount: Number(event.target.value || 0) })}
+                        />
+                        <label className="mt-2 flex items-center gap-2 text-xs text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(item.enrollmentFeeExempt)}
+                            onChange={(event) => setAgreement(studentId, { enrollmentFeeExempt: event.target.checked })}
+                          />
+                          Exonerar matrícula
+                        </label>
+                        {item.enrollmentFeeExempt ? (
+                          <input
+                            type="text"
+                            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-xs"
+                            placeholder="Motivo de exoneración"
+                            value={item.enrollmentFeeExemptReason || ""}
+                            onChange={(event) => setAgreement(studentId, { enrollmentFeeExemptReason: event.target.value })}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-700">Pensión mensual</label>
+                        <label className="flex items-center gap-2 text-xs text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(advancedPension[studentId])}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setAdvancedPension((prev) => ({ ...prev, [studentId]: checked }));
+                              if (!checked) {
+                                const amount = Number(item.pensionSimpleAmount || 0);
+                                setAgreement(studentId, { pensionMonthlyAmounts: buildPensionArrayFromGeneralAmount(amount, 0) });
+                              }
+                            }}
+                          />
+                          Editar meses manualmente
+                        </label>
+                      </div>
+
+                      {!advancedPension[studentId] ? (
+                        <input
+                          type="number"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                          value={Number(item.pensionSimpleAmount || 0)}
+                          onChange={(event) => {
+                            const amount = Number(event.target.value || 0);
+                            setAgreement(studentId, {
+                              pensionSimpleAmount: amount,
+                              pensionMonthlyAmounts: buildPensionArrayFromGeneralAmount(amount, 0),
+                            });
+                          }}
+                        />
+                      ) : (
+                        <div className="grid gap-2 md:grid-cols-5">
+                          {ENROLLMENT_CASE_MONTHS.map((month, monthIndex) => (
+                            <label key={`${studentId}-${month}`} className="text-xs text-gray-600">
+                              {month}
+                              <input
+                                type="number"
+                                className="mt-1 w-full rounded border border-gray-300 px-2 py-1"
+                                value={Number(item.pensionMonthlyAmounts?.[monthIndex] || 0)}
+                                onChange={(event) => {
+                                  const next = [...(item.pensionMonthlyAmounts || buildPensionArrayFromGeneralAmount(0, 0))];
+                                  next[monthIndex] = Number(event.target.value || 0);
+                                  setAgreement(studentId, { pensionMonthlyAmounts: next });
+                                }}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </Card>
+      ) : null}
+
+      {familyId ? (
+        <Card className="border border-gray-200 shadow-sm">
+          <h3 className="text-lg font-semibold text-gray-900">Resumen final</h3>
+          <p className="mt-1 text-sm text-gray-600">Familia: {familyId}</p>
+          <div className="mt-3 space-y-1 text-sm text-gray-700">
+            {includedStudents.map((student) => {
+              const studentId = getStudentId(student);
+              const item = agreements[studentId] || {};
+              const classroomRows = classroomQueries[familyStudents.findIndex((row) => getStudentId(row) === studentId)]?.data?.items || [];
+              const classroom = classroomRows.find((row) => String(row?.id || row?._id) === String(item.classroomId));
+              return (
+                <p key={`summary-${studentId}`}>
+                  {getStudentFullName(student)} → {classroom?.label || "Aula pendiente"} ({item.previousSchoolType || "OTHER"})
+                </p>
+              );
+            })}
           </div>
-          <div className="flex gap-2">
-            <SecondaryButton onClick={saveDraft} disabled={draftMutation.isPending}>Guardar borrador</SecondaryButton>
-            <Button onClick={confirmCase} disabled={!computedCanConfirm}>Confirmar matrícula</Button>
-          </div>
-        </div>
-      </Card>
 
-      <SearchOrCreateStudentModal
-        open={studentModalOpen}
-        onClose={() => setStudentModalOpen(false)}
-        onSelect={(student) => {
-          const id = student?.id || student?._id;
-          if (!id) return;
-          setStudents((prev) => {
-            if (prev.some((item) => (item.student?.id || item.student?._id) === id)) return prev;
-            return [...prev, emptyStudentAgreement(student)];
-          });
-        }}
-      />
+          <div className="mt-4 grid gap-1 text-sm text-gray-800">
+            <p>Derecho ingreso total: <span className="font-semibold">{toMoney(summaryTotals.admission)}</span></p>
+            <p>Matrícula total: <span className="font-semibold">{toMoney(summaryTotals.enrollment)}</span></p>
+            <p>Pensión mensual familiar estimada: <span className="font-semibold">{toMoney(summaryTotals.monthly)}</span></p>
+          </div>
+
+          {feedback ? <p className="mt-3 text-sm text-red-600">{feedback}</p> : null}
+
+          <div className="mt-4 flex justify-end">
+            <Button onClick={confirmEnrollment} disabled={!canConfirm}>Confirmar matrícula</Button>
+          </div>
+          {!canConfirm ? <p className="mt-2 text-xs text-amber-700">{validations}</p> : null}
+        </Card>
+      ) : null}
     </div>
   );
 }
