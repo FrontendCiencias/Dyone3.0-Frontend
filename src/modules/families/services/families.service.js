@@ -74,9 +74,9 @@ export async function listOrphanStudents({ limit = 20, cursor = null }) {
   const params = { limit };
   if (cursor) params.cursor = cursor;
 
-  logRequest(API_ROUTES.studentsOrphans, "GET", params);
-  const res = await axiosInstance.get(API_ROUTES.studentsOrphans, { params });
-  logResponse(API_ROUTES.studentsOrphans, res.status, {
+  logRequest(API_ROUTES.studentsUnassigned, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.studentsUnassigned, { params });
+  logResponse(API_ROUTES.studentsUnassigned, res.status, {
     count: res.data?.items?.length || 0,
     nextCursor: res.data?.nextCursor || null,
   });

@@ -194,68 +194,9 @@ export default function FamiliesPage() {
   };
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[65%_35%]">
-      <section className="order-1 flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-        <Card className="max-h-[15vh] overflow-y-auto border border-gray-200 shadow-sm">
-          <div className="grid gap-3 md:grid-cols-12 md:items-end">
-            <div className="md:col-span-9">
-              <Input
-                label="Buscar familias"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="DNI, nombres, apellidos o teléfono"
-              />
-            </div>
-            <div className="md:col-span-3">
-              <Button className="w-full" onClick={() => setCreateOpen(true)}>+ Nueva familia</Button>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border border-gray-200 shadow-sm">
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {familiesQuery.isError && (
-              <Card className="border border-red-100 text-sm text-red-700">{getErrorMessage(familiesQuery.error, "No se pudo cargar las familias")}</Card>
-            )}
-
-            {familiesQuery.isLoading ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, index) => <FamilyCardSkeleton key={index} />)}
-              </div>
-            ) : (
-              <>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {families.map((family) => (
-                    <FamilyCard key={family.familyId || family._id} family={family} onOpen={() => navigate(ROUTES.dashboardFamilyDetail(family.familyId || family._id))} />
-                  ))}
-                </div>
-
-                {!families.length ? (
-                  <Card className="border border-gray-200 text-sm text-gray-500">
-                    {useSearchResults
-                      ? "No se encontraron familias para esa búsqueda."
-                      : "No se encontraron familias registradas. Crea una nueva familia para comenzar."}
-                  </Card>
-                ) : null}
-
-                {familiesQuery.hasNextPage ? (
-                  <div className="flex justify-end pt-1">
-                    <Button
-                      variant="secondary"
-                      onClick={() => familiesQuery.fetchNextPage()}
-                      disabled={familiesQuery.isFetchingNextPage}
-                    >
-                      {familiesQuery.isFetchingNextPage ? "Cargando..." : "Cargar más"}
-                    </Button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-        </Card>
-      </section>
-
-      <section className="order-2 flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[35%_65%]">
+      
+      <section className="order-1 flex h-full min-h-0 flex-col overflow-hidden">
         <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border border-gray-200 shadow-sm">
           <div className="border-b border-gray-100 px-4 py-3">
             <h3 className="text-lg font-semibold text-gray-900">Alumnos sin familia</h3>
@@ -326,6 +267,67 @@ export default function FamiliesPage() {
           </div>
         </Card>
       </section>
+
+      <section className="order-2 flex h-full min-h-0 flex-col gap-4 overflow-hidden">
+        <Card className="max-h-[15vh] overflow-y-auto border border-gray-200 shadow-sm">
+          <div className="grid gap-3 md:grid-cols-12 md:items-end">
+            <div className="md:col-span-9">
+              <Input
+                label="Buscar familias"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="DNI, nombres, apellidos o teléfono"
+              />
+            </div>
+            <div className="md:col-span-3">
+              <Button className="w-full" onClick={() => setCreateOpen(true)}>+ Nueva familia</Button>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border border-gray-200 shadow-sm">
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {familiesQuery.isError && (
+              <Card className="border border-red-100 text-sm text-red-700">{getErrorMessage(familiesQuery.error, "No se pudo cargar las familias")}</Card>
+            )}
+
+            {familiesQuery.isLoading ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => <FamilyCardSkeleton key={index} />)}
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {families.map((family) => (
+                    <FamilyCard key={family.familyId || family._id} family={family} onOpen={() => navigate(ROUTES.dashboardFamilyDetail(family.familyId || family._id))} />
+                  ))}
+                </div>
+
+                {!families.length ? (
+                  <Card className="border border-gray-200 text-sm text-gray-500">
+                    {useSearchResults
+                      ? "No se encontraron familias para esa búsqueda."
+                      : "No se encontraron familias registradas. Crea una nueva familia para comenzar."}
+                  </Card>
+                ) : null}
+
+                {familiesQuery.hasNextPage ? (
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      variant="secondary"
+                      onClick={() => familiesQuery.fetchNextPage()}
+                      disabled={familiesQuery.isFetchingNextPage}
+                    >
+                      {familiesQuery.isFetchingNextPage ? "Cargando..." : "Cargar más"}
+                    </Button>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </Card>
+      </section>
+
 
       <FamilyCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
 

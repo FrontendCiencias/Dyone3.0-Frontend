@@ -27,7 +27,7 @@ function getStudentId(student) {
 function getStudentFullName(student) {
   const direct = student?.fullName || student?.studentFullName;
   if (direct) return direct;
-  return [student?.lastNames, student?.names].filter(Boolean).join(", ") || "Alumno sin nombre";
+  return [student?.personId?.lastNames, student?.personId?.names].filter(Boolean).join(", ") || "Alumno sin nombre";
 }
 
 function getStudentInternalCode(student) {
@@ -80,8 +80,8 @@ export default function EnrollmentCaseCreatePage() {
       familyStudents.forEach((student) => {
         const studentId = getStudentId(student);
         if (!studentId || next[studentId]) return;
-
-        const previousSchoolType = student?.previousSchoolType || "OTHER";
+        // console.log("[DBG] [previousCampus] ", student)
+        const previousSchoolType = student?.previousCampus || "Externo";
         const exempt = EXEMPT_SCHOOL_TYPES.has(previousSchoolType);
         next[studentId] = {
           include: false,
@@ -172,7 +172,7 @@ export default function EnrollmentCaseCreatePage() {
   }, [includedStudents, agreements]);
 
   const validations = useMemo(() => {
-    if (!activeCycle?.id) return "No existe ciclo activo configurado.";
+    if (!activeCycle?.name) return "No existe ciclo activo configurado.";
     if (!familyId) return "Selecciona una familia.";
     if (!includedStudents.length) return "Selecciona al menos un alumno a matricular.";
 
@@ -360,7 +360,7 @@ export default function EnrollmentCaseCreatePage() {
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <div>
-                        <p className="text-xs text-gray-600">Colegio anterior: <span className="font-semibold">{item.previousSchoolType || "OTHER"}</span></p>
+                        <p className="text-xs text-gray-600">Colegio anterior: <span className="font-semibold">{item.previousSchoolType || "Externo"}</span></p>
                         <p className="text-xs text-gray-600">Derecho de ingreso: <span className="font-semibold">{item.admissionFeeExempt ? "Exonerado" : toMoney(item.admissionFeeAmount)}</span></p>
                         {!item.admissionFeeExempt ? (
                           <input
@@ -474,7 +474,7 @@ export default function EnrollmentCaseCreatePage() {
               const classroom = classroomRows.find((row) => String(row?.id || row?._id) === String(item.classroomId));
               return (
                 <p key={`summary-${studentId}`}>
-                  {getStudentFullName(student)} → {classroom?.label || "Aula pendiente"} ({item.previousSchoolType || "OTHER"})
+                  {getStudentFullName(student)} → {classroom?.label || "Aula pendiente"} ({item.previousSchoolType || "Otro"})
                 </p>
               );
             })}
