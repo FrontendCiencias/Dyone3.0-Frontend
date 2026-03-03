@@ -27,6 +27,32 @@ export async function createQuickEnrollment(payload) {
   return res.data;
 }
 
+export async function searchEnrollmentIntake({ q = "", campusScope }) {
+  const normalizedQuery = String(q || "").trim();
+  if (normalizedQuery.length < 2) return { items: [] };
+
+  const params = { q: normalizedQuery };
+  if (campusScope) params.campusScope = campusScope;
+
+  console.log("[NewEnrollment][Search]");
+  const res = await axiosInstance.get(API_ROUTES.enrollmentIntakeSearch, { params });
+  return res.data;
+}
+
+export async function getEnrollmentDetailById(id) {
+  const endpoint = API_ROUTES.enrollmentDetail(id);
+  console.log("[NewEnrollment][Draft]");
+  const res = await axiosInstance.get(endpoint);
+  return res.data;
+}
+
+export async function confirmEnrollmentById(enrollmentId, payload = {}) {
+  const endpoint = API_ROUTES.enrollmentConfirm(enrollmentId);
+  console.log("[NewEnrollment][Confirm]");
+  const res = await axiosInstance.post(endpoint, payload);
+  return res.data;
+}
+
 export async function listEnrollments({
   q = "",
   campus,

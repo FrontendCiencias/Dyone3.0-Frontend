@@ -70,6 +70,22 @@ export async function searchStudentsForFamily({ q = "", limit = 10 }) {
 }
 
 
+
+
+export async function searchOrphanStudents({ q = "", limit = 20, cursor = null }) {
+  const normalizedQuery = String(q || "").trim();
+  const params = { limit };
+  if (normalizedQuery) params.q = normalizedQuery;
+  if (cursor) params.cursor = cursor;
+
+  logRequest(API_ROUTES.studentsUnassignedSearch, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.studentsUnassignedSearch, { params });
+  logResponse(API_ROUTES.studentsUnassignedSearch, res.status, {
+    count: res.data?.items?.length || 0,
+    nextCursor: res.data?.nextCursor || null,
+  });
+  return res.data;
+}
 export async function listOrphanStudents({ limit = 20, cursor = null }) {
   const params = { limit };
   if (cursor) params.cursor = cursor;
