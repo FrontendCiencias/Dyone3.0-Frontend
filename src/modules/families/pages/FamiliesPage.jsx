@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-q
 import { useNavigate } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
+import SearchSelect from "../../../shared/ui/SearchSelect";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import BaseModal from "../../../shared/ui/BaseModal";
@@ -16,7 +17,7 @@ import FamilyCreateModal from "../components/FamilyCreateModal";
 import { useFamiliesListQuery } from "../hooks/useFamiliesListQuery";
 import { useFamiliesSearchInfiniteQuery } from "../hooks/useFamiliesSearchInfiniteQuery";
 import { useFamiliesSearchQuery } from "../hooks/useFamiliesSearchQuery";
-import { createFamily, linkStudentToFamily, listOrphanStudents } from "../services/families.service";
+import { createFamily, linkStudentToFamily, listOrphanStudents, searchOrphanStudents } from "../services/families.service";
 
 function getFamilyId(payload) {
   return payload?.id || payload?.family?.id || payload?.familyId || payload?._id;
@@ -64,6 +65,8 @@ export default function FamiliesPage() {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [orphanSearchInput, setOrphanSearchInput] = useState("");
+  const [orphanSearchDebounced, setOrphanSearchDebounced] = useState("");
 
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [selectedOrphanStudent, setSelectedOrphanStudent] = useState(null);
@@ -77,6 +80,11 @@ export default function FamiliesPage() {
     const timer = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setOrphanSearchDebounced(orphanSearchInput.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [orphanSearchInput]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setFamilySearchDebounced(familySearchInput.trim()), 300);
@@ -95,9 +103,16 @@ export default function FamiliesPage() {
     return pages.flatMap((page) => (Array.isArray(page?.items) ? page.items : []));
   }, [familiesQuery.data]);
 
+  const orphanSearchTerm = orphanSearchDebounced.trim();
+  const isOrphanSearchMode = orphanSearchTerm.length >= 2;
+
   const orphanStudentsQuery = useInfiniteQuery({
-    queryKey: ["students", "orphans", 20],
-    queryFn: ({ pageParam = null }) => listOrphanStudents({ limit: 20, cursor: pageParam }),
+    queryKey: ["students", "orphans", 20, orphanSearchTerm],
+    queryFn: ({ pageParam = null }) => (
+      isOrphanSearchMode
+        ? searchOrphanStudents({ q: orphanSearchTerm, limit: 20, cursor: pageParam })
+        : listOrphanStudents({ limit: 20, cursor: pageParam })
+    ),
     getNextPageParam: (lastPage) => lastPage?.nextCursor || undefined,
     enabled: Boolean(getToken()),
     retry: false,
@@ -200,6 +215,13 @@ export default function FamiliesPage() {
         <Card className="flex min-h-0 flex-1 flex-col overflow-hidden border border-gray-200 shadow-sm">
           <div className="border-b border-gray-100 px-4 py-3">
             <h3 className="text-lg font-semibold text-gray-900">Alumnos sin familia</h3>
+            <div className="mt-2">
+              <Input
+                value={orphanSearchInput}
+                onChange={(event) => setOrphanSearchInput(event.target.value)}
+                placeholder="Buscar por DNI, código o nombre del alumno"
+              />
+            </div>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -247,7 +269,7 @@ export default function FamiliesPage() {
                 })}
 
                 {!orphanStudents.length ? (
-                  <p className="text-sm text-gray-500">No hay alumnos pendientes por vincular.</p>
+                  <p className="text-sm text-gray-500">{isOrphanSearchMode ? "Sin resultados para esta búsqueda." : "No hay alumnos pendientes por vincular."}</p>
                 ) : null}
 
                 {orphanStudentsQuery.hasNextPage ? (
@@ -345,30 +367,23 @@ export default function FamiliesPage() {
         )}
       >
         <div className="relative space-y-3 p-5">
-          <Input
+          <SearchSelect
             label="Buscar familia"
             value={familySearchInput}
             onChange={(e) => setFamilySearchInput(e.target.value)}
             placeholder="DNI, nombres o teléfono"
-          />
-
-          <div className="max-h-64 space-y-2 overflow-auto">
-            {familySearchRows.map((family) => (
-              <button
-                key={family.id}
-                type="button"
-                className={`w-full rounded-md border p-2 text-left text-sm ${selectedFamilyId === family.id ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
-                onClick={() => setSelectedFamilyId(family.id)}
-              >
+            options={familySearchRows}
+            onSelect={(family) => setSelectedFamilyId(family.id)}
+            isLoading={familiesForLinkQuery.isFetching}
+            emptyText="Sin resultados."
+            renderOption={(family) => (
+              <div className={`rounded-md border p-2 ${selectedFamilyId === family.id ? "border-blue-500 bg-blue-50" : "border-transparent"}`}>
                 <p className="font-medium text-gray-900">Family ID: {family.label}</p>
                 <p className="text-xs text-gray-600">Tutor principal: {family.tutor || "-"}</p>
-              </button>
-            ))}
-
-            {!familySearchRows.length && familySearchDebounced.length >= 2 && !familiesForLinkQuery.isFetching ? (
-              <p className="text-sm text-gray-500">Sin resultados.</p>
-            ) : null}
-          </div>
+              </div>
+            )}
+            getOptionKey={(family) => family.id}
+          />
 
           <LoadingOverlay open={linkStatus === "submitting"}>
             <Spinner />

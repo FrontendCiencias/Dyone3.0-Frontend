@@ -8,6 +8,7 @@ export default function Input({
   placeholder = '',
   className = '',
   name,
+  ...rest
 }) {
   return (
     <div className={`flex flex-col space-y-1 ${className}`}>
@@ -18,6 +19,7 @@ export default function Input({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        {...rest}
         className="px-3 py-2 border rounded focus:outline-none focus:ring focus:ring-blue-200 text-sm"
       />
     </div>

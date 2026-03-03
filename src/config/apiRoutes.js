@@ -20,6 +20,7 @@ export const API_ROUTES = {
   createStudentWithPerson: "/api/students/with-person",
   studentsSearch: "/api/students/search",
   studentsUnassigned: "/api/students/unassigned",
+  studentsUnassignedSearch: "/api/students/unassigned/search",
   createTutor: "/api/tutors",
   tutorById: (id) => `/api/tutors/${id}`,
   personById: (id) => `/api/people/${id}`,
@@ -39,6 +40,7 @@ export const API_ROUTES = {
   enrollmentConfirm: (id) => `/api/enrollments/${id}/confirm`,
   enrollmentClassroomCapacity: (classroomId) => `/api/enrollments/classrooms/${classroomId}/capacity`,
   enrollmentCases: "/api/enrollment-cases",
+  enrollmentIntakeSearch: "/api/enrollments/intake-search",
   // TODO (backend): implement EnrollmentCase draft flow (create/list/detail) with fields: id, campusId/campusCode, cycleId, status, familyId, enrollmentStudents[].
   enrollmentCaseDetail: (id) => `/api/enrollment-cases/${id}`,
   enrollmentCaseConfirm: (id) => `/api/enrollment-cases/${id}/confirm`,
