@@ -59,13 +59,13 @@ export async function linkStudentFamily(payload) {
   return res.data;
 }
 
-export async function searchStudentsForFamily({ q = "", limit = 10 }) {
+export async function searchUnassignedStudents({ q = "", limit = 20, signal }) {
   const params = { limit };
   if (q?.trim()) params.q = q.trim();
 
-  logRequest(API_ROUTES.studentsSearch, "GET", params);
-  const res = await axiosInstance.get(API_ROUTES.studentsSearch, { params });
-  logResponse(API_ROUTES.studentsSearch, res.status, { count: res.data?.items?.length || 0 });
+  logRequest(API_ROUTES.studentsUnassignedSearch, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.studentsUnassignedSearch, { params, signal });
+  logResponse(API_ROUTES.studentsUnassignedSearch, res.status, { count: res.data?.items?.length || 0 });
   return res.data;
 }
 
@@ -106,6 +106,23 @@ export async function createStudentFromFamily(payload) {
   return res.data;
 }
 
+
+export async function addTutorToFamily({ familyId, ...payload }) {
+  const endpoint = API_ROUTES.familyTutors(familyId);
+  logRequest(endpoint, "POST", { familyId, ...payload });
+  const res = await axiosInstance.post(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function createStudentWithPerson(payload) {
+  const endpoint = API_ROUTES.createStudentWithPerson;
+  logRequest(endpoint, "POST", payload);
+  const res = await axiosInstance.post(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
 export async function createTutor(payload) {
   logRequest(API_ROUTES.createTutor, "POST", payload);
   const res = await axiosInstance.post(API_ROUTES.createTutor, payload);
@@ -142,8 +159,8 @@ export async function deleteTutor({ tutorId }) {
 
 
 export async function linkStudentToFamily({ familyId, studentId }) {
-  const endpoint = API_ROUTES.familyStudents(familyId);
-  const payload = { studentId };
+  const endpoint = API_ROUTES.familiesLinkStudent;
+  const payload = { familyId, studentId };
   logRequest(endpoint, "POST", payload);
   const res = await axiosInstance.post(endpoint, payload);
   logResponse(endpoint, res.status, res.data);
@@ -151,9 +168,10 @@ export async function linkStudentToFamily({ familyId, studentId }) {
 }
 
 export async function unlinkStudentFromFamily({ familyId, studentId }) {
-  const endpoint = API_ROUTES.familyUnlinkStudent(familyId, studentId);
-  logRequest(endpoint, "DELETE", { familyId, studentId });
-  const res = await axiosInstance.delete(endpoint);
+  const endpoint = API_ROUTES.familyUnlinkStudent(familyId);
+  const payload = { studentId };
+  logRequest(endpoint, "POST", { familyId, studentId });
+  const res = await axiosInstance.post(endpoint, payload);
   logResponse(endpoint, res.status, res.data);
   return res.data;
 }

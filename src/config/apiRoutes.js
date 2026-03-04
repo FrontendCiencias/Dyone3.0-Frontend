@@ -31,8 +31,7 @@ export const API_ROUTES = {
   familiesLinkStudent: "/api/families/link-student",
   familyTutors: (id) => `/api/families/${id}/tutors`,
   familyPrimaryTutor: (id) => `/api/families/${id}/primary-tutor`,
-  familyStudents: (familyId) => `/api/families/${familyId}/students`,
-  familyUnlinkStudent: (familyId, studentId) => `/api/families/${familyId}/students/${studentId}`,
+  familyUnlinkStudent: (familyId) => `/api/families/${familyId}/unlink-student`,
 
   enrollments: "/api/enrollments",
   enrollmentsList: "/api/enrollments",

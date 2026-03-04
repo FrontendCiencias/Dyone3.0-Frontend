@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createStudentFromFamily } from "../services/families.service";
+import { createStudentWithPerson } from "../services/families.service";
 
-export function useCreateFamilyStudentMutation() {
+export function useCreateStudentWithPersonMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: createStudentFromFamily,
+    mutationFn: createStudentWithPerson,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["students", "search"] });
       queryClient.invalidateQueries({ queryKey: ["families", "unassignedStudentsSearch"] });

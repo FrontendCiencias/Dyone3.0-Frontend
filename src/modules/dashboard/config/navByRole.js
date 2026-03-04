@@ -104,6 +104,12 @@ export function getNavItemsByRole(activeRole) {
         icon: GraduationCap,
       },
       {
+        to: ROUTES.dashboardFamilies,
+        label: "Familias",
+        description: "Padres y tutores",
+        icon: Users,
+      },
+      {
         to: ROUTES.dashboardPayments,
         label: "Pagos",
         description: "Cobros y pensiones",

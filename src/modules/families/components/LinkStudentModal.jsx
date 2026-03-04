@@ -5,33 +5,23 @@ import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
 import Spinner from "../../../shared/ui/Spinner";
-import ModalFeedbackOverlay from "../../../shared/ui/ModalFeedbackOverlay";
-import { useStudentsFamilySearchQuery } from "../hooks/useStudentsFamilySearchQuery";
-
-function getErrorMessage(error) {
-  const msg = error?.response?.data?.message || error?.message;
-  if (Array.isArray(msg)) return msg.join(". ");
-  if (typeof msg === "string") return msg;
-  return "No se pudo vincular el alumno";
-}
+import { useUnassignedStudentsSearchQuery } from "../hooks/useUnassignedStudentsSearchQuery";
 
 function mapStudentResult(student) {
-  const person = student?.personId || {};
-  const id = student?.id || student?._id || person?.id || person?._id || "";
+  const person = student?.person || student?.personId || {};
+  const id = student?.studentId || student?.id || student?._id || person?.personId || person?.id || "";
   const lastNames = person?.lastNames || student?.lastNames || "";
   const names = person?.names || student?.names || "";
   const dni = person?.dni || student?.dni || null;
-  const code = student?.code || person?.code || null;
-  const familyId = student?.familyId || null;
-  return { id, lastNames, names, dni, code, familyId };
+  const internalCode = student?.internalCode || student?.code || null;
+
+  return { id, lastNames, names, dni, internalCode };
 }
 
-export default function LinkStudentModal({ open, onClose, onConfirm, linkedStudentIds = [] }) {
+export default function LinkStudentModal({ open, onClose, onConfirm, linkedStudentIds = [], isLinking = false }) {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
-  const [selectedStudentId, setSelectedStudentId] = useState("");
-  const [status, setStatus] = useState("idle");
-  const [serverError, setServerError] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQ(q.trim()), 300);
@@ -42,121 +32,96 @@ export default function LinkStudentModal({ open, onClose, onConfirm, linkedStude
     if (!open) return;
     setQ("");
     setDebouncedQ("");
-    setSelectedStudentId("");
-    setStatus("idle");
-    setServerError("");
+    setSelectedStudent(null);
   }, [open]);
 
-  const searchQuery = useStudentsFamilySearchQuery({ q: debouncedQ, enabled: open });
+  const searchQuery = useUnassignedStudentsSearchQuery(debouncedQ, 20, open);
   const students = useMemo(() => {
     const rows = Array.isArray(searchQuery.data)
       ? searchQuery.data
       : Array.isArray(searchQuery.data?.items)
         ? searchQuery.data.items
         : [];
+
     return rows.map(mapStudentResult).filter((student) => Boolean(student.id));
   }, [searchQuery.data]);
 
   const linkedSet = useMemo(() => new Set(linkedStudentIds.map((id) => String(id))), [linkedStudentIds]);
 
-  const handleSubmit = async () => {
-    if (!selectedStudentId) return;
-    const selectedStudent = students.find((student) => String(student.id) === String(selectedStudentId));
-
-    if (linkedSet.has(String(selectedStudentId))) {
-      setServerError("El alumno ya está vinculado a esta familia.");
-      setStatus("error");
-      return;
-    }
-
-    setStatus("submitting");
-    setServerError("");
-    try {
-      await onConfirm({ studentId: selectedStudentId, familyId: selectedStudent?.familyId || null });
-      setStatus("success");
-    } catch (error) {
-      setServerError(getErrorMessage(error));
-      setStatus("error");
-    }
-  };
-
-  const overlayOpen = status === "submitting";
-  const feedbackOpen = status === "success" || status === "error";
-
-  const handleFeedbackClose = () => {
-    if (status === "success") {
-      onClose?.();
-      return;
-    }
-    setStatus("idle");
-    setServerError("");
-  };
-
-  const handleModalClose = () => {
-    if (feedbackOpen) {
-      handleFeedbackClose();
-      return;
-    }
-    onClose?.();
-  };
+  const confirmDisabled = !selectedStudent || isLinking;
 
   return (
     <BaseModal
       open={open}
-      onClose={status === "submitting" ? undefined : handleModalClose}
+      onClose={isLinking ? undefined : onClose}
       title="Vincular alumno existente"
       maxWidthClass="max-w-2xl"
-      closeOnBackdrop={status !== "submitting"}
-      footer={
+      closeOnBackdrop={!isLinking}
+      footer={(
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={handleModalClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
-          <Button onClick={handleSubmit} disabled={!selectedStudentId || status !== "idle"}>Vincular</Button>
+          <SecondaryButton onClick={onClose} disabled={isLinking}>Cancelar</SecondaryButton>
+          <Button
+            onClick={async () => {
+              try {
+                await onConfirm?.(selectedStudent);
+              } catch (_) {
+                // Mantener modal abierto para reintento
+              }
+            }}
+            disabled={confirmDisabled}
+          >
+            {isLinking ? "Vinculando..." : "Confirmar vínculo"}
+          </Button>
         </div>
-      }
+      )}
     >
       <div className="relative space-y-3 p-5">
-        <Input label="Buscar alumno" value={q} onChange={(e) => setQ(e.target.value)} placeholder="DNI, nombre o código" />
+        <Input
+          label="Buscar alumno"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="DNI, nombre o código"
+        />
+
+        {selectedStudent ? (
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-2 text-sm text-blue-900">
+            ¿Vincular a esta familia? <strong>{[selectedStudent.lastNames, selectedStudent.names].filter(Boolean).join(", ") || "Sin nombre"}</strong>
+          </div>
+        ) : null}
+
         <div className="max-h-60 space-y-2 overflow-auto">
           {students.map((student) => {
             const alreadyLinked = linkedSet.has(String(student.id));
+            const isSelected = String(selectedStudent?.id || "") === String(student.id);
+
             return (
               <button
                 key={student.id}
                 type="button"
-                disabled={alreadyLinked}
-                className={`w-full rounded-md border p-2 text-left text-sm ${selectedStudentId === student.id ? "border-blue-500 bg-blue-50" : "border-gray-200"} ${alreadyLinked ? "cursor-not-allowed opacity-60" : ""}`}
-                onClick={() => setSelectedStudentId(student.id)}
+                disabled={alreadyLinked || isLinking}
+                className={`w-full rounded-md border p-2 text-left text-sm ${isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200"} ${alreadyLinked ? "cursor-not-allowed opacity-60" : ""}`}
+                onClick={() => setSelectedStudent(student)}
               >
                 <p className="font-medium text-gray-900">{[student.lastNames, student.names].filter(Boolean).join(", ") || "Sin nombre"}</p>
                 <p className="text-xs text-gray-600">
                   {student.dni ? `DNI: ${student.dni}` : "DNI: —"}
-                  {student.code ? ` · Código: ${student.code}` : ""}
+                  {student.internalCode ? ` · Código: ${student.internalCode}` : ""}
                 </p>
                 {alreadyLinked ? <p className="text-xs text-amber-600">Ya vinculado a esta familia</p> : null}
               </button>
             );
           })}
-          {!students.length && debouncedQ.length >= 2 && !searchQuery.isFetching && (
-            <p className="text-sm text-gray-500">Sin resultados.</p>
-          )}
+
+          {!students.length && debouncedQ.length >= 2 && !searchQuery.isFetching ? (
+            <p className="text-sm text-gray-500">No se encontraron alumnos sin familia.</p>
+          ) : null}
+          {debouncedQ.length < 2 ? <p className="text-sm text-gray-500">Escribe al menos 2 caracteres para buscar.</p> : null}
         </div>
 
-        <LoadingOverlay open={overlayOpen && !feedbackOpen}>
-          {status === "submitting" ? (
-            <>
-              <Spinner />
-              <p className="mt-3 text-sm font-medium text-gray-700">Vinculando alumno...</p>
-            </>
-          ) : null}
+        <LoadingOverlay open={isLinking || searchQuery.isFetching}>
+          <Spinner />
+          <p className="mt-3 text-sm font-medium text-gray-700">{isLinking ? "Vinculando alumno..." : "Buscando alumnos..."}</p>
         </LoadingOverlay>
-
-        <ModalFeedbackOverlay
-          status={status}
-          successText="Alumno vinculado correctamente"
-          errorText="No se pudo vincular el alumno"
-          errorDetail={serverError}
-          onClose={handleFeedbackClose}
-        />
       </div>
     </BaseModal>
   );
