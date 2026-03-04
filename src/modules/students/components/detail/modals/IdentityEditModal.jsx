@@ -96,8 +96,8 @@ export default function IdentityEditModal({
               disabled={saving}
             >
               <option value="">Seleccionar…</option>
-              <option value="Femenino">Femenino</option>
-              <option value="Masculino">Masculino</option>
+              <option value="F">Femenino</option>
+              <option value="M">Masculino</option>
             </select>
           </div>
 

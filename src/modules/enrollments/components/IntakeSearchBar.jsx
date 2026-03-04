@@ -57,6 +57,7 @@ export default function IntakeSearchBar({ value, onChange, results = [], isLoadi
           {familyRows.map((item) => {
             const idx = allRows.findIndex((row) => row === item);
             const active = idx === activeIndex;
+            const fullName = `${item?.primaryTutor?.lastNames || ""}, ${item?.primaryTutor?.names || ""}`.replace(/^,\s*/, "");
             return (
               <button
                 key={getItemKey(item, idx)}
@@ -68,8 +69,25 @@ export default function IntakeSearchBar({ value, onChange, results = [], isLoadi
                   setIsOpen(false);
                 }}
               >
-                <p className="font-medium text-gray-900">{item?.primaryTutorName || "Familia"}</p>
-                <p className="text-xs text-gray-500">DNI: {item?.primaryTutorDni || "-"} · ID: {String(item?.familyId || "").slice(0, 8)}</p>
+                <p className="font-medium text-gray-900">{fullName || "Familia"}</p>
+                <p className="text-xs text-gray-500">DNI: {item?.primaryTutor?.dni || "-"} · ID: {String(item?.familyId || "").slice(0, 8)}</p>
+                {item.students.map((item) => {
+                  const idx = allRows.findIndex((row) => row === item);
+                  const active = idx === activeIndex;
+                  const fullName = `${item?.personId?.lastNames || ""}, ${item?.personId?.names || ""}`.replace(/^,\s*/, "");
+                  const blocked = item?.cycleStatus === "ENROLLED" || item?.activeStatus === "GRADUATED";
+                  return (
+                    <div>
+                      <p className="text-xs text-gray-500">· Alumno: {fullName || "Alumno"} · DNI: {item?.personId?.dni || "-"}</p>
+                      <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
+                        {item?.cycleStatus === "ENROLLED" ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-700">Ya matriculado</span> : null}
+                        {item?.activeStatus === "GRADUATED" ? <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-700">Egresado</span> : null}
+                        {item?.activeStatus === "INACTIVE" && item?.cycleStatus === "TRANSFERRED" ? <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700">Retorna (Traslado)</span> : null}
+                        {blocked ? <span className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-600">Bloqueado</span> : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </button>
             );
           })}

@@ -96,8 +96,12 @@ export default function EnrollmentCaseCreatePage() {
   const intakeSearchQuery = useEnrollmentIntakeSearchQuery({ q: debouncedQuery, campusScope: activeCampus, enabled: true });
   const intakeResults = Array.isArray(intakeSearchQuery.data?.items) ? intakeSearchQuery.data.items : Array.isArray(intakeSearchQuery.data) ? intakeSearchQuery.data : [];
 
+  console.log("[DBG] [intakeResults]: ",intakeResults)
+
   const familyDetailQuery = useFamilyDetailQuery(selectedFamilyId, Boolean(selectedFamilyId));
   const familyData = familyDetailQuery.data || null;
+
+  console.log("[DBG] [familyData]: ",familyData)
 
   useEffect(() => {
     if (!familyData) return;
@@ -323,7 +327,6 @@ export default function EnrollmentCaseCreatePage() {
         <Card className="border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">Nueva Matrícula</h1>
               <p className="text-sm text-gray-600">Campus activo: <span className="font-medium">{activeCampus || "-"}</span> · Ciclo activo: <span className="font-medium">{activeCycle?.name || "No disponible"}</span></p>
               <p className="text-xs text-gray-500">Estado: Borrador</p>
             </div>
