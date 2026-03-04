@@ -14,6 +14,7 @@ import StudentsPage from "../modules/students/pages/StudentsPage";
 import StudentDetailPage from "../modules/students/pages/StudentDetailPage";
 import FamiliesPage from "../modules/families/pages/FamiliesPage";
 import FamilyDetailPage from "../modules/families/pages/FamilyDetailPage";
+import FamiliesNewPage from "../modules/families/pages/FamiliesNewPage";
 import EnrollmentsPage from "../modules/enrollments/pages/EnrollmentsPage";
 import EnrollmentCaseCreatePage from "../modules/enrollments/pages/EnrollmentCaseCreatePage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
@@ -66,6 +67,7 @@ export default function AppRoutes() {
             <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
             <Route path={ROUTES.dashboardStudentDetail()} element={<StudentDetailPage />} />
             <Route path={ROUTES.dashboardFamilies} element={<FamiliesPage />} />
+            <Route path={ROUTES.dashboardFamilyNew} element={<FamiliesNewPage />} />
             <Route path={ROUTES.dashboardEnrollments} element={<EnrollmentsPage />} />
             <Route path={ROUTES.dashboardEnrollmentCaseNew} element={<EnrollmentCaseCreatePage />} />
             <Route path={ROUTES.dashboardFamilyDetail()} element={<FamilyDetailPage />} />

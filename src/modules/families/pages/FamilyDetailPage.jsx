@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
@@ -13,11 +13,12 @@ import StudentsCard from "../components/detail/cards/StudentsCard";
 import EditTutorModal from "../components/modals/EditTutorModal";
 import DeleteTutorConfirmModal from "../components/modals/DeleteTutorConfirmModal";
 import { useFamilyDetailQuery } from "../hooks/useFamilyDetailQuery";
-import { useLinkStudentMutation } from "../hooks/useLinkStudentMutation";
+import { useLinkStudentToFamilyMutation } from "../hooks/useLinkStudentToFamilyMutation";
 import { useCreateTutorMutation } from "../hooks/useCreateTutorMutation";
 import { useUpdateFamilyPrimaryTutorMutation } from "../hooks/useUpdateFamilyPrimaryTutorMutation";
 import { useDeleteTutorMutation } from "../hooks/useDeleteTutorMutation";
 import { useUpdateTutorMutation } from "../hooks/useUpdateTutorMutation";
+import { useUnlinkStudentFromFamilyMutation } from "../hooks/useUnlinkStudentFromFamilyMutation";
 import {
   getFamilyIdLabel,
   getPrimaryTutor,
@@ -31,6 +32,20 @@ function getStudentId(student) {
   return student?.id || student?._id || student?.studentId || null;
 }
 
+function getLinkStudentErrorMessage(error) {
+  const status = Number(error?.response?.status || 0);
+  const message = error?.response?.data?.message || error?.message || "";
+  const normalized = String(Array.isArray(message) ? message.join(". ") : message).toLowerCase();
+
+  if (status === 409 || normalized.includes("already linked")) {
+    return "El alumno ya se encuentra vinculado a una familia.";
+  }
+
+  return typeof message === "string" && message.trim()
+    ? message
+    : "No se pudo vincular el alumno. Intenta nuevamente.";
+}
+
 export default function FamilyDetailPage() {
   const { activeRole } = useAuth();
   const navigate = useNavigate();
@@ -39,17 +54,25 @@ export default function FamilyDetailPage() {
   const [createTutorOpen, setCreateTutorOpen] = useState(false);
   const [primaryTutorModalOpen, setPrimaryTutorModalOpen] = useState(false);
   const [selectedTutor, setSelectedTutor] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const [editTutorModalOpen, setEditTutorModalOpen] = useState(false);
   const [deleteTutorModalOpen, setDeleteTutorModalOpen] = useState(false);
 
   const familyQuery = useFamilyDetailQuery(familyId);
-  const linkMutation = useLinkStudentMutation();
+  const linkMutation = useLinkStudentToFamilyMutation();
   const createTutorMutation = useCreateTutorMutation();
   const updatePrimaryTutorMutation = useUpdateFamilyPrimaryTutorMutation();
   const updateTutorMutation = useUpdateTutorMutation();
   const deleteTutorMutation = useDeleteTutorMutation();
+  const unlinkStudentMutation = useUnlinkStudentFromFamilyMutation();
   const canDeleteTutor = String(activeRole || "").toUpperCase() === "ADMIN";
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = window.setTimeout(() => setToast(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   const familyData = familyQuery.data || {};
   const tutors = useMemo(() => getTutors(familyQuery.data), [familyQuery.data]);
@@ -62,9 +85,21 @@ export default function FamilyDetailPage() {
   );
 
   const handleLinkStudent = async (selection) => {
-    const studentId = typeof selection === "string" ? selection : selection?.studentId;
+    const studentId = selection?.id || selection?.studentId;
     if (!studentId) throw new Error("No se pudo identificar el alumno seleccionado");
-    await linkMutation.mutateAsync({ familyId, studentId });
+
+    console.info("[FamilyDetail][LinkStudent] submit", { familyId, studentId });
+
+    try {
+      await linkMutation.mutateAsync({ familyId, studentId });
+      setToast({ type: "success", message: "Alumno vinculado correctamente." });
+      setLinkOpen(false);
+      await familyQuery.refetch();
+    } catch (error) {
+      console.warn("[FamilyDetail][LinkStudent] error", { familyId, studentId, status: error?.response?.status });
+      setToast({ type: "error", message: getLinkStudentErrorMessage(error) });
+      throw error;
+    }
   };
 
   const studentCodes = useMemo(
@@ -140,10 +175,35 @@ export default function FamilyDetailPage() {
   };
 
 
+
+  const handleUnlinkStudent = async (student) => {
+    const studentId = getStudentId(student);
+    if (!studentId) return;
+
+    const confirmed = window.confirm(
+      "¿Deseas desvincular este alumno de la familia?\nEl alumno quedará sin familia.",
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await unlinkStudentMutation.mutateAsync({ familyId, studentId });
+      setToast({ type: "success", message: "Alumno desvinculado correctamente" });
+      await familyQuery.refetch();
+    } catch (error) {
+      setToast({ type: "error", message: "No se pudo desvincular al alumno" });
+    }
+  };
+
   if (familyQuery.isLoading) return <Card className="border border-gray-200">Cargando familia...</Card>;
 
   return (
     <div className="space-y-4">
+      {toast ? (
+        <div className={`rounded-md border px-3 py-2 text-sm ${toast.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+          {toast.message}
+        </div>
+      ) : null}
       <Card className="border border-gray-200 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex-1">
@@ -166,7 +226,12 @@ export default function FamilyDetailPage() {
         onDeleteTutor={canDeleteTutor ? openDeleteTutorModal : undefined}
       />
 
-      <StudentsCard students={students} />
+      <StudentsCard
+        students={students}
+        canUnlink={canDeleteTutor}
+        onUnlinkStudent={handleUnlinkStudent}
+        unlinkingStudentId={unlinkStudentMutation.variables?.studentId}
+      />
 
       <Card className="border border-gray-200 shadow-sm">
         <h3 className="mb-3 text-lg font-semibold text-gray-900">Acciones</h3>
@@ -182,6 +247,7 @@ export default function FamilyDetailPage() {
         onClose={() => setLinkOpen(false)}
         onConfirm={handleLinkStudent}
         linkedStudentIds={linkedStudentIds}
+        isLinking={linkMutation.isPending}
       />
       <CreateTutorModal
         open={createTutorOpen}

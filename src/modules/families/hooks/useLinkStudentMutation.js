@@ -8,7 +8,7 @@ export function useLinkStudentMutation() {
     mutationFn: linkStudentFamily,
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["families", "search"] });
-      queryClient.invalidateQueries({ queryKey: ["families", "studentsSearch"] });
+      queryClient.invalidateQueries({ queryKey: ["families", "unassignedStudentsSearch"] });
       queryClient.invalidateQueries({ queryKey: ["students", "search"] });
       if (variables?.studentId) {
         queryClient.invalidateQueries({ queryKey: ["students", "summary", variables.studentId] });

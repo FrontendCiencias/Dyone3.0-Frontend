@@ -13,15 +13,10 @@ import ModalFeedbackOverlay from "../../../shared/ui/ModalFeedbackOverlay";
 import { getToken } from "../../../lib/authStorage";
 import { ROUTES } from "../../../config/routes";
 import FamilyCard from "../components/FamilyCard";
-import FamilyCreateModal from "../components/FamilyCreateModal";
 import { useFamiliesListQuery } from "../hooks/useFamiliesListQuery";
 import { useFamiliesSearchInfiniteQuery } from "../hooks/useFamiliesSearchInfiniteQuery";
 import { useFamiliesSearchQuery } from "../hooks/useFamiliesSearchQuery";
-import { createFamily, linkStudentToFamily, listOrphanStudents, searchOrphanStudents } from "../services/families.service";
-
-function getFamilyId(payload) {
-  return payload?.id || payload?.family?.id || payload?.familyId || payload?._id;
-}
+import { linkStudentToFamily, listOrphanStudents, searchOrphanStudents } from "../services/families.service";
 
 function getErrorMessage(error, fallback = "No se pudo completar la acción") {
   const msg = error?.response?.data?.message || error?.message;
@@ -64,7 +59,6 @@ export default function FamiliesPage() {
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
   const [orphanSearchInput, setOrphanSearchInput] = useState("");
   const [orphanSearchDebounced, setOrphanSearchDebounced] = useState("");
 
@@ -124,18 +118,6 @@ export default function FamiliesPage() {
     return pages.flatMap((page) => (Array.isArray(page?.items) ? page.items : []));
   }, [orphanStudentsQuery.data]);
 
-  const createFamilyFromStudentMutation = useMutation({
-    mutationFn: (studentId) => createFamily({ studentId }),
-    onSuccess: (payload) => {
-      queryClient.invalidateQueries({ queryKey: ["families", "search"] });
-      queryClient.invalidateQueries({ queryKey: ["families", "list"] });
-      queryClient.invalidateQueries({ queryKey: ["students", "orphans"] });
-
-      const familyId = getFamilyId(payload);
-      if (familyId) navigate(ROUTES.dashboardFamilyDetail(familyId));
-    },
-  });
-
   const linkStudentMutation = useMutation({
     mutationFn: ({ familyId, studentId }) => linkStudentToFamily({ familyId, studentId }),
     onSuccess: () => {
@@ -169,12 +151,6 @@ export default function FamiliesPage() {
       tutor: family?.primaryTutor?.lastNames || family?.primaryTutor_send?.lastNames || "-",
     })).filter((family) => Boolean(family.id));
   }, [familiesForLinkQuery.data]);
-
-  const handleCreated = (familyPayload) => {
-    const familyId = getFamilyId(familyPayload);
-    setCreateOpen(false);
-    if (familyId) navigate(ROUTES.dashboardFamilyDetail(familyId));
-  };
 
   const openLinkModal = (student) => {
     setSelectedOrphanStudent(student);
@@ -241,8 +217,6 @@ export default function FamiliesPage() {
               <div className="space-y-2">
                 {orphanStudents.map((student) => {
                   const studentId = student?._id || student?.id;
-                  const creating = createFamilyFromStudentMutation.isPending && String(createFamilyFromStudentMutation.variables) === String(studentId);
-
                   return (
                     <div key={studentId} className="rounded-lg border border-gray-200 p-3">
                       <p className="text-sm font-semibold text-gray-900">{formatStudentLabel(student)}</p>
@@ -251,10 +225,10 @@ export default function FamiliesPage() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         <Button
                           size="sm"
-                          onClick={() => createFamilyFromStudentMutation.mutate(studentId)}
-                          disabled={createFamilyFromStudentMutation.isPending}
+                          onClick={() => navigate(`${ROUTES.dashboardFamilyNew}?preloadStudentId=${studentId}`)}
+                          disabled={!studentId}
                         >
-                          {creating ? "Creando..." : "Crear familia"}
+                          Crear familia
                         </Button>
                         <SecondaryButton
                           size="sm"
@@ -302,7 +276,7 @@ export default function FamiliesPage() {
               />
             </div>
             <div className="md:col-span-3">
-              <Button className="w-full" onClick={() => setCreateOpen(true)}>+ Nueva familia</Button>
+              <Button className="w-full" onClick={() => navigate(ROUTES.dashboardFamilyNew)}>+ Nueva familia</Button>
             </div>
           </div>
         </Card>
@@ -350,8 +324,6 @@ export default function FamiliesPage() {
         </Card>
       </section>
 
-
-      <FamilyCreateModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handleCreated} />
 
       <BaseModal
         open={linkModalOpen}
