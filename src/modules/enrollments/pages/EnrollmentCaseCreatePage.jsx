@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
@@ -7,7 +7,7 @@ import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { useAuth } from "../../../lib/auth";
 import { useCyclesQuery } from "../../admin/hooks/useCyclesQuery";
 import { useFamilyDetailQuery } from "../../families/hooks/useFamilyDetailQuery";
-import { createFamily, linkStudentToFamily } from "../../families/services/families.service";
+import { createFamily, createTutor, linkStudentToFamily } from "../../families/services/families.service";
 import { createStudentWithPerson, getClassroomOptions } from "../../students/services/students.service";
 import IntakeSearchBar from "../components/IntakeSearchBar";
 import FamilySummaryCard from "../components/FamilySummaryCard";
@@ -15,6 +15,8 @@ import EnrollmentPackageList from "../components/EnrollmentPackageList";
 import RightSummarySidebar from "../components/RightSummarySidebar";
 import CreateStudentModal from "../components/CreateStudentModal";
 import CreateFamilyFromStudentModal from "../components/CreateFamilyFromStudentModal";
+import SearchUnassignedStudentModal from "../components/SearchUnassignedStudentModal";
+import CreateStudentWithoutFamilyWizardModal from "../components/CreateStudentWithoutFamilyWizardModal";
 import { useEnrollmentIntakeSearchQuery } from "../hooks/useEnrollmentIntakeSearchQuery";
 import { confirmEnrollmentById, createQuickEnrollment, getEnrollmentDetailById } from "../services/enrollments.service";
 import { ENROLLMENT_CASE_MONTHS, buildPensionArrayFromGeneralAmount } from "../domain/enrollmentCaseValidation";
@@ -32,8 +34,12 @@ function toPackageItemFromStudent(student, overrides = {}) {
   const activeStatus = overrides.activeStatus || student?.activeStatus || "ACTIVE";
   const isReturnTransfer = activeStatus === "INACTIVE" && cycleStatus === "TRANSFERRED";
   const blockedReason = cycleStatus === "ENROLLED" ? "Ya matriculado" : activeStatus === "GRADUATED" ? "Egresado" : "";
+  const hasVacancy = overrides.hasVacancy ?? student?.hasVacancy ?? false;
   const classroom = student?.classroom || student?.vacancy?.classroom || overrides.classroom;
   const assignedClassroomLabel = classroom?.label || classroom?.name || "";
+  if (hasVacancy && !assignedClassroomLabel) {
+    console.warn("[NewEnrollment] Student hasVacancy=true but classroom label missing", { studentId: id });
+  }
   const previousSchoolType = overrides.previousSchoolType || student?.previousCampus || student?.previousSchoolType || "OTHER";
 
   return {
@@ -46,15 +52,27 @@ function toPackageItemFromStudent(student, overrides = {}) {
     cycleStatus,
     isReturnTransfer,
     isNew: Boolean(overrides.isNew),
-    requiresClassroomSelection: overrides.requiresClassroomSelection ?? !assignedClassroomLabel,
+    hasVacancy,
+    requiresClassroomSelection: overrides.requiresClassroomSelection ?? !hasVacancy,
     assignedClassroomLabel,
-    selectedClassroomId: "",
-    selectedClassroomLabel: "",
+    selectedClassroomId: overrides.selectedClassroomId || "",
+    selectedClassroomLabel: overrides.selectedClassroomLabel || "",
     level: overrides.level || student?.level || student?.educationLevel || student?.currentLevel || "",
     grade: overrides.grade || student?.grade || student?.currentGrade || "",
     previousSchoolType,
     blockedReason,
-    admissionFee: INTERNAL_SCHOOLS.has(previousSchoolType) && !isReturnTransfer ? 0 : 0,
+    admissionFee: {
+      applies: !INTERNAL_SCHOOLS.has(String(previousSchoolType || "").toUpperCase()) || isReturnTransfer,
+      isExempt: false,
+      amount: 0,
+      reason: "",
+    },
+    enrollmentFee: {
+      isExempt: false,
+      amount: 0,
+      reason: "",
+    },
+    pensionMonthlyAmounts: buildPensionArrayFromGeneralAmount(0, 0),
   };
 }
 
@@ -70,17 +88,11 @@ export default function EnrollmentCaseCreatePage() {
   const [packageItems, setPackageItems] = useState([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [createStudentOpen, setCreateStudentOpen] = useState(false);
+  const [createStudentWithoutFamilyOpen, setCreateStudentWithoutFamilyOpen] = useState(false);
+  const [searchStudentOpen, setSearchStudentOpen] = useState(false);
   const [familyModalStudent, setFamilyModalStudent] = useState(null);
   const [enrollmentId, setEnrollmentId] = useState(draftId || "");
-  const [payments, setPayments] = useState({
-    enrollmentFee: 0,
-    monthlyAmount: 0,
-    monthlyAmounts: buildPensionArrayFromGeneralAmount(0, 0),
-    editMonthly: false,
-    notes: "",
-  });
-
-  const searchInputRef = useRef(null);
+  const [payments, setPayments] = useState({ notes: "" });
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -169,12 +181,87 @@ export default function EnrollmentCaseCreatePage() {
           isNew: true,
           familyId: selectedFamilyId || null,
           level: variables.level,
-          grade: variables.grade,
+          grade: variables.grade || "",
           previousSchoolType: variables.previousSchoolType,
-          requiresClassroomSelection: true,
+          hasVacancy: true,
+          requiresClassroomSelection: false,
+          classroom: {
+            classroomId: variables.classroomId,
+            label: variables.classroomLabel,
+          },
         }),
       ]);
       setCreateStudentOpen(false);
+    },
+  });
+
+  const createStudentWithoutFamilyMutation = useMutation({
+    mutationFn: async ({ student, tutor }) => {
+      const studentPayload = {
+        names: student.names,
+        lastNames: student.lastNames,
+        dni: student.dni,
+        gender: student.gender,
+        level: student.level,
+        campusCode: student.campusCode,
+        previousCampus: student.previousCampus,
+        previousSchoolType: student.previousSchoolType,
+      };
+
+      const createdStudent = await createStudentWithPerson(studentPayload);
+      const studentId = createdStudent?.id || createdStudent?.student?.id || createdStudent?.studentId;
+      if (!studentId) throw new Error("No se pudo crear el alumno.");
+
+      const createdFamily = await createFamily({});
+      const familyId = createdFamily?.id || createdFamily?.familyId || createdFamily?.family?.id;
+      if (!familyId) throw new Error("No se pudo crear la familia.");
+
+      await createTutor({
+        ...tutor,
+        familyId,
+        isPrimary: true,
+      });
+
+      await linkStudentToFamily({ familyId, studentId });
+
+      return {
+        familyId,
+        studentId,
+        student,
+      };
+    },
+    onSuccess: (result) => {
+      setSelectedFamilyId(result.familyId);
+      const synthetic = {
+        id: result.studentId,
+        person: {
+          names: result.student?.names,
+          lastNames: result.student?.lastNames,
+          dni: result.student?.dni,
+        },
+      };
+      setPackageItems((prev) => [
+        ...prev,
+        toPackageItemFromStudent(synthetic, {
+          isNew: true,
+          familyId: result.familyId,
+          level: result.student?.level,
+          previousSchoolType: result.student?.previousSchoolType,
+          hasVacancy: true,
+          requiresClassroomSelection: false,
+          selectedClassroomId: result.student?.classroomId,
+          selectedClassroomLabel: result.student?.classroomLabel,
+          classroom: {
+            classroomId: result.student?.classroomId,
+            label: result.student?.classroomLabel,
+          },
+        }),
+      ]);
+      setCreateStudentWithoutFamilyOpen(false);
+      setStatusMessage("");
+    },
+    onError: (error) => {
+      setStatusMessage(error?.response?.data?.message || "No se pudo crear alumno y familia.");
     },
   });
 
@@ -202,6 +289,7 @@ export default function EnrollmentCaseCreatePage() {
     console.log("[NewEnrollment][Search] select");
     if (item?.type === "FAMILY") {
       setSelectedFamilyId(item.familyId);
+      setQuery("");
       setStatusMessage("");
       return;
     }
@@ -251,6 +339,7 @@ export default function EnrollmentCaseCreatePage() {
           lastNames: tutorPayload.tutorLastNames,
           dni: tutorPayload.tutorDni,
           phone: tutorPayload.tutorPhone,
+          isPrimary: true,
         },
       });
       const familyId = created?.id || created?.familyId || created?.family?.id;
@@ -263,13 +352,6 @@ export default function EnrollmentCaseCreatePage() {
     }
   };
 
-  const rightToAdmissionByStudent = useMemo(() => {
-    return packageItems.map((item) => ({
-      ...item,
-      admissionFee: INTERNAL_SCHOOLS.has(String(item.previousSchoolType || "").toUpperCase()) && !item.isReturnTransfer ? 0 : Number(item.admissionFee || 0),
-    }));
-  }, [packageItems]);
-
   const hasBlocked = packageItems.some((item) => item.blockedReason);
   const hasMissingClassroom = packageItems.some((item) => item.requiresClassroomSelection && !item.selectedClassroomId);
   const canConfirm = Boolean(selectedFamilyId) && packageItems.length > 0 && !hasBlocked && !hasMissingClassroom && !confirmMutation.isPending;
@@ -279,15 +361,24 @@ export default function EnrollmentCaseCreatePage() {
     cycleId: activeCycle?.id,
     campus: activeCampus,
     status: "DRAFT",
-    enrollmentStudents: rightToAdmissionByStudent.map((item) => ({
+    enrollmentStudents: packageItems.map((item) => ({
       studentId: item.studentId,
       classroomId: item.selectedClassroomId || undefined,
-      admissionFee: { amount: Number(item.admissionFee || 0), applies: Number(item.admissionFee || 0) > 0 },
+      admissionFee: {
+        applies: Boolean(item?.admissionFee?.applies),
+        isExempt: Boolean(item?.admissionFee?.isExempt),
+        amount: Number(item?.admissionFee?.amount || 0),
+        reason: item?.admissionFee?.reason || undefined,
+      },
+      enrollmentFee: {
+        isExempt: Boolean(item?.enrollmentFee?.isExempt),
+        amount: Number(item?.enrollmentFee?.amount || 0),
+        reason: item?.enrollmentFee?.reason || undefined,
+      },
+      pensionMonthlyAmounts: Array.isArray(item?.pensionMonthlyAmounts) ? item.pensionMonthlyAmounts.map((value) => Number(value || 0)) : buildPensionArrayFromGeneralAmount(0, 0),
       previousSchoolType: item.previousSchoolType,
     })),
     paymentAgreement: {
-      enrollmentFee: Number(payments.enrollmentFee || 0),
-      monthlyAmounts: payments.editMonthly ? payments.monthlyAmounts : buildPensionArrayFromGeneralAmount(Number(payments.monthlyAmount || 0), 0),
       notes: payments.notes || undefined,
       months: ENROLLMENT_CASE_MONTHS,
     },
@@ -334,7 +425,7 @@ export default function EnrollmentCaseCreatePage() {
           </div>
         </Card>
 
-        <Card className="border border-gray-200 shadow-sm" ref={searchInputRef}>
+        <Card className="border border-gray-200 shadow-sm">
           <IntakeSearchBar
             value={query}
             onChange={setQuery}
@@ -345,23 +436,20 @@ export default function EnrollmentCaseCreatePage() {
           {statusMessage ? <p className="mt-2 text-sm text-amber-700">{statusMessage}</p> : null}
         </Card>
 
-        <FamilySummaryCard family={familyData} onClear={() => setSelectedFamilyId("")} />
+        <FamilySummaryCard family={familyData} />
 
         <EnrollmentPackageList
           items={packageItems}
           classroomOptionsByStudent={classroomOptionsByStudent}
           onRemove={(itemId) => setPackageItems((prev) => prev.filter((row) => row.id !== itemId))}
           onCreateStudent={() => {
-            if (!selectedFamilyId) {
-              setStatusMessage("Selecciona una familia antes de crear alumno.");
+            if (selectedFamilyId) {
+              setCreateStudentOpen(true);
               return;
             }
-            setCreateStudentOpen(true);
+            setCreateStudentWithoutFamilyOpen(true);
           }}
-          onFocusSearch={() => {
-            const input = searchInputRef.current?.querySelector("input");
-            input?.focus();
-          }}
+          onSearchStudent={() => setSearchStudentOpen(true)}
           onChooseClassroom={(itemId, classroomId, classroom) => {
             setPackageItems((prev) => prev.map((row) => (row.id === itemId ? {
               ...row,
@@ -369,6 +457,7 @@ export default function EnrollmentCaseCreatePage() {
               selectedClassroomLabel: classroom?.label || classroom?.name || "",
             } : row)));
           }}
+          onChangeCosts={(itemId, patch) => setPackageItems((prev) => prev.map((row) => (row.id === itemId ? { ...row, ...patch } : row)))}
         />
       </section>
 
@@ -388,6 +477,7 @@ export default function EnrollmentCaseCreatePage() {
         onClose={() => setCreateStudentOpen(false)}
         onSubmit={(payload) => createStudentMutation.mutateAsync(payload)}
         isSubmitting={createStudentMutation.isPending}
+        defaultCampus={activeCampus || ""}
       />
 
       <CreateFamilyFromStudentModal
@@ -395,6 +485,20 @@ export default function EnrollmentCaseCreatePage() {
         onClose={() => setFamilyModalStudent(null)}
         student={familyModalStudent}
         onSubmit={handleCreateFamilyForStudent}
+      />
+
+      <SearchUnassignedStudentModal
+        open={searchStudentOpen}
+        onClose={() => setSearchStudentOpen(false)}
+        onSelect={(item) => onSelectIntakeItem({ ...item, type: "STUDENT" })}
+      />
+
+      <CreateStudentWithoutFamilyWizardModal
+        open={createStudentWithoutFamilyOpen}
+        onClose={() => setCreateStudentWithoutFamilyOpen(false)}
+        onSubmit={(payload) => createStudentWithoutFamilyMutation.mutateAsync(payload)}
+        isSubmitting={createStudentWithoutFamilyMutation.isPending}
+        defaultCampus={activeCampus || ""}
       />
     </div>
   );

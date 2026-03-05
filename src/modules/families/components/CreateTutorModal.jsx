@@ -43,17 +43,25 @@ function getValidationErrors(form) {
   return errors;
 }
 
-export default function CreateTutorModal({ open, onClose, onCreate, endpointReady = true }) {
+export default function CreateTutorModal({
+  open,
+  onClose,
+  onCreate,
+  endpointReady = true,
+  initialValues = {},
+  forcePrimary = false,
+  disablePrimary = false,
+}) {
   const [form, setForm] = useState(initialTutorForm);
   const [status, setStatus] = useState("idle");
   const [serverError, setServerError] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    setForm(initialTutorForm);
+    setForm({ ...initialTutorForm, ...initialValues, isPrimary: forcePrimary ? true : Boolean(initialValues?.isPrimary) });
     setStatus("idle");
     setServerError("");
-  }, [open]);
+  }, [open, initialValues, forcePrimary]);
 
   const validationErrors = useMemo(() => getValidationErrors(form), [form]);
   const hasValidationErrors = Object.keys(validationErrors).length > 0;
@@ -71,6 +79,7 @@ export default function CreateTutorModal({ open, onClose, onCreate, endpointRead
     try {
       await onCreate({
         ...form,
+        isPrimary: forcePrimary ? true : Boolean(form.isPrimary),
         names: form.names.trim(),
         lastNames: form.lastNames.trim(),
         dni: form.dni.trim() || undefined,
@@ -164,7 +173,7 @@ export default function CreateTutorModal({ open, onClose, onCreate, endpointRead
 
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" checked={form.isPrimary} onChange={(e) => setForm((prev) => ({ ...prev, isPrimary: e.target.checked }))} />
+            <input type="checkbox" checked={forcePrimary ? true : form.isPrimary} disabled={disablePrimary || forcePrimary} onChange={(e) => setForm((prev) => ({ ...prev, isPrimary: e.target.checked }))} />
             Es principal
           </label>
           <label className="flex items-center gap-2 text-sm text-gray-700">

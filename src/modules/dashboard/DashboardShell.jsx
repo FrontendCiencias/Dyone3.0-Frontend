@@ -19,6 +19,7 @@ const PAGE_META = {
   adminSettings: { title: "Configuración", description: "Sedes, ciclos, aulas y conceptos." },
   adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades técnicas." },
   enrollments: { title: "Matrículas", description: "Monitorea y registra el flujo de matrículas." },
+  enrollmentNew: { title: "Nueva Matrícula", description: "Monitorea y registra el flujo de matrículas." },
   payments: { title: "Pagos", description: "Controla cobros, vencimientos y estado de pagos." },
   families: { title: "Familias", description: "Gestiona tutores y relación familiar de alumnos." },
   familyDetail: { title: "Ficha de familia", description: "Revisa tutores e hijos vinculados de la familia." },
@@ -31,6 +32,7 @@ function resolvePageKey(pathname) {
   if (pathname.startsWith(ROUTES.dashboardStudents)) return "students";
   if (pathname.startsWith(ROUTES.dashboardAdminDev)) return "adminDev";
   if (pathname.startsWith(ROUTES.dashboardAdminSettings) || pathname === ROUTES.dashboardAdmin) return "adminSettings";
+  if (pathname === ROUTES.dashboardEnrollmentCaseNew) return "enrollmentNew";
   if (pathname.startsWith(ROUTES.dashboardEnrollments)) return "enrollments";
   if (pathname.startsWith(ROUTES.dashboardPayments)) return "payments";
   if (/^\/dashboard\/families\/[^/]+$/.test(pathname)) return "familyDetail";
@@ -136,6 +138,14 @@ export default function DashboardShell() {
         { label: "Inicio", to: ROUTES.dashboard },
         { label: "Admin", to: ROUTES.dashboardAdminSettings },
         { label: "Desarrollo" },
+      ];
+    }
+
+    if (pageKey === "enrollmentNew") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Matrículas", to: ROUTES.dashboardEnrollments },
+        { label: "Nueva Matrícula" },
       ];
     }
 

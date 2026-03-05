@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
-import PaymentsAgreementEditor from "./PaymentsAgreementEditor";
+import Input from "../../../components/ui/Input";
 
 function toMoney(value) {
   const safe = Number(value || 0);
@@ -10,11 +10,9 @@ function toMoney(value) {
 
 export default function RightSummarySidebar({ family, items = [], payments, onPaymentsChange, onSaveDraft, onConfirm, isSaving, isConfirming }) {
   const totals = useMemo(() => {
-    const rights = items.reduce((acc, item) => acc + Number(item?.admissionFee || 0), 0);
-    const enrollment = Number(payments?.enrollmentFee || 0);
-    const pension = payments?.editMonthly
-      ? (payments?.monthlyAmounts || []).reduce((acc, value) => acc + Number(value || 0), 0)
-      : Number(payments?.monthlyAmount || 0) * 10;
+    const rights = items.reduce((acc, item) => acc + (item?.admissionFee?.applies && !item?.admissionFee?.isExempt ? Number(item?.admissionFee?.amount || 0) : 0), 0);
+    const enrollment = items.reduce((acc, item) => acc + (!item?.enrollmentFee?.isExempt ? Number(item?.enrollmentFee?.amount || 0) : 0), 0);
+    const pension = items.reduce((acc, item) => acc + (item?.pensionMonthlyAmounts || []).reduce((sum, val) => sum + Number(val || 0), 0), 0);
 
     return { rights, enrollment, pension, total: rights + enrollment + pension };
   }, [items, payments]);
@@ -29,8 +27,8 @@ export default function RightSummarySidebar({ family, items = [], payments, onPa
 
         <div>
           <p className="text-sm font-medium text-gray-800">Familia</p>
-          <p className="text-xs text-gray-600">Tutor: {family?.primaryTutor?.lastNames || family?.primaryTutor_send?.lastNames || "-"}</p>
-          <p className="text-xs text-gray-600">Alumnos en paquete: {items.length}</p>
+          <p className="text-xs text-gray-600">Tutor principal: {family?.primaryTutor?.tutorPerson?.lastNames || "-"} {family?.primaryTutor?.tutorPerson?.names || ""}</p>
+          <p className="text-xs text-gray-600">DNI: {family?.primaryTutor?.tutorPerson?.dni || "-"} · Tel: {family?.primaryTutor?.tutorPerson?.phone || "-"}</p>
         </div>
 
         <div>
@@ -38,20 +36,17 @@ export default function RightSummarySidebar({ family, items = [], payments, onPa
           <div className="space-y-1 text-xs text-gray-600">
             {items.map((item) => (
               <p key={`summary-${item.id}`}>
-                {item.fullName} · {item.assignedClassroomLabel || item.selectedClassroomLabel || "Aula pendiente"}
+                {item.fullName} · {item.assignedClassroomLabel || item.selectedClassroomLabel || "Aula pendiente"} · Total: {toMoney((item?.pensionMonthlyAmounts || []).reduce((acc, value) => acc + Number(value || 0), 0) + (item?.admissionFee?.applies && !item?.admissionFee?.isExempt ? Number(item?.admissionFee?.amount || 0) : 0) + (!item?.enrollmentFee?.isExempt ? Number(item?.enrollmentFee?.amount || 0) : 0))}
               </p>
             ))}
             {!items.length ? <p>Sin alumnos agregados.</p> : null}
           </div>
         </div>
 
-        <PaymentsAgreementEditor payments={payments} onChange={onPaymentsChange} />
+        <Input label="Notas" value={payments?.notes || ""} onChange={(e) => onPaymentsChange?.({ notes: e.target.value })} />
 
         <div className="space-y-1 text-sm text-gray-700">
-          <p>Matrícula: <span className="font-semibold">{toMoney(totals.enrollment)}</span></p>
-          <p>Derecho de ingreso: <span className="font-semibold">{toMoney(totals.rights)}</span></p>
-          <p>Pensión total: <span className="font-semibold">{toMoney(totals.pension)}</span></p>
-          <p>Total familiar: <span className="font-semibold">{toMoney(totals.total)}</span></p>
+          <p>Total final: <span className="font-semibold">{toMoney(totals.total)}</span></p>
         </div>
 
         <div className="flex flex-col gap-2">
