@@ -15,22 +15,22 @@ function parseErrorMessage(error) {
 export default function BillingConceptsSection({ canAccess }) {
   const [isOpen, setIsOpen] = useState(false);
   const [localError, setLocalError] = useState("");
-  const [form, setForm] = useState({ name: "", isBlocking: false, isActive: true });
+  const [form, setForm] = useState({ code: "", name: "", isBlocking: false, isActive: true });
 
   const conceptsQuery = useBillingConceptsQuery();
   const createMutation = useCreateBillingConceptMutation();
   const rows = Array.isArray(conceptsQuery.data) ? conceptsQuery.data : [];
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) {
-      setLocalError("El nombre es obligatorio.");
+    if (!form.code.trim() || !form.name.trim()) {
+      setLocalError("El código y el nombre son obligatorios.");
       return;
     }
 
     setLocalError("");
-    await createMutation.mutateAsync({ ...form, name: form.name.trim() });
+    await createMutation.mutateAsync({ ...form, code: form.code.trim(), name: form.name.trim() });
     setIsOpen(false);
-    setForm({ name: "", isBlocking: false, isActive: true });
+    setForm({ code: "", name: "", isBlocking: false, isActive: true });
   };
 
   return (
@@ -54,6 +54,7 @@ export default function BillingConceptsSection({ canAccess }) {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left text-gray-700">
+                <th className="px-3 py-2">Código</th>
                 <th className="px-3 py-2">Nombre</th>
                 <th className="px-3 py-2">Bloqueante</th>
                 <th className="px-3 py-2">Activo</th>
@@ -62,6 +63,7 @@ export default function BillingConceptsSection({ canAccess }) {
             <tbody>
               {rows.map((concept) => (
                 <tr key={concept.id || concept.name} className="border-b last:border-b-0">
+                  <td className="px-3 py-2">{concept.code?.trim() ? concept.code : "—"}</td>
                   <td className="px-3 py-2">{concept.name || "-"}</td>
                   <td className="px-3 py-2">{concept.isBlocking ? "Sí" : "No"}</td>
                   <td className="px-3 py-2">{concept.isActive ? "Sí" : "No"}</td>
@@ -69,7 +71,7 @@ export default function BillingConceptsSection({ canAccess }) {
               ))}
               {!rows.length && (
                 <tr>
-                  <td className="px-3 py-3 text-gray-500" colSpan={3}>
+                  <td className="px-3 py-3 text-gray-500" colSpan={4}>
                     {conceptsQuery.isLoading ? "Cargando..." : "Sin registros"}
                   </td>
                 </tr>
@@ -86,6 +88,12 @@ export default function BillingConceptsSection({ canAccess }) {
         isSubmitting={createMutation.isPending}
         onSubmit={handleSubmit}
       >
+        <Input
+          label="Código"
+          placeholder="PENSION_2026, MAT_2026, etc."
+          value={form.code}
+          onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))}
+        />
         <Input label="Nombre" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
 
         <label className="flex items-center gap-2 text-sm text-gray-700">
