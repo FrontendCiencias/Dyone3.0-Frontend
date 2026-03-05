@@ -3,13 +3,13 @@ import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import StudentPackageCard from "./StudentPackageCard";
 
-export default function EnrollmentPackageList({ items = [], onRemove, onCreateStudent, onFocusSearch, classroomOptionsByStudent = {}, onChooseClassroom }) {
+export default function EnrollmentPackageList({ items = [], onRemove, onCreateStudent, onSearchStudent, classroomOptionsByStudent = {}, onChooseClassroom, onChangeCosts }) {
   return (
     <Card className="space-y-3 border border-gray-200 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold text-gray-900">Paquete de alumnos por matricular</h3>
         <div className="flex gap-2">
-          <SecondaryButton size="sm" onClick={onFocusSearch}>+ Buscar alumno</SecondaryButton>
+          <SecondaryButton size="sm" onClick={onSearchStudent}>+ Buscar alumno</SecondaryButton>
           <SecondaryButton size="sm" onClick={onCreateStudent}>+ Crear nuevo alumno</SecondaryButton>
         </div>
       </div>
@@ -24,6 +24,7 @@ export default function EnrollmentPackageList({ items = [], onRemove, onCreateSt
             classroomOptions={classroomOptionsByStudent[item.id] || []}
             onChooseClassroom={(classroomId, classroom) => onChooseClassroom?.(item.id, classroomId, classroom)}
             onRemove={() => onRemove?.(item.id)}
+            onChangeCosts={(patch) => onChangeCosts?.(item.id, patch)}
           />
         ))}
       </div>
