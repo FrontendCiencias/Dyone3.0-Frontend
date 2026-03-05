@@ -17,8 +17,11 @@ export async function searchFamilies({ q = "", limit = 20, cursor = null }) {
 
   logRequest(API_ROUTES.familiesSearch, "GET", params);
   const res = await axiosInstance.get(API_ROUTES.familiesSearch, { params });
+  console.log("[DBG] RAW students of first item", res.data?.items?.[0]?.students);
+  console.log("[DBG] RAW first item", res.data?.items?.[0]);
   logResponse(API_ROUTES.familiesSearch, res.status, {
     count: res.data?.items?.length || 0,
+    data: res.data?.items,
     nextCursor: res.data?.nextCursor || null,
   });
   return res.data;

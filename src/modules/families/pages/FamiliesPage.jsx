@@ -97,6 +97,8 @@ export default function FamiliesPage() {
     return pages.flatMap((page) => (Array.isArray(page?.items) ? page.items : []));
   }, [familiesQuery.data]);
 
+  console.log("[DBG] [families]: ",families)
+
   const orphanSearchTerm = orphanSearchDebounced.trim();
   const isOrphanSearchMode = orphanSearchTerm.length >= 2;
 
