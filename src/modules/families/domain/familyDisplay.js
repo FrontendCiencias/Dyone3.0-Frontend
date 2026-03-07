@@ -22,12 +22,23 @@ export function getTutorFullName(tutor) {
   return [person?.lastNames, person?.names].filter(Boolean).join(", ") || person?.fullName || "Sin nombre";
 }
 
+export function getAllTutors(familyDetail) {
+  const primary = familyDetail?.primaryTutor || familyDetail?.primaryTutor_send;
+  const others = familyDetail?.otherTutors || familyDetail?.otherTutors_send || familyDetail?.tutors || [];
+  const allTutors = [primary, ...(Array.isArray(others) ? others : [])]
+    .filter(Boolean)
+    .filter((tutor, idx, arr) => idx === arr.findIndex((item) => String(getTutorId(item)) === String(getTutorId(tutor))));
+  // console.log("[DBG] [All Tutors]: ", allTutors)
+  return allTutors
+}
+
 export function getTutors(familyDetail) {
   const primary = familyDetail?.primaryTutor || familyDetail?.primaryTutor_send;
   const others = familyDetail?.otherTutors || familyDetail?.otherTutors_send || familyDetail?.tutors || [];
-  return [primary, ...(Array.isArray(others) ? others : [])]
+  const allTutors = [primary, ...(Array.isArray(others) ? others : [])]
     .filter(Boolean)
     .filter((tutor, idx, arr) => idx === arr.findIndex((item) => String(getTutorId(item)) === String(getTutorId(tutor))));
+  return allTutors
 }
 
 export function getStudents(familyDetail) {

@@ -11,7 +11,7 @@ import EditTutorModal from "../../families/components/modals/EditTutorModal";
 import { useCreateTutorMutation } from "../../families/hooks/useCreateTutorMutation";
 import { useFamilyDetailQuery } from "../../families/hooks/useFamilyDetailQuery";
 import { useUpdateTutorMutation } from "../../families/hooks/useUpdateTutorMutation";
-import { getTutorId, getTutors } from "../../families/domain/familyDisplay";
+import { getAllTutors, getTutorId, getTutors } from "../../families/domain/familyDisplay";
 import { createFamily, createTutor, linkStudentToFamily } from "../../families/services/families.service";
 import { createStudentWithPerson, getClassroomOptions, getStudentSummary } from "../../students/services/students.service";
 import IntakeSearchBar from "../components/IntakeSearchBar";
@@ -33,15 +33,24 @@ function getStudentId(student) {
 }
 
 function toPackageItemFromStudent(student, overrides = {}) {
+  console.log("[DBG] [student]: ",student)
   const id = getStudentId(student);
   const fullName = [student?.personId?.lastNames || student?.person?.lastNames, student?.personId?.names || student?.person?.names].filter(Boolean).join(", ");
   const cycleStatus = overrides.cycleStatus || student?.cycleStatus;
   const activeStatus = overrides.activeStatus || student?.activeStatus || "ACTIVE";
   const isReturnTransfer = activeStatus === "INACTIVE" && cycleStatus === "TRANSFERRED";
   const blockedReason = cycleStatus === "ENROLLED" ? "Ya matriculado" : activeStatus === "GRADUATED" ? "Egresado" : "";
-  const hasVacancy = overrides.hasVacancy ?? student?.hasVacancy ?? false;
   const classroom = student?.classroom || student?.vacancy?.classroom || overrides.classroom;
-  const assignedClassroomLabel = classroom?.label || classroom?.name || "";
+  const assignedClassroomLabel = classroom?.label || classroom?.name || classroom?.displayName || "";
+
+  const inferredHasVacancy = Boolean(
+    classroom?._id ||
+    classroom?.id ||
+    classroom?.classroomId ||
+    assignedClassroomLabel
+  );
+
+  const hasVacancy = overrides.hasVacancy ?? student?.hasVacancy ?? inferredHasVacancy;
   if (hasVacancy && !assignedClassroomLabel) {
     console.warn("[NewEnrollment] Student hasVacancy=true but classroom label missing", { studentId: id });
   }
@@ -118,11 +127,11 @@ export default function EnrollmentCaseCreatePage() {
   const intakeSearchQuery = useEnrollmentIntakeSearchQuery({ q: debouncedQuery, campusScope: activeCampus, enabled: true });
   const intakeResults = Array.isArray(intakeSearchQuery.data?.items) ? intakeSearchQuery.data.items : Array.isArray(intakeSearchQuery.data) ? intakeSearchQuery.data : [];
 
-  console.log("[DBG] [intakeResults]: ",intakeResults)
+  // console.log("[DBG] [intakeResults]: ",intakeResults)
 
   const familyDetailQuery = useFamilyDetailQuery(selectedFamilyId, Boolean(selectedFamilyId));
   const familyData = familyDetailQuery.data || null;
-  const tutors = useMemo(() => getTutors(familyData), [familyData]);
+  const tutors = useMemo(() => getAllTutors(familyData), [familyData]);
   const createTutorMutation = useCreateTutorMutation();
   const updateTutorMutation = useUpdateTutorMutation();
 
@@ -134,17 +143,19 @@ export default function EnrollmentCaseCreatePage() {
     [familyData?.students],
   );
 
-  console.log("[DBG] [familyData]: ",familyData)
+  // console.log("[DBG] [familyData]: ",familyData)
+  // console.log("[DBG] [tutors]: ",tutors)
 
   useEffect(() => {
     if (!familyData) return;
     const students = Array.isArray(familyData?.students) ? familyData.students : [];
     setPackageItems((prev) => {
       const prevMap = new Map(prev.map((item) => [item.studentId, item]));
-      return students.map((student) => {
+      const ready = students.map((student) => {
         const base = toPackageItemFromStudent(student, { familyId: selectedFamilyId });
         return prevMap.get(base.studentId) ? { ...base, ...prevMap.get(base.studentId) } : base;
       });
+      return ready
     });
   }, [familyData, selectedFamilyId]);
 
@@ -199,13 +210,49 @@ export default function EnrollmentCaseCreatePage() {
 
         const summaryPreviousCampus = summary?.student?.previousCampus;
         const nextPreviousSchoolType = summaryPreviousCampus || item.previousSchoolType;
-        const summaryClassroomLabel = summary?.enrollmentStatus?.classroom?.displayName || summary?.enrollmentStatus?.classroomName || "";
+
+        const summaryClassroom = summary?.enrollmentStatus?.classroom || null;
+        const summaryClassroomLabel =
+          summaryClassroom?.displayName ||
+          summaryClassroom?.label ||
+          summaryClassroom?.name ||
+          "";
+
+        const summaryGrade =
+          summaryClassroom?.grade ||
+          item.grade ||
+          "";
+
+        const summaryLevel =
+          summaryClassroom?.level ||
+          item.level ||
+          "";
+
         const mustDisableAdmissionFee = INTERNAL_SCHOOLS.has(String(summaryPreviousCampus || "").toUpperCase());
 
         let nextItem = item;
 
-        if (summaryClassroomLabel && summaryClassroomLabel !== item.assignedClassroomLabel) {
-          nextItem = { ...nextItem, assignedClassroomLabel: summaryClassroomLabel };
+        const summaryHasVacancy = Boolean(
+          summaryClassroom?.id ||
+          summaryClassroom?._id ||
+          summaryClassroom?.classroomId ||
+          summaryClassroomLabel
+        );
+
+        if (
+          summaryClassroomLabel !== item.assignedClassroomLabel ||
+          summaryGrade !== item.grade ||
+          summaryLevel !== item.level ||
+          summaryHasVacancy !== item.hasVacancy
+        ) {
+          nextItem = {
+            ...nextItem,
+            assignedClassroomLabel: summaryClassroomLabel,
+            grade: summaryGrade,
+            level: summaryLevel,
+            hasVacancy: summaryHasVacancy,
+            requiresClassroomSelection: !summaryHasVacancy,
+          };
           changed = true;
         }
 

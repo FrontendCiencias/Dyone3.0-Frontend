@@ -58,10 +58,15 @@ export default function CreateTutorModal({
 
   useEffect(() => {
     if (!open) return;
-    setForm({ ...initialTutorForm, ...initialValues, isPrimary: forcePrimary ? true : Boolean(initialValues?.isPrimary) });
+
+    setForm({
+      ...initialTutorForm,
+      ...initialValues,
+      isPrimary: forcePrimary ? true : Boolean(initialValues?.isPrimary),
+    });
     setStatus("idle");
     setServerError("");
-  }, [open, initialValues, forcePrimary]);
+  }, [open, forcePrimary]);
 
   const validationErrors = useMemo(() => getValidationErrors(form), [form]);
   const hasValidationErrors = Object.keys(validationErrors).length > 0;

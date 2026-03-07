@@ -6,11 +6,20 @@ import { ENROLLMENT_CASE_MONTHS, buildPensionArrayFromGeneralAmount } from "../d
 const INTERNAL_SCHOOLS = new Set(["CIENCIAS", "CIENCIAS_APLICADAS", "CIMAS"]);
 
 export default function StudentPackageCard({ item, classroomOptions = [], onChooseClassroom, onRemove, onChangeCosts, studentSummary }) {
+  
+  // console.log("[DBG] [item student]: ", item)
   const blocked = Boolean(item?.blockedReason);
   const summary = studentSummary?.data;
   const isSummaryLoading = Boolean(studentSummary?.isLoading);
-  const summaryClassroomLabel = summary?.enrollmentStatus?.classroom?.displayName || summary?.enrollmentStatus?.classroomName || "";
-  const currentCampus = summary?.enrollmentStatus?.campus || "";
+  const summaryClassroomLabel =
+    summary?.enrollmentStatus?.classroom?.displayName ||
+    summary?.enrollmentStatus?.classroom?.label ||
+    summary?.enrollmentStatus?.classroom?.name ||
+    "";
+  const currentCampusLabel =
+    summary?.enrollmentStatus?.campus?.name ||
+    summary?.enrollmentStatus?.campus?.code ||
+    "";
   const previousCampus = summary?.student?.previousCampus;
   const admissionBlockedByCampus = INTERNAL_SCHOOLS.has(String(previousCampus || "").toUpperCase());
   const isPensionCustomized = Boolean(item?.isPensionCustomized);
@@ -44,7 +53,12 @@ export default function StudentPackageCard({ item, classroomOptions = [], onChoo
         {item?.hasVacancy ? (
           <p className="text-sm text-gray-700">Aula asignada: <span className="font-medium">{isSummaryLoading ? "Cargando salón..." : (summaryClassroomLabel || item.assignedClassroomLabel || "(sin etiqueta)")}</span></p>
         ) : null}
-        {currentCampus ? <p className="text-xs text-gray-500">Campus actual: {currentCampus}</p> : null}
+        {currentCampusLabel ? <p className="text-xs text-gray-500">Campus actual: {currentCampusLabel}</p> : null}
+        {/* {summary?.enrollmentStatus?.classroom?.grade ? (
+          <p className="text-xs text-gray-500">
+            Grado: {summary.enrollmentStatus.classroom.grade} · Nivel: {summary.enrollmentStatus.classroom.level}
+          </p>
+        ) : null} */}
 
         {!item?.hasVacancy && item?.requiresClassroomSelection ? (
           <div>
