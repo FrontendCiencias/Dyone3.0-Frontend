@@ -6,9 +6,14 @@ import { ROUTES } from "../../../config/routes";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { useAuth } from "../../../lib/auth";
 import { useCyclesQuery } from "../../admin/hooks/useCyclesQuery";
+import CreateTutorModal from "../../families/components/CreateTutorModal";
+import EditTutorModal from "../../families/components/modals/EditTutorModal";
+import { useCreateTutorMutation } from "../../families/hooks/useCreateTutorMutation";
 import { useFamilyDetailQuery } from "../../families/hooks/useFamilyDetailQuery";
+import { useUpdateTutorMutation } from "../../families/hooks/useUpdateTutorMutation";
+import { getTutorId, getTutors } from "../../families/domain/familyDisplay";
 import { createFamily, createTutor, linkStudentToFamily } from "../../families/services/families.service";
-import { createStudentWithPerson, getClassroomOptions } from "../../students/services/students.service";
+import { createStudentWithPerson, getClassroomOptions, getStudentSummary } from "../../students/services/students.service";
 import IntakeSearchBar from "../components/IntakeSearchBar";
 import FamilySummaryCard from "../components/FamilySummaryCard";
 import EnrollmentPackageList from "../components/EnrollmentPackageList";
@@ -72,6 +77,8 @@ function toPackageItemFromStudent(student, overrides = {}) {
       amount: 0,
       reason: "",
     },
+    pensionGeneral: 0,
+    isPensionCustomized: false,
     pensionMonthlyAmounts: buildPensionArrayFromGeneralAmount(0, 0),
   };
 }
@@ -93,6 +100,9 @@ export default function EnrollmentCaseCreatePage() {
   const [familyModalStudent, setFamilyModalStudent] = useState(null);
   const [enrollmentId, setEnrollmentId] = useState(draftId || "");
   const [payments, setPayments] = useState({ notes: "" });
+  const [createTutorOpen, setCreateTutorOpen] = useState(false);
+  const [selectedTutor, setSelectedTutor] = useState(null);
+  const [editTutorModalOpen, setEditTutorModalOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -112,6 +122,17 @@ export default function EnrollmentCaseCreatePage() {
 
   const familyDetailQuery = useFamilyDetailQuery(selectedFamilyId, Boolean(selectedFamilyId));
   const familyData = familyDetailQuery.data || null;
+  const tutors = useMemo(() => getTutors(familyData), [familyData]);
+  const createTutorMutation = useCreateTutorMutation();
+  const updateTutorMutation = useUpdateTutorMutation();
+
+  const studentCodes = useMemo(
+    () => (Array.isArray(familyData?.students) ? familyData.students : [])
+      .map((student) => student?.code || student?.studentCod || student?.studentCode || student?.internalCode)
+      .filter((value) => String(value || "").trim())
+      .map((value) => String(value).trim()),
+    [familyData?.students],
+  );
 
   console.log("[DBG] [familyData]: ",familyData)
 
@@ -146,6 +167,72 @@ export default function EnrollmentCaseCreatePage() {
       retry: false,
     })),
   });
+
+  const studentSummaryQueries = useQueries({
+    queries: packageItems.map((item) => ({
+      queryKey: ["students", "summary", item.studentId, "enrollment-intake"],
+      queryFn: () => getStudentSummary(item.studentId),
+      enabled: Boolean(item.studentId),
+      staleTime: 60_000,
+    })),
+  });
+
+  const studentSummaryById = useMemo(() => {
+    const map = {};
+    packageItems.forEach((item, index) => {
+      map[item.studentId] = {
+        data: studentSummaryQueries[index]?.data || null,
+        isLoading: Boolean(studentSummaryQueries[index]?.isLoading || studentSummaryQueries[index]?.isFetching),
+      };
+    });
+    return map;
+  }, [packageItems, studentSummaryQueries]);
+
+  useEffect(() => {
+    if (!packageItems.length) return;
+
+    setPackageItems((prev) => {
+      let changed = false;
+      const next = prev.map((item) => {
+        const summary = studentSummaryById[item.studentId]?.data;
+        if (!summary) return item;
+
+        const summaryPreviousCampus = summary?.student?.previousCampus;
+        const nextPreviousSchoolType = summaryPreviousCampus || item.previousSchoolType;
+        const summaryClassroomLabel = summary?.enrollmentStatus?.classroom?.displayName || summary?.enrollmentStatus?.classroomName || "";
+        const mustDisableAdmissionFee = INTERNAL_SCHOOLS.has(String(summaryPreviousCampus || "").toUpperCase());
+
+        let nextItem = item;
+
+        if (summaryClassroomLabel && summaryClassroomLabel !== item.assignedClassroomLabel) {
+          nextItem = { ...nextItem, assignedClassroomLabel: summaryClassroomLabel };
+          changed = true;
+        }
+
+        if (nextPreviousSchoolType !== item.previousSchoolType) {
+          nextItem = { ...nextItem, previousSchoolType: nextPreviousSchoolType };
+          changed = true;
+        }
+
+        if (mustDisableAdmissionFee && (item?.admissionFee?.applies || item?.admissionFee?.isExempt)) {
+          nextItem = {
+            ...nextItem,
+            admissionFee: {
+              ...item.admissionFee,
+              applies: false,
+              isExempt: false,
+              amount: 0,
+            },
+          };
+          changed = true;
+        }
+
+        return nextItem;
+      });
+
+      return changed ? next : prev;
+    });
+  }, [packageItems.length, studentSummaryById]);
 
   const classroomOptionsByStudent = useMemo(() => {
     const map = {};
@@ -352,6 +439,44 @@ export default function EnrollmentCaseCreatePage() {
     }
   };
 
+  const handleCreateTutor = async (payload) => {
+    const normalizedCodes = studentCodes;
+    const studentCod = normalizedCodes[0];
+
+    await createTutorMutation.mutateAsync({
+      ...payload,
+      familyId: selectedFamilyId,
+      studentCod,
+      studentCods: normalizedCodes,
+      studentsCod: normalizedCodes,
+    });
+    await familyDetailQuery.refetch();
+  };
+
+  const handleEditTutor = async (payload) => {
+    const tutorId = getTutorId(selectedTutor);
+    const tutorPerson = selectedTutor?.tutorPerson || selectedTutor?.person || {};
+    const gender = payload.gender ?? tutorPerson?.gender;
+
+    if (!tutorId) throw new Error("No se pudo identificar el tutor seleccionado");
+
+    await updateTutorMutation.mutateAsync({
+      tutorId,
+      familyId: selectedFamilyId,
+      names: payload.names,
+      lastNames: payload.lastNames,
+      dni: payload.dni,
+      phone: payload.phone,
+      gender,
+      relationship: payload.relationship,
+      isPrimary: payload.isPrimary,
+      livesWithStudent: payload.livesWithStudent,
+      notes: payload.notes,
+    });
+
+    await familyDetailQuery.refetch();
+  };
+
   const hasBlocked = packageItems.some((item) => item.blockedReason);
   const hasMissingClassroom = packageItems.some((item) => item.requiresClassroomSelection && !item.selectedClassroomId);
   const canConfirm = Boolean(selectedFamilyId) && packageItems.length > 0 && !hasBlocked && !hasMissingClassroom && !confirmMutation.isPending;
@@ -436,7 +561,15 @@ export default function EnrollmentCaseCreatePage() {
           {statusMessage ? <p className="mt-2 text-sm text-amber-700">{statusMessage}</p> : null}
         </Card>
 
-        <FamilySummaryCard family={familyData} />
+        <FamilySummaryCard
+          family={familyData}
+          tutors={tutors}
+          onEditTutor={(tutor) => {
+            setSelectedTutor(tutor);
+            setEditTutorModalOpen(true);
+          }}
+          onAddTutor={() => setCreateTutorOpen(true)}
+        />
 
         <EnrollmentPackageList
           items={packageItems}
@@ -458,6 +591,7 @@ export default function EnrollmentCaseCreatePage() {
             } : row)));
           }}
           onChangeCosts={(itemId, patch) => setPackageItems((prev) => prev.map((row) => (row.id === itemId ? { ...row, ...patch } : row)))}
+          studentSummaryById={studentSummaryById}
         />
       </section>
 
@@ -499,6 +633,24 @@ export default function EnrollmentCaseCreatePage() {
         onSubmit={(payload) => createStudentWithoutFamilyMutation.mutateAsync(payload)}
         isSubmitting={createStudentWithoutFamilyMutation.isPending}
         defaultCampus={activeCampus || ""}
+      />
+
+      <CreateTutorModal
+        open={createTutorOpen}
+        onClose={() => setCreateTutorOpen(false)}
+        onCreate={handleCreateTutor}
+        endpointReady
+      />
+
+      <EditTutorModal
+        open={editTutorModalOpen}
+        tutor={selectedTutor}
+        onClose={() => {
+          setEditTutorModalOpen(false);
+          setSelectedTutor(null);
+        }}
+        onConfirm={handleEditTutor}
+        isPending={updateTutorMutation.isPending}
       />
     </div>
   );

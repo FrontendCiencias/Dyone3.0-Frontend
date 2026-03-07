@@ -3,7 +3,7 @@ import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import StudentPackageCard from "./StudentPackageCard";
 
-export default function EnrollmentPackageList({ items = [], onRemove, onCreateStudent, onSearchStudent, classroomOptionsByStudent = {}, onChooseClassroom, onChangeCosts }) {
+export default function EnrollmentPackageList({ items = [], onRemove, onCreateStudent, onSearchStudent, classroomOptionsByStudent = {}, onChooseClassroom, onChangeCosts, studentSummaryById = {} }) {
   return (
     <Card className="space-y-3 border border-gray-200 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -25,6 +25,7 @@ export default function EnrollmentPackageList({ items = [], onRemove, onCreateSt
             onChooseClassroom={(classroomId, classroom) => onChooseClassroom?.(item.id, classroomId, classroom)}
             onRemove={() => onRemove?.(item.id)}
             onChangeCosts={(patch) => onChangeCosts?.(item.id, patch)}
+            studentSummary={studentSummaryById[item.studentId]}
           />
         ))}
       </div>
