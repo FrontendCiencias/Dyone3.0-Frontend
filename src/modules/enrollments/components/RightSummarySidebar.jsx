@@ -14,7 +14,14 @@ export default function RightSummarySidebar({ family, items = [], payments, onPa
     const enrollment = items.reduce((acc, item) => acc + (!item?.enrollmentFee?.isExempt ? Number(item?.enrollmentFee?.amount || 0) : 0), 0);
     const pension = items.reduce((acc, item) => acc + (item?.pensionMonthlyAmounts || []).reduce((sum, val) => sum + Number(val || 0), 0), 0);
 
-    return { rights, enrollment, pension, total: rights + enrollment + pension };
+    const pensionByMonth = items.reduce((acc, item) => {
+      (item?.pensionMonthlyAmounts || []).forEach((amount, index) => {
+        acc[index] = Number(acc[index] || 0) + Number(amount || 0);
+      });
+      return acc;
+    }, Array(10).fill(0));
+
+    return { rights, enrollment, pension, pensionByMonth };
   }, [items, payments]);
 
   return (
@@ -46,7 +53,19 @@ export default function RightSummarySidebar({ family, items = [], payments, onPa
         <Input label="Notas" value={payments?.notes || ""} onChange={(e) => onPaymentsChange?.({ notes: e.target.value })} />
 
         <div className="space-y-1 text-sm text-gray-700">
-          <p>Total final: <span className="font-semibold">{toMoney(totals.total)}</span></p>
+          <p>Derecho de Ingreso: <span className="font-semibold">{toMoney(totals.rights)}</span></p>
+          <p>Matrícula: <span className="font-semibold">{toMoney(totals.enrollment)}</span></p>
+          {items.some((item) => item?.isPensionCustomized)
+            ? (
+              <div className="space-y-1">
+                <p>Pensión:</p>
+                {totals.pensionByMonth.map((amount, index) => (
+                  <p key={`pension-month-${index}`} className="pl-3 text-xs text-gray-600">{["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"][index]}: {toMoney(amount)}</p>
+                ))}
+                <p className="pl-3">Subtotal pensión: <span className="font-semibold">{toMoney(totals.pension)}</span></p>
+              </div>
+            )
+            : <p>Pensión: <span className="font-semibold">{toMoney(totals.pension)}</span></p>}
         </div>
 
         <div className="flex flex-col gap-2">

@@ -1,9 +1,29 @@
 import React from "react";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
+import { ENROLLMENT_CASE_MONTHS, buildPensionArrayFromGeneralAmount } from "../domain/enrollmentCaseValidation";
 
-export default function StudentPackageCard({ item, classroomOptions = [], onChooseClassroom, onRemove, onChangeCosts }) {
+const INTERNAL_SCHOOLS = new Set(["CIENCIAS", "CIENCIAS_APLICADAS", "CIMAS"]);
+
+export default function StudentPackageCard({ item, classroomOptions = [], onChooseClassroom, onRemove, onChangeCosts, studentSummary }) {
   const blocked = Boolean(item?.blockedReason);
+  const summary = studentSummary?.data;
+  const isSummaryLoading = Boolean(studentSummary?.isLoading);
+  const summaryClassroomLabel = summary?.enrollmentStatus?.classroom?.displayName || summary?.enrollmentStatus?.classroomName || "";
+  const currentCampus = summary?.enrollmentStatus?.campus || "";
+  const previousCampus = summary?.student?.previousCampus;
+  const admissionBlockedByCampus = INTERNAL_SCHOOLS.has(String(previousCampus || "").toUpperCase());
+  const isPensionCustomized = Boolean(item?.isPensionCustomized);
+  const pensionGeneralAmount = Number((item?.pensionGeneral ?? item?.pensionMonthlyAmounts?.find((amount) => Number(amount || 0) > 0)) || 0);
+
+  const handleGeneralPensionChange = (value) => {
+    const amount = Number(value || 0);
+    onChangeCosts?.({
+      pensionGeneral: amount,
+      isPensionCustomized: false,
+      pensionMonthlyAmounts: buildPensionArrayFromGeneralAmount(amount, 0),
+    });
+  };
 
   return (
     <div className="rounded-lg border border-gray-200 p-3">
@@ -22,8 +42,9 @@ export default function StudentPackageCard({ item, classroomOptions = [], onChoo
 
       <div className="mt-2">
         {item?.hasVacancy ? (
-          <p className="text-sm text-gray-700">Aula asignada: <span className="font-medium">{item.assignedClassroomLabel || "(sin etiqueta)"}</span></p>
+          <p className="text-sm text-gray-700">Aula asignada: <span className="font-medium">{isSummaryLoading ? "Cargando salón..." : (summaryClassroomLabel || item.assignedClassroomLabel || "(sin etiqueta)")}</span></p>
         ) : null}
+        {currentCampus ? <p className="text-xs text-gray-500">Campus actual: {currentCampus}</p> : null}
 
         {!item?.hasVacancy && item?.requiresClassroomSelection ? (
           <div>
@@ -66,40 +87,66 @@ export default function StudentPackageCard({ item, classroomOptions = [], onChoo
 
         <div className="rounded-md border border-gray-200 p-2">
           <p className="text-sm font-medium text-gray-800">Derecho de ingreso</p>
-          <label className="mb-1 block text-xs text-gray-600"><input className="mr-1" type="checkbox" checked={Boolean(item?.admissionFee?.applies)} onChange={(e) => onChangeCosts?.({ admissionFee: { ...item?.admissionFee, applies: e.target.checked } })} />Aplica</label>
-          {item?.admissionFee?.applies ? (
+          {admissionBlockedByCampus ? (
+            <p className="text-xs text-gray-600">No aplica por sede de procedencia ({previousCampus}).</p>
+          ) : (
             <>
-              <Input
-                label="Monto"
-                type="number"
-                value={Number(item?.admissionFee?.amount || 0)}
-                onChange={(e) => onChangeCosts?.({ admissionFee: { ...item?.admissionFee, amount: Number(e.target.value || 0) } })}
-                disabled={Boolean(item?.admissionFee?.isExempt)}
-              />
-              <label className="text-xs text-gray-600"><input className="mr-1" type="checkbox" checked={Boolean(item?.admissionFee?.isExempt)} onChange={(e) => onChangeCosts?.({ admissionFee: { ...item?.admissionFee, isExempt: e.target.checked } })} />Exonerado</label>
+              <label className="mb-1 block text-xs text-gray-600"><input className="mr-1" type="checkbox" checked={Boolean(item?.admissionFee?.applies)} onChange={(e) => onChangeCosts?.({ admissionFee: { ...item?.admissionFee, applies: e.target.checked } })} />Aplica</label>
+              {item?.admissionFee?.applies ? (
+                <>
+                  <Input
+                    label="Monto"
+                    type="number"
+                    value={Number(item?.admissionFee?.amount || 0)}
+                    onChange={(e) => onChangeCosts?.({ admissionFee: { ...item?.admissionFee, amount: Number(e.target.value || 0) } })}
+                    disabled={Boolean(item?.admissionFee?.isExempt)}
+                  />
+                  <label className="text-xs text-gray-600"><input className="mr-1" type="checkbox" checked={Boolean(item?.admissionFee?.isExempt)} onChange={(e) => onChangeCosts?.({ admissionFee: { ...item?.admissionFee, isExempt: e.target.checked } })} />Exonerado</label>
+                </>
+              ) : null}
             </>
-          ) : null}
+          )}
         </div>
 
         <div className="rounded-md border border-gray-200 p-2 md:col-span-2">
           <p className="text-sm font-medium text-gray-800">Pensiones (Mar-Dic)</p>
-          <div className="grid gap-2 md:grid-cols-5">
-            {(item?.pensionMonthlyAmounts || []).map((amount, index) => (
-              <label key={`${item.id}-p-${index}`} className="text-xs text-gray-600">
-                M{index + 1}
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-xs"
-                  value={Number(amount || 0)}
-                  onChange={(e) => {
-                    const copy = [...(item?.pensionMonthlyAmounts || [])];
-                    copy[index] = Number(e.target.value || 0);
-                    onChangeCosts?.({ pensionMonthlyAmounts: copy });
-                  }}
-                />
-              </label>
-            ))}
+          <div className="mt-2 grid gap-2 md:grid-cols-[minmax(0,240px)_minmax(0,1fr)] md:items-end">
+            <Input
+              label="Monto general pensión"
+              type="number"
+              value={pensionGeneralAmount}
+              onChange={(e) => handleGeneralPensionChange(e.target.value)}
+              disabled={isPensionCustomized}
+            />
+            <label className="text-sm text-gray-700"><input className="mr-2" type="checkbox" checked={isPensionCustomized} onChange={(e) => {
+              const checked = e.target.checked;
+              onChangeCosts?.(checked
+                ? { isPensionCustomized: true }
+                : {
+                    isPensionCustomized: false,
+                    pensionMonthlyAmounts: buildPensionArrayFromGeneralAmount(Number(item?.pensionGeneral || 0), 0),
+                  });
+            }} />Especificar</label>
           </div>
+          {isPensionCustomized ? (
+            <div className="mt-2 grid gap-2 md:grid-cols-5">
+              {(item?.pensionMonthlyAmounts || []).map((amount, index) => (
+                <label key={`${item.id}-p-${index}`} className="text-xs text-gray-600">
+                  {ENROLLMENT_CASE_MONTHS[index] || `M${index + 1}`}
+                  <input
+                    type="number"
+                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                    value={Number(amount || 0)}
+                    onChange={(e) => {
+                      const copy = [...(item?.pensionMonthlyAmounts || [])];
+                      copy[index] = Number(e.target.value || 0);
+                      onChangeCosts?.({ pensionMonthlyAmounts: copy, isPensionCustomized: true });
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

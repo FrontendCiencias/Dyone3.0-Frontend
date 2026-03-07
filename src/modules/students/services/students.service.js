@@ -135,9 +135,11 @@ export async function getStudentDetail(studentId) {
   return getStudentSummary(studentId);
 }
 
-export async function getClassroomOptions({ level, grade, includeCapacity = true }) {
+export async function getClassroomOptions({ level, grade, campus, includeCapacity = true }) {
   const endpoint = API_ROUTES.classroomOptions;
-  const params = { level, grade, includeCapacity };
+  const params = { level, includeCapacity };
+  if (grade) params.grade = grade;
+  if (campus) params.campus = campus;
 
   logRequest(endpoint, "GET", params);
   const res = await axiosInstance.get(endpoint, { params });

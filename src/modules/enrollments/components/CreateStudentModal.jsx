@@ -40,7 +40,7 @@ export default function CreateStudentModal({ open, onClose, onSubmit, isSubmitti
 
   const classroomQuery = useQuery({
     queryKey: ["classroom-options", "create-student", form.level || "", form.campus || ""],
-    queryFn: () => getClassroomOptions({ level: form.level, includeCapacity: true }),
+    queryFn: () => getClassroomOptions({ level: form.level, campus: form.campus, includeCapacity: true }),
     enabled: Boolean(open) && Boolean(form.level) && Boolean(form.campus),
     retry: false,
     refetchOnWindowFocus: false,
@@ -53,12 +53,8 @@ export default function CreateStudentModal({ open, onClose, onSubmit, isSubmitti
         ? classroomQuery.data
         : [];
 
-    return rows.filter((item) => {
-      const campusCode = String(item?.campusCode || item?.campusAlias || item?.campus || "").toUpperCase();
-      if (!campusCode) return true;
-      return campusCode === String(form.campus || "").toUpperCase();
-    });
-  }, [classroomQuery.data, form.campus]);
+    return rows;
+  }, [classroomQuery.data]);
 
   const previousCampus = resolvePreviousCampus(form.previousCampusMode, form.previousCampusInput);
   const externalCampusInvalid = form.previousCampusMode === "EXTERNO" && previousCampus.length < 2;
@@ -153,13 +149,18 @@ export default function CreateStudentModal({ open, onClose, onSubmit, isSubmitti
           </div>
         </div>
 
-        <p className="text-xs text-gray-600">Selecciona nivel y campus para ver los salones disponibles</p>
-
-        {form.campus && form.level ? (
-          <div className="space-y-2">
-            {classroomQuery.isFetching ? <p className="text-sm text-gray-500">Cargando salones...</p> : null}
-            {classroomQuery.isError ? <p className="text-sm text-red-700">No se pudo cargar salones disponibles.</p> : null}
-
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-3 min-h-[220px]">
+          {!form.campus || !form.level ? (
+            <div className="flex h-full min-h-[190px] items-center justify-center text-center text-sm text-gray-600">
+              Selecciona nivel y campus para ver los salones disponibles
+            </div>
+          ) : classroomQuery.isFetching ? (
+            <div className="flex h-full min-h-[190px] items-center justify-center text-sm text-gray-500">Cargando salones...</div>
+          ) : classroomQuery.isError ? (
+            <div className="flex h-full min-h-[190px] items-center justify-center text-sm text-red-700">No se pudo cargar salones disponibles.</div>
+          ) : !classroomOptions.length ? (
+            <div className="flex h-full min-h-[190px] items-center justify-center text-center text-sm text-amber-700">No hay salones disponibles para este nivel y campus</div>
+          ) : (
             <div className="grid gap-2 sm:grid-cols-2">
               {classroomOptions.map((classroom) => {
                 const classroomId = classroom?.classroomId || classroom?.id || classroom?._id || "";
@@ -178,12 +179,8 @@ export default function CreateStudentModal({ open, onClose, onSubmit, isSubmitti
                 );
               })}
             </div>
-
-            {!classroomQuery.isFetching && !classroomOptions.length && !classroomQuery.isError ? (
-              <p className="text-sm text-amber-700">No hay salones disponibles para el campus/nivel seleccionado.</p>
-            ) : null}
-          </div>
-        ) : null}
+          )}
+        </div>
 
         <div className="grid gap-2 sm:grid-cols-2 sm:items-end">
           <div>
