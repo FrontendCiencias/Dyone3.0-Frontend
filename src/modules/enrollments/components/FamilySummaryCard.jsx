@@ -1,9 +1,10 @@
 import React from "react";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import FamilyAddressEditor from "../../families/components/FamilyAddressEditor";
 import { getTutorFullName } from "../../families/domain/familyDisplay";
 
-export default function FamilySummaryCard({ family, tutors = [], onEditTutor, onAddTutor }) {
+export default function FamilySummaryCard({ family, familyId, tutors = [], onEditTutor, onAddTutor, onFamilyAddressSaved }) {
   if (!family) {
     return (
       <Card className="border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-600">
@@ -20,6 +21,13 @@ export default function FamilySummaryCard({ family, tutors = [], onEditTutor, on
         <h3 className="text-sm font-semibold text-gray-900">Familia seleccionada</h3>
         <p className="text-sm text-gray-700">Tutor principal: {primaryTutor?.tutorPerson?.lastNames || "-"} {primaryTutor?.tutorPerson?.names || ""}</p>
         <p className="text-xs text-gray-500">DNI: {primaryTutor?.tutorPerson?.dni || "-"} · Tel: {primaryTutor?.tutorPerson?.phone || "-"}</p>
+
+        <FamilyAddressEditor
+          familyId={familyId}
+          address={family?.address || family?.family?.address}
+          autoEditIfEmpty
+          onSaved={onFamilyAddressSaved}
+        />
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">

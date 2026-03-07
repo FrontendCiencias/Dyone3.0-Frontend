@@ -19,6 +19,7 @@ export const API_ROUTES = {
   studentInternalNotes: (id) => `/api/students/${id}/internal-notes`,
   createStudentWithPerson: "/api/students/with-person",
   studentsSearch: "/api/students/search",
+  studentsPrintCards: "/api/students/print-cards",
   studentsUnassigned: "/api/students/unassigned",
   studentsUnassignedSearch: "/api/students/unassigned/search",
   createTutor: "/api/tutors",

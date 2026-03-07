@@ -12,11 +12,14 @@ import AdminLegacyRedirectPage from "../modules/admin/pages/AdminLegacyRedirectP
 import DashboardHome from "../modules/dashboard/pages/DashboardHome";
 import StudentsPage from "../modules/students/pages/StudentsPage";
 import StudentDetailPage from "../modules/students/pages/StudentDetailPage";
+import StudentPrintCardsPage from "../modules/students/pages/StudentPrintCardsPage";
+import StudentPrintCardsPreviewPage from "../modules/students/pages/StudentPrintCardsPreviewPage";
 import FamiliesPage from "../modules/families/pages/FamiliesPage";
 import FamilyDetailPage from "../modules/families/pages/FamilyDetailPage";
 import FamiliesNewPage from "../modules/families/pages/FamiliesNewPage";
 import EnrollmentsPage from "../modules/enrollments/pages/EnrollmentsPage";
 import EnrollmentCaseCreatePage from "../modules/enrollments/pages/EnrollmentCaseCreatePage";
+import EnrollmentContractPreviewPage from "../modules/enrollments/pages/EnrollmentContractPreviewPage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
 
 import { ROUTES } from "../config/routes";
@@ -62,9 +65,12 @@ export default function AppRoutes() {
         </Route>
 
         <Route element={<PrivateRoute />}>
+          <Route path={ROUTES.dashboardEnrollmentContractPreview} element={<EnrollmentContractPreviewPage />} />
           <Route element={<DashboardLayout />}>
             <Route path={ROUTES.dashboard} element={<DashboardHome />} />
             <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
+            <Route path={ROUTES.dashboardStudentsPrintCards} element={<StudentPrintCardsPage />} />
+            <Route path={ROUTES.dashboardStudentsPrintCardsPreview} element={<StudentPrintCardsPreviewPage />} />
             <Route path={ROUTES.dashboardStudentDetail()} element={<StudentDetailPage />} />
             <Route path={ROUTES.dashboardFamilies} element={<FamiliesPage />} />
             <Route path={ROUTES.dashboardFamilyNew} element={<FamiliesNewPage />} />

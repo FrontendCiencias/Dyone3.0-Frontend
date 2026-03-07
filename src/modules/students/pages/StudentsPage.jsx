@@ -330,7 +330,13 @@ export default function StudentsPage() {
           </div>
 
           {/* DERECHA: Acción */}
-          <div className="flex justify-end">
+          <div className="flex flex-wrap justify-end gap-2">
+            <SecondaryButton
+              className="w-full md:w-auto"
+              onClick={() => navigate(ROUTES.dashboardStudentsPrintCards)}
+            >
+              Imprimir cards
+            </SecondaryButton>
             <SecondaryButton
               className="w-full md:w-auto"
               onClick={() => navigate(ROUTES.dashboardEnrollmentCaseNew)}

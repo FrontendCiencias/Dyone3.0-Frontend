@@ -6,6 +6,7 @@ import { useAuth } from "../../../lib/auth";
 import StudentsContextBar from "../../students/components/StudentsContextBar";
 import { ROUTES } from "../../../config/routes";
 import LinkStudentModal from "../components/LinkStudentModal";
+import FamilyAddressEditor from "../components/FamilyAddressEditor";
 import CreateTutorModal from "../components/CreateTutorModal";
 import PrimaryTutorConfirmModal from "../components/PrimaryTutorConfirmModal";
 import TutorsCard from "../components/detail/cards/TutorsCard";
@@ -215,6 +216,17 @@ export default function FamilyDetailPage() {
               Lista de Familias
             </SecondaryButton>
           </div>
+        </div>
+      </Card>
+
+      <Card className="border border-gray-200 shadow-sm">
+        <div className="space-y-2">
+          <p className="text-sm text-gray-700">Family ID: <span className="font-medium">{getFamilyIdLabel(familyData)}</span></p>
+          <FamilyAddressEditor
+            familyId={familyId}
+            address={familyData?.address || familyData?.family?.address}
+            onSaved={() => familyQuery.refetch()}
+          />
         </div>
       </Card>
 
