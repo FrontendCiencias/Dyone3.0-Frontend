@@ -55,6 +55,14 @@ export async function createFamily(payload = {}) {
   return res.data;
 }
 
+export async function updateFamily({ familyId, ...payload }) {
+  const endpoint = API_ROUTES.familyDetail(familyId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
 export async function linkStudentFamily(payload) {
   logRequest(API_ROUTES.familiesLinkStudent, "POST", payload);
   const res = await axiosInstance.post(API_ROUTES.familiesLinkStudent, payload);

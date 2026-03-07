@@ -561,6 +561,29 @@ export default function EnrollmentCaseCreatePage() {
     await saveDraftMutation.mutateAsync(buildPayload());
   };
 
+  const handleViewContract = () => {
+    if (!familyData || !packageItems.length) {
+      setStatusMessage("Agrega familia y alumnos antes de ver el contrato.");
+      return;
+    }
+
+    const contractPayload = {
+      enrollmentId: enrollmentId || "",
+      campus: activeCampus || "",
+      family: familyData,
+      tutors,
+      items: packageItems,
+      payments,
+      generatedAt: new Date().toISOString(),
+    };
+
+    const contractKey = `enrollment-contract-preview-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(contractKey, JSON.stringify(contractPayload));
+
+    const previewUrl = `${ROUTES.dashboardEnrollmentContractPreview}?contractKey=${encodeURIComponent(contractKey)}`;
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
+  };
+
   const handleConfirm = async () => {
     if (!canConfirm) {
       setStatusMessage("Completa familia, alumnos elegibles y aulas pendientes antes de confirmar.");
@@ -610,12 +633,14 @@ export default function EnrollmentCaseCreatePage() {
 
         <FamilySummaryCard
           family={familyData}
+          familyId={selectedFamilyId}
           tutors={tutors}
           onEditTutor={(tutor) => {
             setSelectedTutor(tutor);
             setEditTutorModalOpen(true);
           }}
           onAddTutor={() => setCreateTutorOpen(true)}
+          onFamilyAddressSaved={() => familyDetailQuery.refetch()}
         />
 
         <EnrollmentPackageList
@@ -647,6 +672,7 @@ export default function EnrollmentCaseCreatePage() {
         items={packageItems}
         payments={payments}
         onPaymentsChange={(patch) => setPayments((prev) => ({ ...prev, ...patch }))}
+        onViewContract={handleViewContract}
         onSaveDraft={handleSaveDraft}
         onConfirm={handleConfirm}
         isSaving={saveDraftMutation.isPending}
