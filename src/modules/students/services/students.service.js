@@ -176,14 +176,6 @@ export async function createEnrollment(payload) {
   return res.data;
 }
 
-export async function confirmEnrollment(enrollmentId, payload = {}) {
-  const endpoint = API_ROUTES.enrollmentConfirm(enrollmentId);
-  logRequest(endpoint, "POST", payload);
-  const res = await axiosInstance.post(endpoint, payload);
-  logResponse(endpoint, res.status, res.data);
-  return res.data;
-}
-
 export async function updateStudentCycleStatus(studentId, payload) {
   const endpoint = API_ROUTES.studentCycleStatus(studentId);
   logRequest(endpoint, "PATCH", payload);
