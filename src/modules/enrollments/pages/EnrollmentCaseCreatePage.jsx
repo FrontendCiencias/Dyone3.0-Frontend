@@ -47,6 +47,11 @@ function toPackageItemFromStudent(student, overrides = {}) {
   const blockedReason = cycleStatus === "ENROLLED" ? "Ya matriculado" : activeStatus === "GRADUATED" ? "Egresado" : "";
   const classroom = student?.classroom || student?.vacancy?.classroom || overrides.classroom;
   const assignedClassroomLabel = classroom?.label || classroom?.name || classroom?.displayName || "";
+  const backendAssignedClassroomId =
+    student?.enrollmentStatus?.classroomId ||
+    student?.enrollmentStatus?.classroom?.id ||
+    student?.enrollmentStatus?.classroom?._id ||
+    "";
 
   const inferredHasVacancy = Boolean(
     classroom?._id ||
@@ -74,7 +79,7 @@ function toPackageItemFromStudent(student, overrides = {}) {
     hasVacancy,
     requiresClassroomSelection: overrides.requiresClassroomSelection ?? !hasVacancy,
     assignedClassroomLabel,
-    selectedClassroomId: overrides.selectedClassroomId || "",
+    selectedClassroomId: overrides.selectedClassroomId || backendAssignedClassroomId || "",
     selectedClassroomLabel: overrides.selectedClassroomLabel || "",
     level: overrides.level || student?.level || student?.educationLevel || student?.currentLevel || "",
     grade: overrides.grade || student?.grade || student?.currentGrade || "",

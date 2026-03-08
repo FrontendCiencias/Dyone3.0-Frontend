@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
 import Code39Barcode from "../components/Code39Barcode";
+
+const CARDS_PER_PAGE = 18;
 
 function normalizeItems(rawItems) {
   if (!Array.isArray(rawItems)) return [];
@@ -22,6 +24,17 @@ function resolveStoragePayload(printCardsKey) {
   }
 }
 
+function chunkItems(items, chunkSize) {
+  if (!items.length) return [];
+  const chunks = [];
+
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+
+  return chunks;
+}
+
 export default function StudentPrintCardsPreviewPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -32,28 +45,14 @@ export default function StudentPrintCardsPreviewPage() {
     return normalizeItems(payload?.items);
   }, [printCardsKey]);
 
-  useEffect(() => {
-    if (!items.length) return;
-    const timer = window.setTimeout(() => {
-      window.print();
-    }, 200);
+  const pages = useMemo(() => chunkItems(items, CARDS_PER_PAGE), [items]);
 
-    return () => window.clearTimeout(timer);
-  }, [items.length]);
-
-  if (!items.length) {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <h1 className="text-lg font-semibold text-gray-900">Vista de impresión</h1>
-          <p className="mt-2 text-sm text-gray-600">No hay alumnos seleccionados para imprimir.</p>
-          <div className="mt-4">
-            <SecondaryButton onClick={() => navigate(ROUTES.dashboardStudentsPrintCards)}>Volver a Imprimir cards</SecondaryButton>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const controls = (
+    <div className="print-controls mx-auto mb-3 flex w-[210mm] max-w-full justify-end gap-2 px-2">
+      <Button onClick={() => window.print()}>Imprimir</Button>
+      <SecondaryButton onClick={() => window.close()}>Cerrar</SecondaryButton>
+    </div>
+  );
 
   return (
     <>
@@ -61,51 +60,96 @@ export default function StudentPrintCardsPreviewPage() {
         {`
           @page {
             size: A4 portrait;
-            margin: 8mm;
+            margin: 10mm;
           }
 
           @media print {
-            .no-print {
-              display: none !important;
+            html,
+            body {
+              width: 210mm;
+              height: 297mm;
+              margin: 0;
+              padding: 0;
             }
 
             body {
               background: white !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .print-controls {
+              display: none !important;
+            }
+
+            .print-sheet {
+              width: 190mm;
+              height: 277mm;
+              margin: 0;
+              box-shadow: none !important;
+              border: 0 !important;
+              page-break-after: always;
+              break-after: page;
+            }
+
+            .print-sheet:last-of-type {
+              page-break-after: auto;
+              break-after: auto;
+            }
+
+            .card-item {
+              break-inside: avoid;
+              page-break-inside: avoid;
             }
           }
         `}
       </style>
 
-      <div className="space-y-4">
-        <div className="no-print flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4">
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900">Preview de cards</h1>
-            <p className="text-sm text-gray-600">Formato A4 · 3 columnas x 6 filas (18 por hoja)</p>
-          </div>
-          <div className="flex gap-2">
-            <SecondaryButton onClick={() => navigate(ROUTES.dashboardStudentsPrintCards)}>Volver</SecondaryButton>
-            <Button onClick={() => window.print()}>Imprimir</Button>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gray-100 py-6 print:bg-white print:py-0">
+        {controls}
 
-        <div className="grid grid-cols-3 gap-2">
-          {items.map((item, index) => {
-            const classroom = item.classroomLabel || [item.grade, item.section].filter(Boolean).join(" - ") || "-";
-            return (
-              <article key={`${item.studentId}-${index}`} className="flex h-[44mm] flex-col justify-between border border-gray-400 p-2 text-black">
-                <div>
-                  <p className="text-[11px] font-bold uppercase leading-tight">{item.lastNames || "-"}</p>
-                  <p className="text-[10px] leading-tight">{item.names || "-"}</p>
-                  <p className="text-[9px] leading-tight">{classroom}</p>
+        {!items.length ? (
+          <div className="mx-auto w-[210mm] max-w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <h1 className="text-lg font-semibold text-gray-900">Vista de impresión</h1>
+            <p className="mt-2 text-base text-gray-600">No hay alumnos seleccionados para imprimir.</p>
+            <div className="mt-4">
+              <SecondaryButton onClick={() => navigate(ROUTES.dashboardStudentsPrintCards)}>Volver a Imprimir cards</SecondaryButton>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 print:space-y-0">
+            {pages.map((pageItems, pageIndex) => (
+              <section
+                key={`page-${pageIndex}`}
+                className="print-sheet mx-auto w-[190mm] max-w-full border border-gray-200 bg-white p-0.5 shadow-sm"
+              >
+                <div
+                  className="grid h-full w-full grid-cols-3 grid-rows-6 gap-[1.8mm]"
+                >
+                  {pageItems.map((item, index) => {
+                    const classroom = item.classroomLabel || [item.grade, item.section].filter(Boolean).join(" - ") || "-";
+                    return (
+                      <article
+                        key={`${item.studentId}-${pageIndex}-${index}`}
+                        className="card-item flex min-h-0 flex-col justify-between overflow-hidden border border-gray-400 px-[1.6mm] py-[1.4mm] text-black"
+                      >
+                        <div className="min-h-0">
+                          <p className="truncate text-[12.6px] font-bold uppercase leading-tight">{item.lastNames || "-"}</p>
+                          <p className="truncate text-[11.6px] leading-tight">{item.names || "-"}</p>
+                          <p className="truncate text-[10.8px] leading-tight">{classroom}</p>
+                        </div>
+                        <div>
+                          <Code39Barcode value={item.internalCode} className="h-[13.5mm] w-full" height={42} />
+                          <p className="mt-[1mm] text-center text-[10.8px] font-semibold tracking-wide">{item.internalCode}</p>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
-                <div>
-                  <Code39Barcode value={item.internalCode} className="h-[14mm] w-full" height={42} />
-                  <p className="mt-1 text-center text-[10px] font-semibold tracking-wide">{item.internalCode}</p>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
