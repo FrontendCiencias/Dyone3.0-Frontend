@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import { ROUTES } from "../../../config/routes";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { useAuth } from "../../../lib/auth";
 import { useCyclesQuery } from "../../admin/hooks/useCyclesQuery";
+import { useCampusesQuery } from "../../admin/hooks/useCampusesQuery";
 import CreateTutorModal from "../../families/components/CreateTutorModal";
 import EditTutorModal from "../../families/components/modals/EditTutorModal";
 import { useCreateTutorMutation } from "../../families/hooks/useCreateTutorMutation";
@@ -28,8 +29,8 @@ import CreateFamilyFromStudentModal from "../components/CreateFamilyFromStudentM
 import SearchUnassignedStudentModal from "../components/SearchUnassignedStudentModal";
 import CreateStudentWithoutFamilyWizardModal from "../components/CreateStudentWithoutFamilyWizardModal";
 import { useEnrollmentIntakeSearchQuery } from "../hooks/useEnrollmentIntakeSearchQuery";
-import { confirmEnrollmentById, createQuickEnrollment, getEnrollmentDetailById } from "../services/enrollments.service";
-import { ENROLLMENT_CASE_MONTHS, buildPensionArrayFromGeneralAmount } from "../domain/enrollmentCaseValidation";
+import { createEnrollment } from "../services/enrollments.service";
+import { buildPensionArrayFromGeneralAmount } from "../domain/enrollmentCaseValidation";
 
 const INTERNAL_SCHOOLS = new Set(["CIENCIAS", "CIENCIAS_APLICADAS", "CIMAS"]);
 
@@ -111,8 +112,6 @@ function isObjectId(value) {
 export default function EnrollmentCaseCreatePage() {
   const navigate = useNavigate();
   const { activeCampus } = useAuth();
-  const [searchParams] = useSearchParams();
-  const draftId = searchParams.get("draft");
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -123,7 +122,6 @@ export default function EnrollmentCaseCreatePage() {
   const [createStudentWithoutFamilyOpen, setCreateStudentWithoutFamilyOpen] = useState(false);
   const [searchStudentOpen, setSearchStudentOpen] = useState(false);
   const [familyModalStudent, setFamilyModalStudent] = useState(null);
-  const [enrollmentId, setEnrollmentId] = useState(draftId || "");
   const [payments, setPayments] = useState({ notes: "" });
   const [createTutorOpen, setCreateTutorOpen] = useState(false);
   const [selectedTutor, setSelectedTutor] = useState(null);
@@ -140,6 +138,7 @@ export default function EnrollmentCaseCreatePage() {
   }, [query]);
 
   const cyclesQuery = useCyclesQuery();
+  const campusesQuery = useCampusesQuery();
   const activeCycle = useMemo(() => {
     const rows = Array.isArray(cyclesQuery.data?.items) ? cyclesQuery.data.items : Array.isArray(cyclesQuery.data) ? cyclesQuery.data : [];
     return rows.find((cycle) => cycle?.isActive) || null;
@@ -188,17 +187,6 @@ export default function EnrollmentCaseCreatePage() {
       return ready
     });
   }, [familyData, selectedFamilyId]);
-
-  const enrollmentDetailQuery = useMutation({ mutationFn: getEnrollmentDetailById });
-  useEffect(() => {
-    if (!draftId) return;
-    enrollmentDetailQuery.mutate(draftId, {
-      onSuccess: (data) => {
-        console.log("[NewEnrollment][Draft] rehydrate");
-        setEnrollmentId(data?.id || draftId);
-      },
-    });
-  }, [draftId]);
 
   const classroomQueries = useQueries({
     queries: packageItems.map((item) => ({
@@ -429,24 +417,17 @@ export default function EnrollmentCaseCreatePage() {
     },
   });
 
-  const saveDraftMutation = useMutation({
-    mutationFn: createQuickEnrollment,
-    onSuccess: (payload) => {
-      console.log("[NewEnrollment][Draft] saved");
-      setEnrollmentId(payload?.id || payload?.enrollment?.id || "");
-      setStatusMessage("Borrador guardado correctamente.");
-    },
-    onError: (error) => setStatusMessage(error?.response?.data?.message || "No se pudo guardar el borrador."),
-  });
-
-  const confirmMutation = useMutation({
-    mutationFn: ({ id, payload }) => confirmEnrollmentById(id, payload),
+  const createEnrollmentMutation = useMutation({
+    mutationFn: createEnrollment,
     onSuccess: () => {
-      console.log("[NewEnrollment][Confirm] success");
-      setStatusMessage("Matrícula confirmada correctamente.");
+      console.log("[NewEnrollment][Create] success");
+      setStatusMessage("Matrícula registrada correctamente.");
+      setPackageItems([]);
+      setPayments({ notes: "" });
+      setSelectedFamilyId("");
       navigate(ROUTES.dashboardEnrollments);
     },
-    onError: (error) => setStatusMessage(error?.response?.data?.message || "No se pudo confirmar matrícula."),
+    onError: (error) => setStatusMessage(error?.response?.data?.message || "No se pudo registrar la matrícula."),
   });
 
   const onSelectIntakeItem = async (item) => {
@@ -556,40 +537,48 @@ export default function EnrollmentCaseCreatePage() {
 
   const hasBlocked = packageItems.some((item) => item.blockedReason);
   const hasMissingClassroom = packageItems.some((item) => item.requiresClassroomSelection && !item.selectedClassroomId);
-  const canConfirm = Boolean(selectedFamilyId) && packageItems.length > 0 && !hasBlocked && !hasMissingClassroom && !confirmMutation.isPending;
+  const canConfirm = Boolean(selectedFamilyId) && packageItems.length > 0 && !hasBlocked && !hasMissingClassroom && !createEnrollmentMutation.isPending;
+
+  const activeCampusId = useMemo(() => {
+    const rows = Array.isArray(campusesQuery.data?.items) ? campusesQuery.data.items : Array.isArray(campusesQuery.data) ? campusesQuery.data : [];
+    const activeCode = String(activeCampus || "").trim().toUpperCase();
+    const matched = rows.find((campus) => String(campus?.code || campus?.campusCode || "").trim().toUpperCase() === activeCode);
+    return matched?.id || matched?._id || "";
+  }, [campusesQuery.data, activeCampus]);
+
+  const activeCycleId = activeCycle?.id || activeCycle?._id || "";
 
   const buildPayload = () => ({
     familyId: selectedFamilyId,
-    cycleId: activeCycle?.id,
-    campus: activeCampus,
-    status: "DRAFT",
-    enrollmentStudents: packageItems.map((item) => ({
-      studentId: item.studentId,
-      classroomId: item.selectedClassroomId || undefined,
-      admissionFee: {
-        applies: Boolean(item?.admissionFee?.applies),
-        isExempt: Boolean(item?.admissionFee?.isExempt),
-        amount: Number(item?.admissionFee?.amount || 0),
-        reason: item?.admissionFee?.reason || undefined,
-      },
-      enrollmentFee: {
-        isExempt: Boolean(item?.enrollmentFee?.isExempt),
-        amount: Number(item?.enrollmentFee?.amount || 0),
-        reason: item?.enrollmentFee?.reason || undefined,
-      },
-      pensionMonthlyAmounts: Array.isArray(item?.pensionMonthlyAmounts) ? item.pensionMonthlyAmounts.map((value) => Number(value || 0)) : buildPensionArrayFromGeneralAmount(0, 0),
-      previousSchoolType: item.previousSchoolType,
-    })),
-    paymentAgreement: {
-      notes: payments.notes || undefined,
-      months: ENROLLMENT_CASE_MONTHS,
-    },
-  });
+    campusId: activeCampusId,
+    cycleId: activeCycleId,
+    enrollmentStudents: packageItems.map((item) => {
+      const monthlyAmounts = Array.isArray(item?.pensionMonthlyAmounts)
+        ? item.pensionMonthlyAmounts.map((value) => Number(value))
+        : buildPensionArrayFromGeneralAmount(0, 0);
+      const appliesAdmissionFee = Boolean(item?.admissionFee?.applies);
 
-  const handleSaveDraft = async () => {
-    setStatusMessage("");
-    await saveDraftMutation.mutateAsync(buildPayload());
-  };
+      return {
+        studentId: item.studentId,
+        classroomId: item.selectedClassroomId || undefined,
+        admissionFee: {
+          applies: appliesAdmissionFee,
+          isExempt: appliesAdmissionFee ? Boolean(item?.admissionFee?.isExempt) : false,
+          amount: appliesAdmissionFee ? Number(item?.admissionFee?.amount || 0) : 0,
+          reason: String(item?.admissionFee?.reason || ""),
+        },
+        enrollmentFee: {
+          isExempt: Boolean(item?.enrollmentFee?.isExempt),
+          amount: Number(item?.enrollmentFee?.amount || 0),
+          reason: String(item?.enrollmentFee?.reason || ""),
+        },
+        pensionMonthlyAmounts: monthlyAmounts,
+        previousSchoolType: String(item?.previousSchoolType || "OTHER"),
+        notes: String(item?.notes || ""),
+      };
+    }),
+    notes: String(payments?.notes || ""),
+  });
 
   const handleViewContract = () => {
     if (!familyData || !packageItems.length) {
@@ -598,7 +587,7 @@ export default function EnrollmentCaseCreatePage() {
     }
 
     const contractPayload = {
-      enrollmentId: enrollmentId || "",
+      enrollmentId: "",
       campus: activeCampus || "",
       family: familyData,
       tutors,
@@ -616,25 +605,45 @@ export default function EnrollmentCaseCreatePage() {
 
   const handleConfirm = async () => {
     if (!canConfirm) {
-      setStatusMessage("Completa familia, alumnos elegibles y aulas pendientes antes de confirmar.");
+      setStatusMessage("Completa familia, alumnos elegibles y aulas pendientes antes de registrar.");
       return;
     }
 
     const payload = buildPayload();
 
-    let id = enrollmentId;
-    if (!id) {
-      const created = await saveDraftMutation.mutateAsync(payload);
-      id = created?.id || created?.enrollment?.id;
-      setEnrollmentId(id || "");
-    }
-
-    if (!id) {
-      setStatusMessage("No se pudo determinar el borrador para confirmar.");
+    if (!isObjectId(payload.familyId)) {
+      setStatusMessage("No se encontró una familia válida para registrar la matrícula.");
       return;
     }
 
-    await confirmMutation.mutateAsync({ id, payload });
+    if (!isObjectId(payload.campusId)) {
+      setStatusMessage("No se encontró un campus válido para registrar la matrícula.");
+      return;
+    }
+
+    if (!isObjectId(payload.cycleId)) {
+      setStatusMessage("No se encontró un ciclo activo válido para registrar la matrícula.");
+      return;
+    }
+
+    if (!Array.isArray(payload.enrollmentStudents) || payload.enrollmentStudents.length === 0) {
+      setStatusMessage("Debes agregar al menos un alumno para registrar la matrícula.");
+      return;
+    }
+
+    const invalidStudent = payload.enrollmentStudents.find((student) => !isObjectId(student?.classroomId));
+    if (invalidStudent) {
+      setStatusMessage("Todos los alumnos deben tener un aula seleccionada antes de registrar.");
+      return;
+    }
+
+    const invalidPension = payload.enrollmentStudents.find((student) => !Array.isArray(student?.pensionMonthlyAmounts) || student.pensionMonthlyAmounts.length !== 10);
+    if (invalidPension) {
+      setStatusMessage("Cada alumno debe tener exactamente 10 pensiones mensuales.");
+      return;
+    }
+
+    await createEnrollmentMutation.mutateAsync(payload);
   };
 
   const buildIdentityPayload = (formValues = {}) => {
@@ -753,7 +762,7 @@ export default function EnrollmentCaseCreatePage() {
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-sm text-gray-600">Campus activo: <span className="font-medium">{activeCampus || "-"}</span> · Ciclo activo: <span className="font-medium">{activeCycle?.name || "No disponible"}</span></p>
-              <p className="text-xs text-gray-500">Estado: Borrador</p>
+              <p className="text-xs text-gray-500">Estado: Nueva matrícula</p>
             </div>
             <SecondaryButton onClick={() => navigate(ROUTES.dashboardEnrollments)}>Volver</SecondaryButton>
           </div>
@@ -814,10 +823,8 @@ export default function EnrollmentCaseCreatePage() {
         payments={payments}
         onPaymentsChange={(patch) => setPayments((prev) => ({ ...prev, ...patch }))}
         onViewContract={handleViewContract}
-        onSaveDraft={handleSaveDraft}
         onConfirm={handleConfirm}
-        isSaving={saveDraftMutation.isPending}
-        isConfirming={confirmMutation.isPending}
+        isConfirming={createEnrollmentMutation.isPending}
       />
 
       <IdentityEditModal

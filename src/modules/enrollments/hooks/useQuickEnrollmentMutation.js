@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createQuickEnrollment } from "../services/enrollments.service";
+import { createEnrollment } from "../services/enrollments.service";
 
-export function useQuickEnrollmentMutation() {
+export function useCreateEnrollmentMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: createQuickEnrollment,
+    mutationFn: createEnrollment,
     onSuccess: (_, variables) => {
       const studentId = variables?.studentId;
       if (studentId) {
@@ -14,3 +14,6 @@ export function useQuickEnrollmentMutation() {
     },
   });
 }
+
+
+export const useQuickEnrollmentMutation = useCreateEnrollmentMutation;
