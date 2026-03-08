@@ -5,7 +5,7 @@ import { ENROLLMENT_CASE_MONTHS, buildPensionArrayFromGeneralAmount } from "../d
 
 const INTERNAL_SCHOOLS = new Set(["CIENCIAS", "CIENCIAS_APLICADAS", "CIMAS"]);
 
-export default function StudentPackageCard({ item, classroomOptions = [], onChooseClassroom, onRemove, onChangeCosts, studentSummary }) {
+export default function StudentPackageCard({ item, classroomOptions = [], onChooseClassroom, onRemove, onChangeCosts, studentSummary, onEditStudent, onChangeStudentClassroom }) {
   
   // console.log("[DBG] [item student]: ", item)
   const blocked = Boolean(item?.blockedReason);
@@ -46,7 +46,15 @@ export default function StudentPackageCard({ item, classroomOptions = [], onChoo
             {blocked ? <span className="rounded bg-red-100 px-1.5 py-0.5 text-red-700">{item.blockedReason}</span> : <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">Elegible</span>}
           </div>
         </div>
-        <Button size="sm" variant="secondary" onClick={onRemove}>Quitar</Button>
+        <div className="flex flex-wrap justify-end gap-1">
+          <Button size="sm" variant="ghost" onClick={onEditStudent}>
+            Editar
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onChangeStudentClassroom}>
+            Cambiar aula
+          </Button>
+          <Button size="sm" variant="secondary" onClick={onRemove}>Quitar</Button>
+        </div>
       </div>
 
       <div className="mt-2">
