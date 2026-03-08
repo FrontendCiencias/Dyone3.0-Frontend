@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueries } from "@tanstack/react-query";
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import { ROUTES } from "../../../config/routes";
@@ -14,6 +14,11 @@ import { useUpdateTutorMutation } from "../../families/hooks/useUpdateTutorMutat
 import { getAllTutors, getTutorId, getTutors } from "../../families/domain/familyDisplay";
 import { createFamily, createTutor, linkStudentToFamily } from "../../families/services/families.service";
 import { createStudentWithPerson, getClassroomOptions, getStudentSummary } from "../../students/services/students.service";
+import { useChangeStudentClassroomMutation } from "../../students/hooks/useChangeStudentClassroomMutation";
+import { useClassroomOptionsQuery } from "../../students/hooks/useClassroomOptionsQuery";
+import { useUpdateStudentIdentityMutation } from "../../students/hooks/useUpdateStudentIdentityMutation";
+import IdentityEditModal from "../../students/components/detail/modals/IdentityEditModal";
+import ChangeClassroomModal from "../../students/components/detail/modals/ChangeClassroomModal";
 import IntakeSearchBar from "../components/IntakeSearchBar";
 import FamilySummaryCard from "../components/FamilySummaryCard";
 import EnrollmentPackageList from "../components/EnrollmentPackageList";
@@ -33,7 +38,6 @@ function getStudentId(student) {
 }
 
 function toPackageItemFromStudent(student, overrides = {}) {
-  console.log("[DBG] [student]: ",student)
   const id = getStudentId(student);
   const fullName = [student?.personId?.lastNames || student?.person?.lastNames, student?.personId?.names || student?.person?.names].filter(Boolean).join(", ");
   const cycleStatus = overrides.cycleStatus || student?.cycleStatus;
@@ -92,6 +96,18 @@ function toPackageItemFromStudent(student, overrides = {}) {
   };
 }
 
+
+function getErrorMessage(error, fallback = "No se pudo completar la operación") {
+  const msg = error?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(". ");
+  if (typeof msg === "string") return msg;
+  return fallback;
+}
+
+function isObjectId(value) {
+  return /^[a-f\d]{24}$/i.test(String(value || "").trim());
+}
+
 export default function EnrollmentCaseCreatePage() {
   const navigate = useNavigate();
   const { activeCampus } = useAuth();
@@ -112,6 +128,11 @@ export default function EnrollmentCaseCreatePage() {
   const [createTutorOpen, setCreateTutorOpen] = useState(false);
   const [selectedTutor, setSelectedTutor] = useState(null);
   const [editTutorModalOpen, setEditTutorModalOpen] = useState(false);
+  const [selectedPackageStudent, setSelectedPackageStudent] = useState(null);
+  const [identityModalError, setIdentityModalError] = useState("");
+  const [classroomModalError, setClassroomModalError] = useState("");
+  const [identityModalOpen, setIdentityModalOpen] = useState(false);
+  const [changeClassroomModalOpen, setChangeClassroomModalOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -134,6 +155,15 @@ export default function EnrollmentCaseCreatePage() {
   const tutors = useMemo(() => getAllTutors(familyData), [familyData]);
   const createTutorMutation = useCreateTutorMutation();
   const updateTutorMutation = useUpdateTutorMutation();
+  const queryClient = useQueryClient();
+
+  const selectedStudentId = selectedPackageStudent?.studentId || "";
+  const updateIdentityMutation = useUpdateStudentIdentityMutation(selectedStudentId);
+  const changeClassroomMutation = useChangeStudentClassroomMutation(selectedStudentId);
+  const selectedClassroomOptionsQuery = useClassroomOptionsQuery({
+    level: selectedPackageStudent?.level,
+    grade: selectedPackageStudent?.grade,
+  });
 
   const studentCodes = useMemo(
     () => (Array.isArray(familyData?.students) ? familyData.students : [])
@@ -607,6 +637,115 @@ export default function EnrollmentCaseCreatePage() {
     await confirmMutation.mutateAsync({ id, payload });
   };
 
+  const buildIdentityPayload = (formValues = {}) => {
+    const trimOrEmpty = (value) => String(value || "").trim();
+    const original = {
+      names: trimOrEmpty(selectedPackageStudent?.summary?.student?.names),
+      lastNames: trimOrEmpty(selectedPackageStudent?.summary?.student?.lastNames),
+      dni: trimOrEmpty(selectedPackageStudent?.summary?.student?.dni),
+      birthDate: selectedPackageStudent?.summary?.student?.birthDate ? String(selectedPackageStudent.summary.student.birthDate).slice(0, 10) : "",
+      gender: trimOrEmpty(selectedPackageStudent?.summary?.student?.gender),
+      phone: trimOrEmpty(selectedPackageStudent?.summary?.student?.phone),
+      address: trimOrEmpty(selectedPackageStudent?.summary?.student?.address),
+    };
+
+    const next = {
+      names: trimOrEmpty(formValues?.names),
+      lastNames: trimOrEmpty(formValues?.lastNames),
+      dni: trimOrEmpty(formValues?.dni),
+      birthDate: trimOrEmpty(formValues?.birthDate),
+      gender: trimOrEmpty(formValues?.gender),
+      phone: trimOrEmpty(formValues?.phone),
+      address: trimOrEmpty(formValues?.address),
+    };
+
+    if (!next.names && !next.lastNames) return { error: "Debe completar nombres o apellidos." };
+
+    const payload = {};
+    ["names", "lastNames", "dni", "birthDate", "gender", "phone", "address"].forEach((key) => {
+      if (next[key] !== original[key] && next[key] !== "") payload[key] = next[key];
+    });
+
+    return { payload };
+  };
+
+  const openIdentityModal = (item) => {
+    const summary = studentSummaryById[item.studentId]?.data;
+    if (!summary?.student) {
+      setStatusMessage("No se pudo cargar el resumen del alumno. Intenta nuevamente.");
+      return;
+    }
+
+    setIdentityModalError("");
+    setSelectedPackageStudent({ ...item, summary });
+    setIdentityModalOpen(true);
+  };
+
+  const openChangeClassroomModal = (item) => {
+    const summary = studentSummaryById[item.studentId]?.data;
+    setClassroomModalError("");
+    setSelectedPackageStudent({ ...item, summary });
+    setChangeClassroomModalOpen(true);
+  };
+
+  const handleSaveIdentity = async (formValues) => {
+    const { payload, error } = buildIdentityPayload(formValues);
+    if (error) {
+      setIdentityModalError(error);
+      return;
+    }
+
+    await updateIdentityMutation.mutateAsync(payload);
+    await queryClient.invalidateQueries({ queryKey: ["students", "summary", selectedStudentId, "enrollment-intake"] });
+    setPackageItems((prev) => prev.map((row) => (row.studentId === selectedStudentId ? {
+      ...row,
+      fullName: `${String(formValues?.lastNames || "").trim()}, ${String(formValues?.names || "").trim()}`.replace(/^,\s*/, "").trim() || row.fullName,
+      dni: String(formValues?.dni || "").trim() || row.dni,
+    } : row)));
+    setIdentityModalError("");
+    setIdentityModalOpen(false);
+    setSelectedPackageStudent(null);
+  };
+
+  const handleSaveClassroom = async ({ classroomId, reason }) => {
+    const targetClassroomId = String(classroomId || "").trim();
+    const selectedSummary = selectedPackageStudent?.summary || {};
+    const cycleId = String(selectedSummary?.enrollmentStatus?.cycleId || selectedSummary?.enrollmentStatus?.cycle?.id || "").trim();
+
+    if (!isObjectId(targetClassroomId)) {
+      setClassroomModalError("No se pudo identificar el aula seleccionada. Recargue e intente nuevamente.");
+      return;
+    }
+
+    if (!isObjectId(cycleId)) {
+      setClassroomModalError("No se encontró el ciclo activo del alumno. No es posible cambiar de aula.");
+      return;
+    }
+
+    await changeClassroomMutation.mutateAsync({
+      classroomId: targetClassroomId,
+      cycleId,
+      reason: String(reason || "").trim() || undefined,
+    });
+
+    await queryClient.invalidateQueries({ queryKey: ["students", "summary", selectedStudentId, "enrollment-intake"] });
+    setClassroomModalError("");
+    setChangeClassroomModalOpen(false);
+    setSelectedPackageStudent(null);
+  };
+
+  const selectedStudentSummary = selectedPackageStudent?.summary || null;
+  const selectedStudentCurrentClassroomId =
+    selectedStudentSummary?.enrollmentStatus?.classroomId ||
+    selectedStudentSummary?.enrollmentStatus?.classroom?.id ||
+    selectedStudentSummary?.enrollmentStatus?.classroom?._id ||
+    "";
+  const selectedStudentClassrooms = Array.isArray(selectedClassroomOptionsQuery.data?.items)
+    ? selectedClassroomOptionsQuery.data.items
+    : Array.isArray(selectedClassroomOptionsQuery.data)
+      ? selectedClassroomOptionsQuery.data
+      : [];
+
   return (
     <div className="grid grid-cols-1 gap-4 pb-8 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section className="space-y-4">
@@ -664,6 +803,8 @@ export default function EnrollmentCaseCreatePage() {
           }}
           onChangeCosts={(itemId, patch) => setPackageItems((prev) => prev.map((row) => (row.id === itemId ? { ...row, ...patch } : row)))}
           studentSummaryById={studentSummaryById}
+          onEditStudent={openIdentityModal}
+          onChangeStudentClassroom={openChangeClassroomModal}
         />
       </section>
 
@@ -677,6 +818,35 @@ export default function EnrollmentCaseCreatePage() {
         onConfirm={handleConfirm}
         isSaving={saveDraftMutation.isPending}
         isConfirming={confirmMutation.isPending}
+      />
+
+      <IdentityEditModal
+        open={identityModalOpen}
+        onClose={() => {
+          setIdentityModalError("");
+          setIdentityModalOpen(false);
+          setSelectedPackageStudent(null);
+        }}
+        student={selectedStudentSummary?.student || {}}
+        onSave={handleSaveIdentity}
+        saving={updateIdentityMutation.isPending}
+        errorMessage={identityModalError || (updateIdentityMutation.isError ? getErrorMessage(updateIdentityMutation.error, "No se pudo guardar la identidad") : "")}
+      />
+
+      <ChangeClassroomModal
+        open={changeClassroomModalOpen}
+        onClose={() => {
+          setClassroomModalError("");
+          setChangeClassroomModalOpen(false);
+          setSelectedPackageStudent(null);
+        }}
+        classrooms={selectedStudentClassrooms}
+        currentClassroomId={selectedStudentCurrentClassroomId}
+        onSave={handleSaveClassroom}
+        isLoading={selectedClassroomOptionsQuery.isLoading}
+        isError={selectedClassroomOptionsQuery.isError}
+        mutationPending={changeClassroomMutation.isPending}
+        mutationErrorMessage={classroomModalError || (changeClassroomMutation.isError ? getErrorMessage(changeClassroomMutation.error, "No se pudo cambiar el aula") : "")}
       />
 
       <CreateStudentModal
