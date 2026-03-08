@@ -88,6 +88,9 @@ export default function Code39Barcode({ value, className = "", height = 42 }) {
       preserveAspectRatio="none"
       role="img"
       aria-label={`Barcode ${value}`}
+      shapeRendering="crispEdges"
+      textRendering="geometricPrecision"
+      style={{ imageRendering: "pixelated" }}
     >
       <rect x="0" y="0" width={totalWidth} height={height} fill="white" />
       {bars.map((bar, index) => {

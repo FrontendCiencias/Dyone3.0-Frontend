@@ -66,11 +66,11 @@ export default function AppRoutes() {
 
         <Route element={<PrivateRoute />}>
           <Route path={ROUTES.dashboardEnrollmentContractPreview} element={<EnrollmentContractPreviewPage />} />
+          <Route path={ROUTES.dashboardStudentsPrintCardsPreview} element={<StudentPrintCardsPreviewPage />} />
           <Route element={<DashboardLayout />}>
             <Route path={ROUTES.dashboard} element={<DashboardHome />} />
             <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
             <Route path={ROUTES.dashboardStudentsPrintCards} element={<StudentPrintCardsPage />} />
-            <Route path={ROUTES.dashboardStudentsPrintCardsPreview} element={<StudentPrintCardsPreviewPage />} />
             <Route path={ROUTES.dashboardStudentDetail()} element={<StudentDetailPage />} />
             <Route path={ROUTES.dashboardFamilies} element={<FamiliesPage />} />
             <Route path={ROUTES.dashboardFamilyNew} element={<FamiliesNewPage />} />
