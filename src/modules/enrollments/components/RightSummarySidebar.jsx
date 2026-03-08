@@ -8,7 +8,7 @@ function toMoney(value) {
   return `S/ ${Number.isNaN(safe) ? "0.00" : safe.toFixed(2)}`;
 }
 
-export default function RightSummarySidebar({ family, items = [], payments, onPaymentsChange, onSaveDraft, onConfirm, onViewContract, isSaving, isConfirming }) {
+export default function RightSummarySidebar({ family, items = [], payments, onPaymentsChange, onConfirm, onViewContract, isConfirming }) {
   const totals = useMemo(() => {
     const rights = items.reduce((acc, item) => acc + (item?.admissionFee?.applies && !item?.admissionFee?.isExempt ? Number(item?.admissionFee?.amount || 0) : 0), 0);
     const enrollment = items.reduce((acc, item) => acc + (!item?.enrollmentFee?.isExempt ? Number(item?.enrollmentFee?.amount || 0) : 0), 0);
@@ -70,8 +70,7 @@ export default function RightSummarySidebar({ family, items = [], payments, onPa
 
         <div className="flex flex-col gap-2">
           <Button variant="secondary" onClick={onViewContract} disabled={!family || !items.length}>Ver contrato</Button>
-          <Button variant="secondary" onClick={onSaveDraft} disabled={isSaving}>{isSaving ? "Guardando..." : "Guardar borrador"}</Button>
-          <Button onClick={onConfirm} disabled={isConfirming}>{isConfirming ? "Confirmando..." : "Confirmar matrícula"}</Button>
+          <Button onClick={onConfirm} disabled={isConfirming}>{isConfirming ? "Registrando..." : "Registrar matrícula"}</Button>
         </div>
       </Card>
     </div>

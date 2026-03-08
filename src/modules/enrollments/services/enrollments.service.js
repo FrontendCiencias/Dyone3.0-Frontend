@@ -17,7 +17,7 @@ function logResponse(endpoint, status, dataSummary) {
   });
 }
 
-export async function createQuickEnrollment(payload) {
+export async function createEnrollment(payload) {
   logRequest(API_ROUTES.enrollments, "POST", payload);
 
   const res = await axiosInstance.post(API_ROUTES.enrollments, payload);
@@ -43,13 +43,6 @@ export async function getEnrollmentDetailById(id) {
   const endpoint = API_ROUTES.enrollmentDetail(id);
   console.log("[NewEnrollment][Draft]");
   const res = await axiosInstance.get(endpoint);
-  return res.data;
-}
-
-export async function confirmEnrollmentById(enrollmentId, payload = {}) {
-  const endpoint = API_ROUTES.enrollmentConfirm(enrollmentId);
-  console.log("[NewEnrollment][Confirm]");
-  const res = await axiosInstance.post(endpoint, payload);
   return res.data;
 }
 

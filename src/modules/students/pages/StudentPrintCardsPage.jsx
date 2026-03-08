@@ -146,11 +146,12 @@ export default function StudentPrintCardsPage() {
         filters,
       });
 
-      navigate(ROUTES.dashboardStudentsPrintCardsPreview, {
-        state: {
-          items: Array.isArray(response.items) ? response.items : [],
-        },
-      });
+      const items = Array.isArray(response.items) ? response.items : [];
+      const printCardsKey = `student-print-cards-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      localStorage.setItem(printCardsKey, JSON.stringify({ items }));
+
+      const previewUrl = `${ROUTES.dashboardStudentsPrintCardsPreview}?printCardsKey=${encodeURIComponent(printCardsKey)}`;
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

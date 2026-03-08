@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
@@ -10,11 +10,27 @@ function normalizeItems(rawItems) {
   return rawItems.filter((item) => item?.internalCode);
 }
 
-export default function StudentPrintCardsPreviewPage() {
-  const location = useLocation();
-  const navigate = useNavigate();
+function resolveStoragePayload(printCardsKey) {
+  if (!printCardsKey) return null;
 
-  const items = useMemo(() => normalizeItems(location.state?.items), [location.state?.items]);
+  try {
+    const raw = localStorage.getItem(printCardsKey);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export default function StudentPrintCardsPreviewPage() {
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const printCardsKey = params.get("printCardsKey") || "";
+
+  const items = useMemo(() => {
+    const payload = resolveStoragePayload(printCardsKey);
+    return normalizeItems(payload?.items);
+  }, [printCardsKey]);
 
   useEffect(() => {
     if (!items.length) return;
