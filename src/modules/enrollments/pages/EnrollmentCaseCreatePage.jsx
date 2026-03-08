@@ -185,6 +185,8 @@ export default function EnrollmentCaseCreatePage() {
     const students = Array.isArray(familyData?.students) ? familyData.students : [];
     setPackageItems((prev) => {
       const prevMap = new Map(prev.map((item) => [item.studentId, item]));
+
+      // console.log("[DBG] [students]: ", students)
       const ready = students.map((student) => {
         const base = toPackageItemFromStudent(student, { familyId: selectedFamilyId });
         return prevMap.get(base.studentId) ? { ...base, ...prevMap.get(base.studentId) } : base;
@@ -231,6 +233,8 @@ export default function EnrollmentCaseCreatePage() {
         const summary = studentSummaryById[item.studentId]?.data;
         if (!summary) return item;
 
+        console.log("[DBG] [summary]: ", summary)
+
         const summaryPreviousCampus = summary?.student?.previousCampus;
         const nextPreviousSchoolType = summaryPreviousCampus || item.previousSchoolType;
 
@@ -262,15 +266,25 @@ export default function EnrollmentCaseCreatePage() {
           summaryClassroomLabel
         );
 
+        const summaryClassroomId =
+          summary?.enrollmentStatus?.classroomId ||
+          summaryClassroom?.id ||
+          summaryClassroom?._id ||
+          summaryClassroom?.classroomId ||
+          "";
+
         if (
           summaryClassroomLabel !== item.assignedClassroomLabel ||
           summaryGrade !== item.grade ||
           summaryLevel !== item.level ||
-          summaryHasVacancy !== item.hasVacancy
+          summaryHasVacancy !== item.hasVacancy ||
+          (!item.selectedClassroomId && summaryClassroomId)
         ) {
           nextItem = {
             ...nextItem,
             assignedClassroomLabel: summaryClassroomLabel,
+            selectedClassroomId: item.selectedClassroomId || summaryClassroomId,
+            selectedClassroomLabel: item.selectedClassroomLabel || summaryClassroomLabel,
             grade: summaryGrade,
             level: summaryLevel,
             hasVacancy: summaryHasVacancy,
@@ -563,6 +577,8 @@ export default function EnrollmentCaseCreatePage() {
         : buildPensionArrayFromGeneralAmount(0, 0);
       const appliesAdmissionFee = Boolean(item?.admissionFee?.applies);
 
+      console.log("[DBG] [item]: ", item)
+
       return {
         studentId: item.studentId,
         classroomId: item.selectedClassroomId || undefined,
@@ -615,6 +631,8 @@ export default function EnrollmentCaseCreatePage() {
     }
 
     const payload = buildPayload();
+
+    console.log("[DBG] [Payload]: ", payload)
 
     if (!isObjectId(payload.familyId)) {
       setStatusMessage("No se encontró una familia válida para registrar la matrícula.");
