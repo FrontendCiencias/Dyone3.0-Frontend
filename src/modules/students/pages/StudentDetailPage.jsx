@@ -6,7 +6,6 @@ import { useAuth } from "../../../lib/auth";
 import { ROUTES } from "../../../config/routes";
 import { useStudentDetailQuery } from "../hooks/useStudentDetailQuery";
 import { useClassroomOptionsQuery } from "../hooks/useClassroomOptionsQuery";
-import { useConfirmEnrollmentMutation } from "../hooks/useConfirmEnrollmentMutation";
 import { useUpdateStudentCycleStatusMutation } from "../hooks/useUpdateStudentCycleStatusMutation";
 import { useChangeStudentClassroomMutation } from "../hooks/useChangeStudentClassroomMutation";
 import { useCreateStudentChargeMutation } from "../hooks/useCreateStudentChargeMutation";
@@ -18,7 +17,6 @@ import { useStudentAccountStatementQuery } from "../../payments/hooks/useStudent
 import IdentityEditModal from "../components/detail/modals/IdentityEditModal";
 import AccountStatementModal from "../components/detail/modals/AccountStatementModal";
 import NotesEditModal from "../components/detail/modals/NotesEditModal";
-import ConfirmEnrollmentModal from "../components/detail/modals/ConfirmEnrollmentModal";
 import TransferStudentModal from "../components/detail/modals/TransferStudentModal";
 import ChangeClassroomModal from "../components/detail/modals/ChangeClassroomModal";
 import CreateChargeModal from "../components/detail/modals/CreateChargeModal";
@@ -49,12 +47,6 @@ function formatMoney(value) {
 function isObjectId(value) {
   return /^[a-f\d]{24}$/i.test(String(value || "").trim());
 }
-const initialEnrollmentForm = {
-  monthlyFee: "",
-  discountsDescription: "",
-  observations: "",
-};
-
 const initialChargeForm = {
   billingConceptId: "",
   amount: "",
@@ -70,8 +62,6 @@ export default function StudentDetailPage() {
   const [transferReason, setTransferReason] = useState("");
   const [transferOpen, setTransferOpen] = useState(false);
   const [changeClassroomOpen, setChangeClassroomOpen] = useState(false);
-  const [confirmEnrollmentOpen, setConfirmEnrollmentOpen] = useState(false);
-  const [enrollmentForm, setEnrollmentForm] = useState(initialEnrollmentForm);
   const [createChargeOpen, setCreateChargeOpen] = useState(false);
   const [chargeForm, setChargeForm] = useState(initialChargeForm);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -92,7 +82,6 @@ export default function StudentDetailPage() {
 
   const billingConceptsQuery = useBillingConceptsQuery();
 
-  const confirmEnrollmentMutation = useConfirmEnrollmentMutation(studentId);
   const transferMutation = useUpdateStudentCycleStatusMutation(studentId);
   const changeClassroomMutation = useChangeStudentClassroomMutation(studentId);
   const createChargeMutation = useCreateStudentChargeMutation(studentId);
@@ -152,36 +141,6 @@ export default function StudentDetailPage() {
   const openEditor = (editorKey) => {
     if (lockEdition && activeEditor !== editorKey) return;
     setActiveEditor(editorKey);
-  };
-
-  const openConfirmEnrollment = () => {
-    setEnrollmentForm({
-      monthlyFee: enrollment?.monthlyFee ? String(enrollment.monthlyFee) : "",
-      discountsDescription: enrollment?.discountsDescription || "",
-      observations: enrollment?.observations || "",
-    });
-    setConfirmEnrollmentOpen(true);
-  };
-
-  const handleConfirmEnrollment = async () => {
-    const monthlyFee = Number(enrollmentForm.monthlyFee);
-    if (Number.isNaN(monthlyFee) || monthlyFee < 0) return;
-
-    const payload = {
-      studentId,
-      monthlyFee,
-      discountsDescription: enrollmentForm.discountsDescription.trim() || undefined,
-      observations: enrollmentForm.observations.trim() || undefined,
-      classroomId: enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollment?.classroomId,
-      cycleId: enrollmentStatus?.cycleId || enrollmentStatus?.cycle?.id || enrollment?.cycleId,
-    };
-
-    await confirmEnrollmentMutation.mutateAsync({
-      enrollmentId: enrollment?.id,
-      payload,
-    });
-
-    setConfirmEnrollmentOpen(false);
   };
 
   const handleTransfer = async () => {
@@ -326,9 +285,6 @@ export default function StudentDetailPage() {
           <Card className="border border-gray-200 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Matrícula</h3>
-              {status === "ABSENT" && isAdminOrSecretary && (
-                <SecondaryButton onClick={openConfirmEnrollment}>Confirmar matrícula</SecondaryButton>
-              )}
             </div>
             <div className="space-y-2 text-sm text-gray-700">
               <p>Estado del ciclo: <span className="font-medium">{status}</span></p>
@@ -439,16 +395,6 @@ export default function StudentDetailPage() {
         onSave={handleSaveNotes}
         saving={updateNotesMutation.isPending}
         errorMessage={updateNotesMutation.isError ? getErrorMessage(updateNotesMutation.error, "No se pudo guardar las notas") : ""}
-      />
-
-      <ConfirmEnrollmentModal
-        open={confirmEnrollmentOpen}
-        onClose={() => setConfirmEnrollmentOpen(false)}
-        form={enrollmentForm}
-        setForm={setEnrollmentForm}
-        onConfirm={handleConfirmEnrollment}
-        isPending={confirmEnrollmentMutation.isPending}
-        errorMessage={confirmEnrollmentMutation.isError ? getErrorMessage(confirmEnrollmentMutation.error) : ""}
       />
 
       <TransferStudentModal

@@ -5,18 +5,14 @@ import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
-import BaseModal from "../../../shared/ui/BaseModal";
-import LoadingOverlay from "../../../shared/ui/LoadingOverlay";
 import { ROUTES } from "../../../config/routes";
 import { normalizeSearchText } from "../../students/domain/searchText";
 import { useEnrollmentsQuery } from "../hooks/useEnrollmentsQuery";
 import { useEnrollmentsStudentSearchQuery } from "../hooks/useEnrollmentsStudentSearchQuery";
 import { getStudentSummary } from "../../students/services/students.service";
-import { useConfirmEnrollmentMutation } from "../../students/hooks/useConfirmEnrollmentMutation";
 
 const STATUS_FILTERS = [
   { key: "ALL", label: "Todos" },
-  { key: "ABSENT", label: "Pendientes" },
   { key: "ENROLLED", label: "Matriculados" },
   { key: "TRANSFERRED", label: "Trasladados" },
 ];
@@ -34,22 +30,19 @@ function getErrorMessage(error, fallback = "No se pudo cargar matrículas") {
 }
 
 function statusLabel(status) {
-  if (status === "ENROLLED") return "Matriculado";
   if (status === "TRANSFERRED") return "Trasladado";
-  return "Pendiente";
+  return "Matriculado";
 }
 
 function statusClasses(status) {
-  if (status === "ENROLLED") return "bg-emerald-100 text-emerald-700";
   if (status === "TRANSFERRED") return "bg-amber-100 text-amber-700";
-  return "bg-slate-100 text-slate-700";
+  return "bg-emerald-100 text-emerald-700";
 }
 
 function normalizeStatus(raw) {
   const value = String(raw || "").toUpperCase();
   if (value.includes("TRANSFER") || value.includes("TRASLAD")) return "TRANSFERRED";
-  if (value.includes("ENROLL") || value.includes("MATRICUL") || value.includes("CONFIRMED")) return "ENROLLED";
-  return "ABSENT";
+  return "ENROLLED";
 }
 
 function isBackendPendingError(error) {
@@ -74,7 +67,6 @@ function mapEnrollmentItem(item) {
     cycle: item?.cycle?.name || item?.cycleName || "-",
     confirmedAt: item?.confirmedAt || item?.enrollment?.confirmedAt || null,
     debtTotal: Number(item?.debtTotal),
-    enrollmentSnapshot: item?.enrollment || {},
   };
 }
 
@@ -87,9 +79,6 @@ export default function EnrollmentsPage() {
   const [cycleFilter, setCycleFilter] = useState("");
   const [cursor, setCursor] = useState(null);
   const [boardRows, setBoardRows] = useState([]);
-  const [quickModalOpen, setQuickModalOpen] = useState(false);
-  const [selectedRow, setSelectedRow] = useState(null);
-  const [quickForm, setQuickForm] = useState({ monthlyFee: "", discountsDescription: "", observations: "" });
 
   useEffect(() => {
     const normalized = searchInput.trim();
@@ -152,15 +141,21 @@ export default function EnrollmentsPage() {
   }, [fallbackSummariesTargets, fallbackSummaryQueries]);
 
   useEffect(() => {
-    setCursor(null);
-    setBoardRows([]);
-  }, [debouncedSearch, statusFilter, classroomFilter, cycleFilter]);
+    if (fallbackMode) {
+      setBoardRows([]);
+      return;
+    }
 
-  useEffect(() => {
-    if (fallbackMode) return;
-    if (!enrollmentsQuery.data) return;
+    const payload = enrollmentsQuery.data;
+    const items = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.data?.items)
+          ? payload.data.items
+          : [];
 
-    const mapped = (Array.isArray(enrollmentsQuery.data?.items) ? enrollmentsQuery.data.items : []).map(mapEnrollmentItem);
+    const mapped = items.map(mapEnrollmentItem);
     setBoardRows((prev) => (cursor ? [...prev, ...mapped] : mapped));
   }, [enrollmentsQuery.data, cursor, fallbackMode]);
 
@@ -183,7 +178,6 @@ export default function EnrollmentsPage() {
         cycle: enrollmentStatus?.cycleName || enrollmentStatus?.cycle?.name || student?.cycle || "-",
         confirmedAt: enrollment?.confirmedAt || null,
         debtTotal: Number(summary?.debtsSummary?.pendingTotal),
-        enrollmentSnapshot: enrollment,
       };
     });
   }, [fallbackStudents, fallbackSummaryById]);
@@ -212,40 +206,6 @@ export default function EnrollmentsPage() {
 
   const nextCursor = enrollmentsQuery.data?.nextCursor || null;
   const canLoadMore = !fallbackMode && Boolean(nextCursor) && !enrollmentsQuery.isFetching;
-
-  const confirmEnrollmentMutation = useConfirmEnrollmentMutation(selectedRow?.studentId);
-
-  const openQuickConfirm = (row) => {
-    setSelectedRow(row);
-    setQuickForm({
-      monthlyFee: row.enrollmentSnapshot?.monthlyFee ? String(row.enrollmentSnapshot.monthlyFee) : "",
-      discountsDescription: row.enrollmentSnapshot?.discountsDescription || "",
-      observations: row.enrollmentSnapshot?.observations || "",
-    });
-    setQuickModalOpen(true);
-  };
-
-  const handleQuickConfirm = async () => {
-    const monthlyFee = Number(quickForm.monthlyFee);
-    if (Number.isNaN(monthlyFee) || monthlyFee < 0 || !selectedRow?.studentId) return;
-
-    const payload = {
-      studentId: selectedRow.studentId,
-      monthlyFee,
-      discountsDescription: quickForm.discountsDescription.trim() || undefined,
-      observations: quickForm.observations.trim() || undefined,
-      classroomId: selectedRow?.enrollmentSnapshot?.classroomId,
-      cycleId: selectedRow?.enrollmentSnapshot?.cycleId,
-    };
-
-    await confirmEnrollmentMutation.mutateAsync({
-      enrollmentId: selectedRow?.enrollmentId || undefined,
-      payload,
-    });
-
-    setQuickModalOpen(false);
-    setSelectedRow(null);
-  };
 
   const isLoadingMain = !fallbackMode && (enrollmentsQuery.isLoading || enrollmentsQuery.isFetching) && rows.length === 0;
   const isLoadingFallback = fallbackMode && (fallbackStudentsQuery.isLoading || fallbackStudentsQuery.isFetching);
@@ -329,9 +289,6 @@ export default function EnrollmentsPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {row.status === "ABSENT" && (
-                    <SecondaryButton onClick={() => openQuickConfirm(row)}>Confirmar</SecondaryButton>
-                  )}
                   <Button onClick={() => row.studentId && navigate(ROUTES.dashboardStudentDetail(row.studentId))}>Abrir expediente</Button>
                 </div>
               </div>
@@ -349,34 +306,6 @@ export default function EnrollmentsPage() {
           )}
         </div>
       )}
-
-      <BaseModal
-        open={quickModalOpen}
-        onClose={() => setQuickModalOpen(false)}
-        title="Confirmación rápida de matrícula"
-        footer={
-          <div className="flex justify-end gap-2">
-            <SecondaryButton onClick={() => setQuickModalOpen(false)} disabled={confirmEnrollmentMutation.isPending}>Cancelar</SecondaryButton>
-            <Button onClick={handleQuickConfirm} disabled={confirmEnrollmentMutation.isPending}>Confirmar</Button>
-          </div>
-        }
-      >
-        <div className="space-y-3 p-5 text-sm text-gray-700">
-          <p className="rounded-md bg-gray-50 p-3 text-xs text-gray-600">
-            {selectedRow?.student?.lastNames}, {selectedRow?.student?.names} · DNI {selectedRow?.student?.dni || "-"}
-          </p>
-          <Input label="Pensión mensual" type="number" min="0" value={quickForm.monthlyFee} onChange={(e) => setQuickForm((prev) => ({ ...prev, monthlyFee: e.target.value }))} />
-          <Input label="Descuentos / exoneraciones" value={quickForm.discountsDescription} onChange={(e) => setQuickForm((prev) => ({ ...prev, discountsDescription: e.target.value }))} />
-          <label className="block text-sm font-medium text-gray-700">Observaciones</label>
-          <textarea className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2" value={quickForm.observations} onChange={(e) => setQuickForm((prev) => ({ ...prev, observations: e.target.value }))} />
-          {confirmEnrollmentMutation.isError && (
-            <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{getErrorMessage(confirmEnrollmentMutation.error, "No se pudo confirmar matrícula")}</p>
-          )}
-          <LoadingOverlay open={confirmEnrollmentMutation.isPending}>
-            <p className="text-sm text-gray-600">Procesando confirmación...</p>
-          </LoadingOverlay>
-        </div>
-      </BaseModal>
     </div>
   );
 }
