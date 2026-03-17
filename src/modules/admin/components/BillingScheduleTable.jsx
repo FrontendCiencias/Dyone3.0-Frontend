@@ -34,6 +34,8 @@ function getRowsFromSchedule(scheduleData) {
         ? scheduleData.data.items
         : [];
 
+  console.log("[DBG] [Schedule]: ",items)
+
   return items
     .map((item, index) => ({
       monthIndex: Number.isInteger(item?.monthIndex) ? item.monthIndex : index,
@@ -50,18 +52,25 @@ export default function BillingScheduleTable({ canAccess }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const cyclesQuery = useCyclesQuery();
-  const cycles = Array.isArray(cyclesQuery.data) ? cyclesQuery.data : [];
+  const cycles = Array.isArray(cyclesQuery.data?.items)
+  ? cyclesQuery.data.items
+  : Array.isArray(cyclesQuery.data)
+    ? cyclesQuery.data
+    : [];
 
   useEffect(() => {
     if (!cycles.length || selectedCycleId) return;
     const activeCycle = cycles.find((cycle) => cycle?.isActive);
-    setSelectedCycleId(activeCycle?.id || cycles[0]?.id || "");
+    console.log("[DBG] [activeCycle]: ",activeCycle)
+    setSelectedCycleId(activeCycle?._id || cycles[0]?._id || "");
   }, [cycles, selectedCycleId]);
 
   const selectedCycle = useMemo(() => cycles.find((cycle) => cycle?.id === selectedCycleId), [cycles, selectedCycleId]);
   const billingScheduleQuery = useBillingScheduleQuery(selectedCycleId);
+  
   const rows = useMemo(() => getRowsFromSchedule(billingScheduleQuery.data), [billingScheduleQuery.data]);
-
+  console.log("[DBG] [cycles]: ",cycles)
+  
   const createMutation = useMutation({
     mutationFn: createBillingSchedule,
     onSuccess: () => {
