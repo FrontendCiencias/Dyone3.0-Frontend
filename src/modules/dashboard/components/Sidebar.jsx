@@ -3,6 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { getRoleTheme } from "../config/roleTheme";
+import SchoolLogo from "../../../shared/ui/SchoolLogo";
 
 const SIDEBAR_COLLAPSED = 80; // w-20
 const SIDEBAR_EXPANDED = 264; // ~w-64
@@ -52,13 +53,13 @@ export default function Sidebar({
           <div className="flex items-center gap-3 px-1 py-2 overflow-hidden">
             {/* Logo */}
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold shadow-sm flex-shrink-0"
+              className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-sm flex-shrink-0"
               style={{
                 backgroundImage: `linear-gradient(to bottom right, ${theme.main}, ${theme.dark})`,
               }}
               title={brand.name}
             >
-              {brand.short}
+              <SchoolLogo className="h-8 w-8" color="#FFFFFF" title="" />
             </div>
 
             {/* Nombre + subtítulo (solo expandido) */}

@@ -182,16 +182,16 @@ export default function FamiliesNewPage() {
       for (const draft of studentsToCreate) {
         console.info("[FamiliesNewPage] create student", { draftId: draft.tempId });
         const created = await createStudentMutation.mutateAsync({
-          internalCode: draft.internalCode.trim() || undefined,
-          activeStatus: draft.activeStatus || "ACTIVE",
-          person: {
-            names: draft.names.trim(),
-            lastNames: draft.lastNames.trim(),
-            dni: draft.dni.trim() || undefined,
-            gender: draft.gender,
+          student: {
+            person: {
+              names: draft.names.trim(),
+              lastNames: draft.lastNames.trim(),
+              dni: draft.dni.trim() || undefined,
+              gender: draft.gender,
+            },
           },
         });
-        const studentId = getId(created?.student) || getId(created);
+        const studentId = created?.studentId || getId(created?.student) || getId(created);
         if (studentId) createdStudentIds.push(studentId);
       }
 

@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import SchoolLogo from "../../../shared/ui/SchoolLogo";
 
 const MONTHS = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -151,16 +152,11 @@ export default function EnrollmentContractPreviewPage() {
         </div>
 
         <article className="a4-sheet mx-auto w-[210mm] max-w-full border border-gray-300 bg-white px-[8mm] py-[6mm] text-[10.6px] leading-tight text-black">
-          <header className="grid grid-cols-[26mm_1fr_26mm] items-center gap-2">
-            <div className="flex h-[18mm] items-center justify-center rounded-full border border-gray-600 text-center text-[9px] font-semibold">LOGO
-              <br />
-              IZQ
+          <header className="grid grid-cols-[24mm_1fr] items-center gap-3">
+            <div className="flex h-[20mm] items-center justify-center">
+              <SchoolLogo className="h-[18mm] w-[18mm]" color="#000000" />
             </div>
             <h1 className="text-center text-[14px] font-bold uppercase tracking-[0.4px]">Contrato de pensiones de estudios - 2026</h1>
-            <div className="flex h-[18mm] items-center justify-center rounded-full border border-gray-600 text-center text-[9px] font-semibold">LOGO
-              <br />
-              DER
-            </div>
           </header>
 
           <section className="mt-2 space-y-1">

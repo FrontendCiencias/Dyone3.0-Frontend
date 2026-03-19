@@ -13,8 +13,8 @@ import { useCreateTutorMutation } from "../../families/hooks/useCreateTutorMutat
 import { useFamilyDetailQuery } from "../../families/hooks/useFamilyDetailQuery";
 import { useUpdateTutorMutation } from "../../families/hooks/useUpdateTutorMutation";
 import { getAllTutors, getTutorId, getTutors } from "../../families/domain/familyDisplay";
-import { createFamily, createTutor, linkStudentToFamily } from "../../families/services/families.service";
-import { createStudentWithPerson, getClassroomOptions, getStudentSummary } from "../../students/services/students.service";
+import { createFamily, linkStudentToFamily } from "../../families/services/families.service";
+import { createStudentIntake, getClassroomOptions, getStudentSummary } from "../../students/services/students.service";
 import { useChangeStudentClassroomMutation } from "../../students/hooks/useChangeStudentClassroomMutation";
 import { useClassroomOptionsQuery } from "../../students/hooks/useClassroomOptionsQuery";
 import { useUpdateStudentIdentityMutation } from "../../students/hooks/useUpdateStudentIdentityMutation";
@@ -332,7 +332,18 @@ export default function EnrollmentCaseCreatePage() {
   }, [packageItems, classroomQueries]);
 
   const createStudentMutation = useMutation({
-    mutationFn: createStudentWithPerson,
+    mutationFn: (student) => createStudentIntake({
+      student: {
+        person: {
+          names: student.names,
+          lastNames: student.lastNames,
+          dni: student.dni,
+          gender: student.gender,
+        },
+        classroomId: student.classroomId,
+        notes: student.previousCampus ? `Colegio anterior: ${student.previousCampus}` : undefined,
+      },
+    }),
     onSuccess: async (payload, variables) => {
       const studentId = payload?.id || payload?.student?.id || payload?.studentId;
       if (studentId && selectedFamilyId) {
@@ -341,9 +352,9 @@ export default function EnrollmentCaseCreatePage() {
       const synthetic = {
         id: studentId,
         person: {
-          names: variables.names,
-          lastNames: variables.lastNames,
-          dni: variables.dni,
+          names: variables?.student?.person?.names,
+          lastNames: variables?.student?.person?.lastNames,
+          dni: variables?.student?.person?.dni,
         },
       };
       setPackageItems((prev) => [
@@ -368,32 +379,36 @@ export default function EnrollmentCaseCreatePage() {
 
   const createStudentWithoutFamilyMutation = useMutation({
     mutationFn: async ({ student, tutor }) => {
-      const studentPayload = {
-        names: student.names,
-        lastNames: student.lastNames,
-        dni: student.dni,
-        gender: student.gender,
-        level: student.level,
-        campusCode: student.campusCode,
-        previousCampus: student.previousCampus,
-        previousSchoolType: student.previousSchoolType,
-      };
-
-      const createdStudent = await createStudentWithPerson(studentPayload);
-      const studentId = createdStudent?.id || createdStudent?.student?.id || createdStudent?.studentId;
-      if (!studentId) throw new Error("No se pudo crear el alumno.");
-
-      const createdFamily = await createFamily({});
-      const familyId = createdFamily?.id || createdFamily?.familyId || createdFamily?.family?.id;
-      if (!familyId) throw new Error("No se pudo crear la familia.");
-
-      await createTutor({
-        ...tutor,
-        familyId,
-        isPrimary: true,
+      const result = await createStudentIntake({
+        student: {
+          person: {
+            names: student.names,
+            lastNames: student.lastNames,
+            dni: student.dni,
+            gender: student.gender,
+          },
+          classroomId: student.classroomId,
+          notes: student.previousCampus ? `Colegio anterior: ${student.previousCampus}` : undefined,
+        },
+        family: {
+          primaryTutor: {
+            person: {
+              names: tutor.names,
+              lastNames: tutor.lastNames,
+              dni: tutor.dni,
+              phone: tutor.phone,
+              gender: tutor.gender,
+            },
+            relationship: tutor.relationship,
+            livesWithStudent: tutor.livesWithStudent,
+          },
+        },
       });
 
-      await linkStudentToFamily({ familyId, studentId });
+      const studentId = result?.studentId || result?.student?.id;
+      const familyId = result?.familyId || result?.family?.id || result?.family?._id;
+      if (!studentId) throw new Error("No se pudo crear el alumno.");
+      if (!familyId) throw new Error("No se pudo crear la familia.");
 
       return {
         familyId,

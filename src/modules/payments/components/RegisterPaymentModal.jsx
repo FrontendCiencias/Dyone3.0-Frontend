@@ -29,6 +29,7 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(todayDate());
   const [method, setMethod] = useState("CASH");
+  const [receiptNumber, setReceiptNumber] = useState("");
   const [observation, setObservation] = useState("");
   const [formError, setFormError] = useState({});
 
@@ -53,13 +54,14 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
     setAmount("");
     setPaymentDate(todayDate());
     setMethod("CASH");
+    setReceiptNumber("");
     setObservation("");
     setFormError({});
   }, [open, fixedStudent]);
 
   const students = useMemo(
     () => (Array.isArray(studentsQuery.data?.items) ? studentsQuery.data.items : []),
-    [studentsQuery.data]
+    [studentsQuery.data],
   );
 
   const targetStudent = fixedStudent || students.find((row) => String(row.id || row._id) === String(selectedStudentId));
@@ -75,7 +77,6 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
   };
 
   const isSubmitDisabled = status === "submitting" || Object.keys(validateForm()).length > 0;
-
   const overlayOpen = status === "submitting";
   const feedbackOpen = status === "success" || status === "error";
 
@@ -110,9 +111,10 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
       await createPaymentMutation.mutateAsync({
         studentId,
         amount: parsedAmount,
-        paymentDate,
+        paidAt: paymentDate,
         method,
-        observation: observation.trim() || undefined,
+        receiptNumber: receiptNumber.trim() || undefined,
+        notes: observation.trim() || undefined,
       });
 
       if (!fixedStudent) {
@@ -121,6 +123,7 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
         setAmount("");
         setPaymentDate(todayDate());
         setMethod("CASH");
+        setReceiptNumber("");
         setObservation("");
       }
 
@@ -137,15 +140,15 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
       onClose={status === "submitting" ? undefined : handleModalClose}
       title={title}
       closeOnBackdrop={status !== "submitting"}
-      footer={
+      footer={(
         <div className="flex justify-end gap-2">
           <SecondaryButton onClick={handleModalClose} disabled={status === "submitting"}>Cancelar</SecondaryButton>
           <Button onClick={handleSubmit} disabled={isSubmitDisabled}>Registrar pago</Button>
         </div>
-      }
+      )}
     >
       <div className="relative space-y-3 p-5 text-sm text-gray-700">
-        {!fixedStudent && (
+        {!fixedStudent ? (
           <>
             <Input
               label="Buscar alumno"
@@ -162,37 +165,40 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
                 </option>
               ))}
             </select>
-            {formError.student && <p className="text-sm text-red-600">{formError.student}</p>}
+            {formError.student ? <p className="text-sm text-red-600">{formError.student}</p> : null}
           </>
-        )}
+        ) : null}
 
-        {targetStudent && (
+        {targetStudent ? (
           <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-600">
             Alumno: {[targetStudent.lastNames, targetStudent.names].filter(Boolean).join(", ")} · DNI {targetStudent.dni || "-"}
           </p>
-        )}
+        ) : null}
 
         <Input label="Monto" type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        {formError.amount && <p className="text-sm text-red-600">{formError.amount}</p>}
+        {formError.amount ? <p className="text-sm text-red-600">{formError.amount}</p> : null}
 
         <Input label="Fecha" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
-        {formError.paymentDate && <p className="text-sm text-red-600">{formError.paymentDate}</p>}
+        {formError.paymentDate ? <p className="text-sm text-red-600">{formError.paymentDate}</p> : null}
 
         <label className="block text-sm font-medium text-gray-700">Método</label>
         <select className="w-full rounded-lg border border-gray-300 px-3 py-2" value={method} onChange={(e) => setMethod(e.target.value)}>
           <option value="CASH">Efectivo</option>
           <option value="YAPE">Yape</option>
           <option value="TRANSFER">Transferencia</option>
-          <option value="OTHER">Otro</option>
         </select>
-        {formError.method && <p className="text-sm text-red-600">{formError.method}</p>}
+        {formError.method ? <p className="text-sm text-red-600">{formError.method}</p> : null}
+
+        <Input
+          label="Recibo físico anterior"
+          value={receiptNumber}
+          onChange={(e) => setReceiptNumber(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          placeholder="Ej: 003268"
+        />
+        <p className="text-xs text-gray-500">Opcional. Si ingresas 3268 se guardará como 003268.</p>
 
         <label className="block text-sm font-medium text-gray-700">Observación</label>
         <textarea className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2" value={observation} onChange={(e) => setObservation(e.target.value)} />
-
-        <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-          Asignación automática a cargos pendiente de backend (allocations).
-        </p>
 
         <LoadingOverlay open={overlayOpen}>
           {status === "submitting" ? (

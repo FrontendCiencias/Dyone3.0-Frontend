@@ -9,16 +9,31 @@ function logResponse(endpoint, status, dataSummary) {
   console.log("[Payments][API][RESPONSE]", { endpoint, status, dataSummary });
 }
 
-export async function listDebtors({ q = "", campus, limit = 50, cursor } = {}) {
+export async function listDebtors({ campus, limit = 50, cursor, onlyOverdue = false } = {}) {
   const params = { limit };
-  if (String(q || "").trim()) params.q = String(q).trim();
   if (campus) params.campus = campus;
-  if (cursor) params.cursor = cursor;
+  if (cursor) params.page = cursor;
+  if (onlyOverdue) params.onlyOverdue = true;
 
   logRequest(API_ROUTES.paymentsDebtors, "GET", params);
   const res = await axiosInstance.get(API_ROUTES.paymentsDebtors, { params });
   const items = Array.isArray(res.data?.items) ? res.data.items : [];
-  logResponse(API_ROUTES.paymentsDebtors, res.status, { count: items.length, nextCursor: res.data?.nextCursor || null });
+  logResponse(API_ROUTES.paymentsDebtors, res.status, {
+    count: items.length,
+    page: res.data?.pageInfo?.page || 1,
+    hasNext: Boolean(res.data?.pageInfo?.hasNext),
+  });
+  return res.data;
+}
+
+export async function searchDebtors({ q, campus, limit = 15 } = {}) {
+  const params = { q, limit };
+  if (campus) params.campus = campus;
+
+  logRequest(API_ROUTES.paymentsDebtorsSearch, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.paymentsDebtorsSearch, { params });
+  const items = Array.isArray(res.data?.items) ? res.data.items : [];
+  logResponse(API_ROUTES.paymentsDebtorsSearch, res.status, { count: items.length });
   return res.data;
 }
 

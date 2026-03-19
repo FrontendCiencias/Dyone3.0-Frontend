@@ -126,8 +126,8 @@ export async function addTutorToFamily({ familyId, ...payload }) {
   return res.data;
 }
 
-export async function createStudentWithPerson(payload) {
-  const endpoint = API_ROUTES.createStudentWithPerson;
+export async function createStudentIntake(payload) {
+  const endpoint = API_ROUTES.studentIntake;
   logRequest(endpoint, "POST", payload);
   const res = await axiosInstance.post(endpoint, payload);
   logResponse(endpoint, res.status, res.data);

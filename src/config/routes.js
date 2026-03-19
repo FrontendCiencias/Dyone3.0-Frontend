@@ -17,6 +17,7 @@ export const ROUTES = {
   dashboardFamilyNew: "/dashboard/families/new",
   dashboardFamilyDetail: (familyId = ":familyId") => `/dashboard/families/${familyId}`,
   dashboardPayments: "/dashboard/payments",
+  dashboardPaymentDetail: (studentId = ":studentId") => `/dashboard/payments/${studentId}`,
   dashboardAdmin: "/dashboard/admin",
   dashboardAdminSettings: "/dashboard/admin/settings",
   dashboardAdminDev: "/dashboard/admin/dev",

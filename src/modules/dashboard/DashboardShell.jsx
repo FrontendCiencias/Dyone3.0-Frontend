@@ -13,22 +13,24 @@ import { useFamilyDetailQuery } from "../families/hooks/useFamilyDetailQuery";
 import { getPrimaryTutorDisplayName } from "../families/domain/familyDisplay";
 
 const PAGE_META = {
-  dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del día." },
+  dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del dia." },
   students: { title: "Alumnos", description: "Busca, filtra y gestiona expedientes estudiantiles." },
-  studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matrícula, aula y finanzas." },
-  adminSettings: { title: "Configuración", description: "Sedes, ciclos, aulas y conceptos." },
-  adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades técnicas." },
-  enrollments: { title: "Matrículas", description: "Monitorea y registra el flujo de matrículas." },
-  enrollmentNew: { title: "Nueva Matrícula", description: "Monitorea y registra el flujo de matrículas." },
+  studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matricula, aula y finanzas." },
+  paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
+  adminSettings: { title: "Configuracion", description: "Sedes, ciclos, aulas y conceptos." },
+  adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades tecnicas." },
+  enrollments: { title: "Matriculas", description: "Monitorea y registra el flujo de matriculas." },
+  enrollmentNew: { title: "Nueva Matricula", description: "Monitorea y registra el flujo de matriculas." },
   payments: { title: "Pagos", description: "Controla cobros, vencimientos y estado de pagos." },
-  families: { title: "Familias", description: "Gestiona tutores y relación familiar de alumnos." },
+  families: { title: "Familias", description: "Gestiona tutores y relacion familiar de alumnos." },
   familyDetail: { title: "Ficha de familia", description: "Revisa tutores e hijos vinculados de la familia." },
-  notFound: { title: "Página no encontrada", description: "La ruta no existe en el panel." },
+  notFound: { title: "Pagina no encontrada", description: "La ruta no existe en el panel." },
 };
 
 function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboard) return "dashboard";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
+  if (/^\/dashboard\/payments\/[^/]+$/.test(pathname)) return "paymentDetail";
   if (pathname.startsWith(ROUTES.dashboardStudents)) return "students";
   if (pathname.startsWith(ROUTES.dashboardAdminDev)) return "adminDev";
   if (pathname.startsWith(ROUTES.dashboardAdminSettings) || pathname === ROUTES.dashboardAdmin) return "adminSettings";
@@ -82,11 +84,15 @@ export default function DashboardShell() {
 
   const pageKey = useMemo(() => resolvePageKey(location.pathname || ""), [location.pathname]);
   const studentId = useMemo(() => {
-    const match = (location.pathname || "").match(/^\/dashboard\/students\/([^/]+)$/);
+    const match = (location.pathname || "").match(/^\/dashboard\/(?:students|payments)\/([^/]+)$/);
     return match?.[1] || null;
   }, [location.pathname]);
 
-  const studentSummaryQuery = useStudentSummaryQuery(studentId, pageKey === "studentDetail");
+  const studentSummaryQuery = useStudentSummaryQuery(
+    studentId,
+    pageKey === "studentDetail" || pageKey === "paymentDetail",
+  );
+
   const familyId = useMemo(() => {
     const match = (location.pathname || "").match(/^\/dashboard\/families\/([^/]+)$/);
     return match?.[1] || null;
@@ -102,15 +108,17 @@ export default function DashboardShell() {
       };
     }
 
-    if (pageKey !== "studentDetail") return PAGE_META[pageKey] || PAGE_META.dashboard;
+    if (pageKey !== "studentDetail" && pageKey !== "paymentDetail") {
+      return PAGE_META[pageKey] || PAGE_META.dashboard;
+    }
 
     const label = studentSummaryQuery.isLoading
       ? "Alumno..."
       : getStudentBreadcrumbLabel(studentSummaryQuery.data);
 
     return {
-      title: `Expediente: ${label}`,
-      description: PAGE_META.studentDetail.description,
+      title: pageKey === "paymentDetail" ? `Detalle de pagos: ${label}` : `Expediente: ${label}`,
+      description: pageKey === "paymentDetail" ? PAGE_META.paymentDetail.description : PAGE_META.studentDetail.description,
     };
   }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyDetailQuery.isLoading, familyDetailQuery.data]);
 
@@ -129,7 +137,7 @@ export default function DashboardShell() {
       return [
         { label: "Inicio", to: ROUTES.dashboard },
         { label: "Admin", to: ROUTES.dashboardAdminSettings },
-        { label: "Configuración" },
+        { label: "Configuracion" },
       ];
     }
 
@@ -144,16 +152,24 @@ export default function DashboardShell() {
     if (pageKey === "enrollmentNew") {
       return [
         { label: "Inicio", to: ROUTES.dashboard },
-        { label: "Matrículas", to: ROUTES.dashboardEnrollments },
-        { label: "Nueva Matrícula" },
+        { label: "Matriculas", to: ROUTES.dashboardEnrollments },
+        { label: "Nueva Matricula" },
       ];
     }
 
-    if (pageKey !== "studentDetail") return null;
+    if (pageKey !== "studentDetail" && pageKey !== "paymentDetail") return null;
 
     const label = studentSummaryQuery.isLoading
       ? "Alumno..."
       : getStudentBreadcrumbLabel(studentSummaryQuery.data);
+
+    if (pageKey === "paymentDetail") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Pagos", to: ROUTES.dashboardPayments },
+        { label: "Detalle de Pagos" },
+      ];
+    }
 
     return [
       { label: "Inicio", to: ROUTES.dashboard },

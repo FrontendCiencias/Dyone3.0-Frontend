@@ -7,7 +7,7 @@ export function useCreatePaymentMutation(studentId) {
   return useMutation({
     mutationFn: createPayment,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["payments", "debtors"] });
+      queryClient.invalidateQueries({ queryKey: ["payments"] });
       if (studentId) {
         queryClient.invalidateQueries({ queryKey: ["students", "summary", studentId] });
         queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });

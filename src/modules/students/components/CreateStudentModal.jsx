@@ -74,12 +74,14 @@ export default function CreateStudentModal({ open, onClose }) {
 
     try {
       await createStudentMutation.mutateAsync({
-        person: {
-          names: values.names.trim(),
-          lastNames: values.lastNames.trim(),
-          dni: values.dni.trim() || undefined,
+        student: {
+          person: {
+            names: values.names.trim(),
+            lastNames: values.lastNames.trim(),
+            dni: values.dni.trim() || undefined,
+            gender: "F",
+          },
         },
-        student: {},
       });
       setStatus("success");
     } catch (error) {

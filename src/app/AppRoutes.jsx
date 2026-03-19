@@ -21,6 +21,7 @@ import EnrollmentsPage from "../modules/enrollments/pages/EnrollmentsPage";
 import EnrollmentCaseCreatePage from "../modules/enrollments/pages/EnrollmentCaseCreatePage";
 import EnrollmentContractPreviewPage from "../modules/enrollments/pages/EnrollmentContractPreviewPage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
+import PaymentStudentDetailPage from "../modules/payments/pages/PaymentStudentDetailPage";
 
 import { ROUTES } from "../config/routes";
 import { useAuth } from "../lib/auth";
@@ -78,6 +79,7 @@ export default function AppRoutes() {
             <Route path={ROUTES.dashboardEnrollmentCaseNew} element={<EnrollmentCaseCreatePage />} />
             <Route path={ROUTES.dashboardFamilyDetail()} element={<FamilyDetailPage />} />
             <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />
+            <Route path={ROUTES.dashboardPaymentDetail()} element={<PaymentStudentDetailPage />} />
             <Route path={ROUTES.dashboardAdmin} element={<AdminLegacyRedirectPage />} />
             <Route path={ROUTES.dashboardAdminSettings} element={<AdminConfigPage />} />
             <Route path={ROUTES.dashboardAdminDev} element={<AdminDevPage />} />
