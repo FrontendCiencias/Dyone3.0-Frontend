@@ -10,11 +10,12 @@ import { useAuth } from "../../../lib/auth";
 import { ROUTES } from "../../../config/routes";
 import { isSecretaryRole } from "../../auth/utils/roleAccess";
 import StudentsContextBar from "../components/StudentsContextBar";
-import { normalizeSearchText } from "../domain/searchText";
 import { getClassroomCapacityStatus } from "../domain/classroomCapacityStatus";
 import { buildClassroomLookup, normalizeClassroomLabel, resolveClassroomId } from "../domain/classroomIdResolver";
 import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
 import { useClassroomCapacityQuery } from "../hooks/useClassroomCapacityQuery";
+
+const SECRETARY_PAGE_SIZE = 10;
 
 function getErrorMessage(error) {
   const msg = error?.response?.data?.message;
@@ -81,7 +82,7 @@ function getEnrollmentStatus(student) {
     return { key: "ENROLLED", label: "Matriculado", classes: "bg-emerald-100 text-emerald-700" };
   }
 
-  return student?.isActive
+  return String(student?.activeStatus || "").toUpperCase() === "ACTIVE" || student?.isActive
     ? { key: "ENROLLED", label: "Matriculado", classes: "bg-emerald-100 text-emerald-700" }
     : { key: "ABSENT", label: "Ausente", classes: "bg-rose-100 text-rose-700" };
 }
@@ -104,6 +105,7 @@ export default function StudentsPage() {
   const [classroomFilter, setClassroomFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [cursor, setCursor] = useState(null);
+  const [cursorHistory, setCursorHistory] = useState([]);
   const [results, setResults] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
 
@@ -120,12 +122,12 @@ export default function StudentsPage() {
   }, [searchInput]);
 
   const searchQuery = useStudentsSearchQuery({
-    q: secretaryMode ? "" : searchTerm,
+    q: secretaryMode ? debouncedSearch : searchTerm,
     cursor,
     enabled: globalMode ? Boolean(searchTerm.trim()) : true,
-    mode: secretaryMode ? "campusFull" : globalMode ? "global" : "campus",
+    mode: globalMode ? "global" : "campus",
     campus: activeCampusAlias,
-    limit: secretaryMode ? 1000 : 10,
+    limit: secretaryMode ? SECRETARY_PAGE_SIZE : 10,
   });
 
   const classroomsQuery = useClassroomsQuery();
@@ -134,6 +136,7 @@ export default function StudentsPage() {
 
   useEffect(() => {
     setCursor(null);
+    setCursorHistory([]);
     setResults([]);
     setSearchTerm("");
     setSearchInput("");
@@ -141,6 +144,12 @@ export default function StudentsPage() {
     setShowTransferred("hide");
     setClassroomFilter("");
   }, [activeRole]);
+
+  useEffect(() => {
+    if (!secretaryMode) return;
+    setCursor(null);
+    setCursorHistory([]);
+  }, [secretaryMode, activeCampusAlias, debouncedSearch]);
 
   useEffect(() => {
     if (!searchQuery.data) return;
@@ -250,16 +259,7 @@ export default function StudentsPage() {
   const secretaryFilteredResults = useMemo(() => {
     if (!secretaryMode) return results;
 
-    const normalizedQuery = normalizeSearchText(debouncedSearch);
-    const shouldFilterBySearch = normalizedQuery.length >= 2;
-
     return results.filter((student) => {
-      const matchesSearch = !shouldFilterBySearch
-        ? true
-        : [student?.dni, student?.code, student?.names, student?.lastNames]
-            .filter(Boolean)
-            .some((value) => normalizeSearchText(value).includes(normalizedQuery));
-
       const enrollmentStatus = getEnrollmentStatus(student);
       const includeTransferred = showTransferred === "show";
       const passesTransferred = includeTransferred || enrollmentStatus.key !== "TRANSFERRED";
@@ -267,9 +267,9 @@ export default function StudentsPage() {
       const classroom = getClassroomLabel(student);
       const matchesClassroom = !classroomFilter || normalizeClassroomLabel(classroom) === normalizeClassroomLabel(classroomFilter);
 
-      return matchesSearch && passesTransferred && matchesClassroom;
+      return passesTransferred && matchesClassroom;
     });
-  }, [results, secretaryMode, debouncedSearch, showTransferred, classroomFilter]);
+  }, [results, secretaryMode, showTransferred, classroomFilter]);
 
   const dataToRender = secretaryMode ? secretaryFilteredResults : results;
   const hasResults = dataToRender.length > 0;
@@ -282,15 +282,30 @@ export default function StudentsPage() {
       : results.length;
 
   const contextTotals = {
-    results: secretaryMode ? dataToRender.length : resultsTotal,
+    results: secretaryMode ? (searchQuery.data?.items?.length ?? dataToRender.length) : resultsTotal,
   };
 
   const handleSearch = () => {
     if (globalMode && !searchInput.trim()) return;
 
     setCursor(null);
+    setCursorHistory([]);
     setResults([]);
     setSearchTerm(searchInput.trim());
+  };
+
+  const handleNextPage = () => {
+    if (!nextCursor || searchQuery.isFetching) return;
+    setCursorHistory((prev) => [...prev, cursor]);
+    setCursor(nextCursor);
+  };
+
+  const handlePreviousPage = () => {
+    if (!cursorHistory.length || searchQuery.isFetching) return;
+    const nextHistory = [...cursorHistory];
+    const previousCursor = nextHistory.pop() ?? null;
+    setCursorHistory(nextHistory);
+    setCursor(previousCursor);
   };
 
   return (
@@ -457,13 +472,22 @@ export default function StudentsPage() {
           </table>
         </div>
 
-        {!secretaryMode && nextCursor && (
+        {secretaryMode ? (
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <SecondaryButton onClick={handlePreviousPage} disabled={!cursorHistory.length || searchQuery.isFetching}>
+              Anterior
+            </SecondaryButton>
+            <Button onClick={handleNextPage} disabled={!nextCursor || searchQuery.isFetching}>
+              {searchQuery.isFetching ? "Cargando..." : "Siguiente"}
+            </Button>
+          </div>
+        ) : nextCursor ? (
           <div className="mt-4 flex justify-end">
             <Button onClick={() => setCursor(nextCursor)} disabled={searchQuery.isFetching}>
               {searchQuery.isFetching ? "Cargando..." : "Cargar más"}
             </Button>
           </div>
-        )}
+        ) : null}
       </Card>
 
 

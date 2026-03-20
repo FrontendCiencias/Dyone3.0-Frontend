@@ -10,6 +10,7 @@ export default function TransferStudentModal({
   setReason,
   onConfirm,
   isPending,
+  isSuccess,
   errorMessage,
 }) {
   return (
@@ -17,10 +18,23 @@ export default function TransferStudentModal({
       open={open}
       onClose={onClose}
       title="Marcar como trasladado"
+      statusOverlay={isPending ? {
+        state: "loading",
+        title: "Marcando traslado",
+        message: "Actualizando el estado del alumno...",
+      } : isSuccess ? {
+        state: "success",
+        title: "Alumno trasladado",
+        message: "Verifica el check y luego cierra el modal.",
+      } : errorMessage ? {
+        state: "error",
+        title: "No se pudo trasladar",
+        message: errorMessage,
+      } : null}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={isPending}>Cancelar</SecondaryButton>
-          <Button onClick={onConfirm} disabled={isPending || !reason.trim()}>Confirmar</Button>
+          <SecondaryButton onClick={onClose}>Cancelar</SecondaryButton>
+          <Button onClick={onConfirm} disabled={isPending || isSuccess || !reason.trim()}>Confirmar</Button>
         </div>
       }
     >

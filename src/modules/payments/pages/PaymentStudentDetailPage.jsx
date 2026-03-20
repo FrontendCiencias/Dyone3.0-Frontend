@@ -2,10 +2,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQuery";
+import CreateChargeModal from "../../students/components/detail/modals/CreateChargeModal";
+import { useCreateStudentChargeMutation } from "../../students/hooks/useCreateStudentChargeMutation";
+import { useDeleteStudentChargeMutation } from "../../students/hooks/useDeleteStudentChargeMutation";
+import { useUpdateStudentChargeMutation } from "../../students/hooks/useUpdateStudentChargeMutation";
 import { ROUTES } from "../../../config/routes";
 import { useStudentAccountStatementQuery } from "../hooks/useStudentAccountStatementQuery";
 import PaymentAllocationDrawer from "../components/PaymentAllocationDrawer";
 import PaymentDetailModal from "../components/PaymentDetailModal";
+import EditChargeModal from "../components/EditChargeModal";
 
 function formatMoney(value) {
   const amount = Number(value || 0);
@@ -39,18 +45,46 @@ function formatChargeStatus(value) {
   return value || "-";
 }
 
+function isObjectId(value) {
+  return /^[a-f\d]{24}$/i.test(String(value || "").trim());
+}
+
+const initialChargeForm = {
+  billingConceptId: "",
+  amount: "",
+  hasDueDate: false,
+  dueDate: "",
+  observation: "",
+};
+
 export default function PaymentStudentDetailPage() {
   const navigate = useNavigate();
   const { studentId } = useParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedCharges, setSelectedCharges] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [createChargeOpen, setCreateChargeOpen] = useState(false);
+  const [editingCharge, setEditingCharge] = useState(null);
+  const [chargeForm, setChargeForm] = useState(initialChargeForm);
   const accountQuery = useStudentAccountStatementQuery(studentId, true);
+  const billingConceptsQuery = useBillingConceptsQuery();
+  const createChargeMutation = useCreateStudentChargeMutation(studentId);
+  const updateChargeMutation = useUpdateStudentChargeMutation(studentId);
+  const deleteChargeMutation = useDeleteStudentChargeMutation(studentId);
 
   const account = accountQuery.data || {};
   const charges = Array.isArray(account.charges) ? account.charges : [];
   const payments = Array.isArray(account.payments) ? account.payments : [];
   const student = useMemo(() => account.student || {}, [account.student]);
+  const billingConcepts = useMemo(() => {
+    const rows = Array.isArray(billingConceptsQuery.data)
+      ? billingConceptsQuery.data
+      : Array.isArray(billingConceptsQuery.data?.items)
+        ? billingConceptsQuery.data.items
+        : [];
+
+    return rows;
+  }, [billingConceptsQuery.data]);
 
   const selectedChargeRows = useMemo(
     () => charges.filter((charge) => selectedCharges[charge.id] !== undefined),
@@ -100,6 +134,51 @@ export default function PaymentStudentDetailPage() {
     }
   };
 
+  const handleCreateCharge = async () => {
+    const amount = Number(chargeForm.amount);
+    if (!chargeForm.billingConceptId || Number.isNaN(amount) || amount <= 0) return;
+    if (chargeForm.hasDueDate && !chargeForm.dueDate) return;
+
+    const selectedConcept = billingConcepts.find((concept) => {
+      const conceptValue = String(concept?.id || concept?._id || concept?.code || concept?.name || "").trim();
+      return conceptValue === String(chargeForm.billingConceptId || "").trim();
+    });
+
+    const selectedBillingConceptId = String(selectedConcept?.id || selectedConcept?._id || "").trim();
+    const selectedConceptName = String(selectedConcept?.name || selectedConcept?.code || chargeForm.billingConceptId || "").trim();
+
+    await createChargeMutation.mutateAsync({
+      studentId,
+      ...(isObjectId(selectedBillingConceptId)
+        ? { billingConceptId: selectedBillingConceptId }
+        : { conceptName: selectedConceptName }),
+      amount,
+      dueDate: chargeForm.hasDueDate ? chargeForm.dueDate : undefined,
+      observation: chargeForm.observation.trim() || undefined,
+    });
+  };
+
+  const handleEditCharge = async (formValues) => {
+    const amount = Number(formValues?.amount);
+    if (!editingCharge?.id || Number.isNaN(amount) || amount <= 0) return;
+
+    await updateChargeMutation.mutateAsync({
+      chargeId: editingCharge.id,
+      payload: {
+        amount,
+        dueDate: String(formValues?.dueDate || "").trim() || undefined,
+      },
+    });
+  };
+
+  const handleDeleteCharge = async () => {
+    if (!editingCharge?.id) return;
+
+    await deleteChargeMutation.mutateAsync({
+      chargeId: editingCharge.id,
+    });
+  };
+
   return (
     <div className="space-y-4">
       <Card className="border border-gray-200 shadow-sm">
@@ -117,7 +196,10 @@ export default function PaymentStudentDetailPage() {
             <p className="mt-1 text-2xl font-semibold text-emerald-800">{formatMoney(account?.totals?.paid)}</p>
           </div>
           <div className="flex items-center justify-end">
-            <SecondaryButton onClick={() => navigate(ROUTES.dashboardPayments)}>Volver a pagos</SecondaryButton>
+            <div className="flex flex-col items-end gap-2">
+              <SecondaryButton onClick={() => navigate(ROUTES.dashboardPayments)}>Volver a pagos</SecondaryButton>
+              <SecondaryButton onClick={() => setCreateChargeOpen(true)}>Crear cargo</SecondaryButton>
+            </div>
           </div>
         </div>
       </Card>
@@ -174,13 +256,15 @@ export default function PaymentStudentDetailPage() {
                     {charges.map((charge) => (
                       <tr
                         key={charge.id}
-                        className={`transition ${selectedCharges[charge.id] !== undefined ? "bg-blue-50" : ""}`}
+                        className={`cursor-pointer transition hover:bg-gray-50 ${selectedCharges[charge.id] !== undefined ? "bg-blue-50" : ""}`}
+                        onClick={() => setEditingCharge(charge)}
                       >
                         <td className="px-4 py-3 text-gray-700">
                           <input
                             type="checkbox"
                             checked={selectedCharges[charge.id] !== undefined}
                             disabled={Number(charge.outstandingAmount || 0) <= 0}
+                            onClick={(event) => event.stopPropagation()}
                             onChange={() => toggleCharge(charge)}
                           />
                         </td>
@@ -272,6 +356,40 @@ export default function PaymentStudentDetailPage() {
           code: student.code,
         }}
         payment={selectedPayment}
+      />
+
+      <CreateChargeModal
+        open={createChargeOpen}
+        onClose={() => {
+          createChargeMutation.reset();
+          setCreateChargeOpen(false);
+          setChargeForm(initialChargeForm);
+        }}
+        chargeForm={chargeForm}
+        setChargeForm={setChargeForm}
+        billingConcepts={billingConcepts}
+        onCreate={handleCreateCharge}
+        isPending={createChargeMutation.isPending}
+        isSuccess={createChargeMutation.isSuccess}
+        errorMessage={createChargeMutation.isError ? "No se pudo crear el cargo" : ""}
+      />
+
+      <EditChargeModal
+        open={Boolean(editingCharge)}
+        onClose={() => {
+          updateChargeMutation.reset();
+          deleteChargeMutation.reset();
+          setEditingCharge(null);
+        }}
+        charge={editingCharge}
+        onSave={handleEditCharge}
+        onDelete={handleDeleteCharge}
+        isSaving={updateChargeMutation.isPending}
+        isSaveSuccess={updateChargeMutation.isSuccess}
+        saveErrorMessage={updateChargeMutation.isError ? "No se pudo actualizar el cargo" : ""}
+        isDeleting={deleteChargeMutation.isPending}
+        isDeleteSuccess={deleteChargeMutation.isSuccess}
+        deleteErrorMessage={deleteChargeMutation.isError ? "No se pudo eliminar el cargo" : ""}
       />
     </div>
   );

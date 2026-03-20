@@ -61,41 +61,6 @@ export async function listByCampus({ campus, q = "", limit = 10, cursor = null }
   return res.data;
 }
 
-export async function listAllByCampus({ campus, limit = 1000 }) {
-  const endpoint = API_ROUTES.studentsByCampus(campus);
-  let cursor = null;
-  let page = 0;
-  const allItems = [];
-
-  do {
-    const params = { limit };
-    if (cursor) params.cursor = cursor;
-
-    logRequest(endpoint, "GET", params);
-
-    const res = await axiosInstance.get(endpoint, { params });
-    const items = Array.isArray(res.data?.items) ? res.data.items : [];
-
-    allItems.push(...items);
-    cursor = res.data?.nextCursor || null;
-    page += 1;
-
-    logResponse(endpoint, res.status, {
-      page,
-      count: items.length,
-      nextCursor: cursor,
-      firstStudent: getFirstStudentSample(items),
-    });
-
-    if (page > 100) break;
-  } while (cursor);
-
-  return {
-    items: allItems,
-    nextCursor: null,
-  };
-}
-
 export async function getStudentSummary(studentId) {
   const endpoint = API_ROUTES.studentSummary(studentId);
 
@@ -121,7 +86,6 @@ export async function createStudentIntake(payload) {
 }
 
 export async function getStudentDetail(studentId) {
-  // TODO: cuando backend exponga endpoint de detalle completo, reemplazar por ese endpoint.
   return getStudentSummary(studentId);
 }
 
@@ -186,6 +150,22 @@ export async function createStudentCharge(payload) {
   logRequest(API_ROUTES.charges, "POST", payload);
   const res = await axiosInstance.post(API_ROUTES.charges, payload);
   logResponse(API_ROUTES.charges, res.status, res.data);
+  return res.data;
+}
+
+export async function updateStudentCharge(chargeId, payload) {
+  const endpoint = API_ROUTES.chargeDetail(chargeId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function deleteStudentCharge(chargeId) {
+  const endpoint = API_ROUTES.chargeDetail(chargeId);
+  logRequest(endpoint, "DELETE", {});
+  const res = await axiosInstance.delete(endpoint);
+  logResponse(endpoint, res.status, res.data);
   return res.data;
 }
 

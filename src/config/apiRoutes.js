@@ -26,6 +26,7 @@ export const API_ROUTES = {
 
   students: "/api/students",
   studentsByCampus: (campus) => `/api/students/campus/${campus}`,
+  studentDetail: (id) => `/api/students/${id}`,
   studentSummary: (id) => `/api/students/${id}/summary`,
   studentCycleStatus: (id) => `/api/students/${id}/cycle-status`,
   studentClassroom: (id) => `/api/students/${id}/classroom`,
@@ -63,6 +64,7 @@ export const API_ROUTES = {
   enrollmentCaseSetFamily: (id) => `/api/enrollment-cases/${id}/family`,
   enrollmentCaseRemoveStudent: (caseId, esId) => `/api/enrollment-cases/${caseId}/students/${esId}`,
   charges: "/api/charges",
+  chargeDetail: (id) => `/api/charges/${id}`,
   paymentsCreate: "/api/payments",
   paymentsDebtors: "/api/payments/debtors",
   paymentsDebtorsSearch: "/api/payments/debtors/search",

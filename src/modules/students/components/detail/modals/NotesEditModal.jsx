@@ -3,7 +3,7 @@ import BaseModal from "../../../../../shared/ui/BaseModal";
 import Button from "../../../../../components/ui/Button";
 import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
 
-export default function NotesEditModal({ open, onClose, value = "", onSave, saving = false, errorMessage = "" }) {
+export default function NotesEditModal({ open, onClose, value = "", onSave, saving = false, success = false, errorMessage = "" }) {
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -16,10 +16,23 @@ export default function NotesEditModal({ open, onClose, value = "", onSave, savi
       open={open}
       onClose={onClose}
       title="Editar notas internas"
+      statusOverlay={saving ? {
+        state: "loading",
+        title: "Guardando notas",
+        message: "Actualizando las notas internas...",
+      } : success ? {
+        state: "success",
+        title: "Notas guardadas",
+        message: "Verifica el check y luego cierra el modal.",
+      } : errorMessage ? {
+        state: "error",
+        title: "No se pudo guardar",
+        message: errorMessage,
+      } : null}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={saving}>Cancelar</SecondaryButton>
-          <Button onClick={() => onSave?.(notes)} disabled={saving}>Guardar</Button>
+          <SecondaryButton onClick={onClose}>Cancelar</SecondaryButton>
+          <Button onClick={() => onSave?.(notes)} disabled={saving || success}>Guardar</Button>
         </div>
       }
     >

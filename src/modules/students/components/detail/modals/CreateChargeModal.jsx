@@ -12,17 +12,33 @@ export default function CreateChargeModal({
   billingConcepts,
   onCreate,
   isPending,
+  isSuccess,
   errorMessage,
 }) {
+  const resolveConceptOptionValue = (concept) => concept?.id || concept?._id || concept?.code || concept?.name || "";
+
   return (
     <BaseModal
       open={open}
       onClose={onClose}
       title="Crear cargo"
+      statusOverlay={isPending ? {
+        state: "loading",
+        title: "Creando cargo",
+        message: "Registrando el nuevo cargo del alumno...",
+      } : isSuccess ? {
+        state: "success",
+        title: "Cargo creado",
+        message: "",
+      } : errorMessage ? {
+        state: "error",
+        title: "No se pudo crear el cargo",
+        message: errorMessage,
+      } : null}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={isPending}>Cancelar</SecondaryButton>
-          <Button onClick={onCreate} disabled={isPending}>Crear cargo</Button>
+          <SecondaryButton onClick={onClose}>Cancelar</SecondaryButton>
+          <Button onClick={onCreate} disabled={isPending || isSuccess}>Crear cargo</Button>
         </div>
       }
     >
@@ -35,7 +51,7 @@ export default function CreateChargeModal({
         >
           <option value="">Selecciona un concepto</option>
           {billingConcepts.map((concept) => (
-            <option key={concept.id} value={concept.id}>
+            <option key={resolveConceptOptionValue(concept)} value={resolveConceptOptionValue(concept)}>
               {concept.name || concept.code || concept.label || "Concepto"}
             </option>
           ))}
@@ -47,12 +63,32 @@ export default function CreateChargeModal({
           value={chargeForm.amount}
           onChange={(e) => setChargeForm((prev) => ({ ...prev, amount: e.target.value }))}
         />
-        <Input
-          label="Fecha vencimiento"
-          type="date"
-          value={chargeForm.dueDate}
-          onChange={(e) => setChargeForm((prev) => ({ ...prev, dueDate: e.target.value }))}
-        />
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <input
+            type="checkbox"
+            checked={Boolean(chargeForm.hasDueDate)}
+            onChange={(e) =>
+              setChargeForm((prev) => ({
+                ...prev,
+                hasDueDate: e.target.checked,
+                dueDate: e.target.checked ? prev.dueDate : "",
+              }))
+            }
+          />
+          Definir fecha de vencimiento
+        </label>
+        {chargeForm.hasDueDate ? (
+          <Input
+            label="Fecha vencimiento"
+            type="date"
+            value={chargeForm.dueDate}
+            onChange={(e) => setChargeForm((prev) => ({ ...prev, dueDate: e.target.value }))}
+          />
+        ) : (
+          <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            Si no defines vencimiento, el cargo vencerá en la fecha de creación.
+          </p>
+        )}
         <label className="block text-sm font-medium text-gray-700">Observación</label>
         <textarea
           value={chargeForm.observation}

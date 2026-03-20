@@ -6,7 +6,16 @@ export function useUpdateStudentIdentityMutation(studentId) {
 
   return useMutation({
     mutationFn: (payload) => updateStudentIdentity(studentId, payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      const summary = data?.summary || null;
+
+      if (summary) {
+        queryClient.setQueryData(["students", "summary", studentId], summary);
+        queryClient.setQueryData(["students", "detail", studentId], summary);
+        queryClient.setQueryData(["student-summary", studentId], summary);
+        queryClient.setQueryData(["student-detail", studentId], summary);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["students", "summary", studentId] });
       queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });
       queryClient.invalidateQueries({ queryKey: ["student-summary", studentId] });

@@ -30,6 +30,7 @@ export default function PaymentAllocationDrawer({
   onChangeAmount,
   onRemoveCharge,
 }) {
+  const [useHistoricalReceipt, setUseHistoricalReceipt] = useState(false);
   const [paymentDate, setPaymentDate] = useState(todayDate());
   const [method, setMethod] = useState("CASH");
   const [receiptNumber, setReceiptNumber] = useState("");
@@ -44,6 +45,7 @@ export default function PaymentAllocationDrawer({
       return;
     }
 
+    setUseHistoricalReceipt(false);
     setPaymentDate(todayDate());
     setMethod("CASH");
     setReceiptNumber("");
@@ -89,11 +91,12 @@ export default function PaymentAllocationDrawer({
     }
 
     setFormError("");
+    const effectivePaymentDate = useHistoricalReceipt ? paymentDate : todayDate();
     const result = await createPaymentMutation.mutateAsync({
       studentId: student.id,
-      paidAt: paymentDate,
+      paidAt: effectivePaymentDate,
       method,
-      receiptNumber: receiptNumber.trim() || undefined,
+      receiptNumber: useHistoricalReceipt ? receiptNumber.trim() || undefined : undefined,
       notes: notes.trim() || undefined,
       amount: subtotal,
       allocations: allocations.map((row) => ({
@@ -107,7 +110,7 @@ export default function PaymentAllocationDrawer({
       id: payment._id || payment.id || null,
       internalCode: payment.internalCode || "-",
       receiptNumber: payment.receiptNumber || null,
-      date: payment.paidAt || paymentDate,
+      date: payment.paidAt || effectivePaymentDate,
       method: payment.method || method,
       amount: Number(payment.totalAmount?.$numberDecimal || payment.totalAmount || subtotal || 0),
       note: payment.notes || notes || null,
@@ -195,14 +198,6 @@ export default function PaymentAllocationDrawer({
           <p className="mt-1 text-2xl font-semibold text-gray-900">{formatMoney(subtotal)}</p>
         </div>
 
-        <Input
-          label="Fecha"
-          type="date"
-          value={paymentDate}
-          disabled={Boolean(createdReceipt)}
-          onChange={(e) => setPaymentDate(e.target.value)}
-        />
-
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Metodo</label>
           <select
@@ -217,14 +212,42 @@ export default function PaymentAllocationDrawer({
           </select>
         </div>
 
-        <Input
-          label="Recibo fisico anterior"
-          value={receiptNumber}
-          disabled={Boolean(createdReceipt)}
-          onChange={(e) => setReceiptNumber(e.target.value.replace(/\D/g, "").slice(0, 6))}
-          placeholder="Ej: 003268"
-        />
-        <p className="text-xs text-gray-500">Opcional. Si ingresas 3268 se guardara como 003268.</p>
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          <input
+            type="checkbox"
+            checked={useHistoricalReceipt}
+            disabled={Boolean(createdReceipt)}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setUseHistoricalReceipt(checked);
+              if (!checked) {
+                setReceiptNumber("");
+                setPaymentDate(todayDate());
+              }
+            }}
+          />
+          Recibo fisico anterior
+        </label>
+
+        {useHistoricalReceipt ? (
+          <div className="space-y-3">
+            <Input
+              label="Numero de recibo"
+              value={receiptNumber}
+              disabled={Boolean(createdReceipt)}
+              onChange={(e) => setReceiptNumber(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="Ej: 003268"
+            />
+            <p className="-mt-2 text-xs text-gray-500">Si ingresas 3268 se guardara como 003268.</p>
+            <Input
+              label="Fecha del pago"
+              type="date"
+              value={paymentDate}
+              disabled={Boolean(createdReceipt)}
+              onChange={(e) => setPaymentDate(e.target.value)}
+            />
+          </div>
+        ) : null}
 
         <div>
           <label className="mb-1 block text-sm font-medium text-gray-700">Observaciones</label>

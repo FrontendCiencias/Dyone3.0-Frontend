@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createStudentCharge } from "../services/students.service";
+import { updateStudentCharge } from "../services/students.service";
 
-export function useCreateStudentChargeMutation(studentId) {
+export function useUpdateStudentChargeMutation(studentId) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: createStudentCharge,
+    mutationFn: ({ chargeId, payload }) => updateStudentCharge(chargeId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["students", "summary", studentId] });
       queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });

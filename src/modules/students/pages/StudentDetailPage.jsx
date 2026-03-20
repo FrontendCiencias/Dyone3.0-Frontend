@@ -43,6 +43,11 @@ function formatMoney(value) {
   return `S/ ${amount.toFixed(2)}`;
 }
 
+function toDateTimeString(dateValue) {
+  const normalized = String(dateValue || "").trim();
+  if (!normalized) return "";
+  return `${normalized}T00:00:00.000Z`;
+}
 
 function isObjectId(value) {
   return /^[a-f\d]{24}$/i.test(String(value || "").trim());
@@ -50,6 +55,7 @@ function isObjectId(value) {
 const initialChargeForm = {
   billingConceptId: "",
   amount: "",
+  hasDueDate: false,
   dueDate: "",
   observation: "",
 };
@@ -140,14 +146,14 @@ export default function StudentDetailPage() {
 
   const openEditor = (editorKey) => {
     if (lockEdition && activeEditor !== editorKey) return;
+    if (editorKey === "identity") updateIdentityMutation.reset();
+    if (editorKey === "notes") updateNotesMutation.reset();
     setActiveEditor(editorKey);
   };
 
   const handleTransfer = async () => {
     if (!transferReason.trim()) return;
     await transferMutation.mutateAsync({ status: "TRANSFERRED", reason: transferReason.trim() });
-    setTransferOpen(false);
-    setTransferReason("");
   };
 
   const handleClassroomChange = async ({ classroomId, reason }) => {
@@ -172,7 +178,6 @@ export default function StudentDetailPage() {
       cycleId,
       reason: String(reason || "").trim() || undefined,
     });
-    setChangeClassroomOpen(false);
   };
 
   const buildIdentityPayload = (formValues = {}) => {
@@ -204,6 +209,14 @@ export default function StudentDetailPage() {
       if (next[key] !== original[key] && next[key] !== "") payload[key] = next[key];
     });
 
+    if (payload.birthDate) {
+      payload.birthDate = toDateTimeString(payload.birthDate);
+    }
+
+    if (!Object.keys(payload).length) {
+      return { error: "No hay cambios para guardar." };
+    }
+
     return { payload };
   };
 
@@ -216,28 +229,34 @@ export default function StudentDetailPage() {
 
     setIdentityFormError("");
     await updateIdentityMutation.mutateAsync(payload);
-    setActiveEditor(null);
   };
 
   const handleSaveNotes = async (notes) => {
     await updateNotesMutation.mutateAsync({ internalNotes: String(notes || "") });
-    setActiveEditor(null);
   };
 
   const handleCreateCharge = async () => {
     const amount = Number(chargeForm.amount);
-    if (!chargeForm.billingConceptId || Number.isNaN(amount) || amount <= 0 || !chargeForm.dueDate) return;
+    if (!chargeForm.billingConceptId || Number.isNaN(amount) || amount <= 0) return;
+    if (chargeForm.hasDueDate && !chargeForm.dueDate) return;
+
+    const selectedConcept = billingConcepts.find((concept) => {
+      const conceptValue = String(concept?.id || concept?._id || concept?.code || concept?.name || "").trim();
+      return conceptValue === String(chargeForm.billingConceptId || "").trim();
+    });
+
+    const selectedBillingConceptId = String(selectedConcept?.id || selectedConcept?._id || "").trim();
+    const selectedConceptName = String(selectedConcept?.name || selectedConcept?.code || chargeForm.billingConceptId || "").trim();
 
     await createChargeMutation.mutateAsync({
       studentId,
-      billingConceptId: chargeForm.billingConceptId,
+      ...(isObjectId(selectedBillingConceptId)
+        ? { billingConceptId: selectedBillingConceptId }
+        : { conceptName: selectedConceptName }),
       amount,
-      dueDate: chargeForm.dueDate,
+      dueDate: chargeForm.hasDueDate ? chargeForm.dueDate : undefined,
       observation: chargeForm.observation.trim() || undefined,
     });
-
-    setCreateChargeOpen(false);
-    setChargeForm(initialChargeForm);
   };
 
   if (detailQuery.isLoading) return <StudentDetailSkeleton />;
@@ -357,11 +376,13 @@ export default function StudentDetailPage() {
         open={activeEditor === "identity"}
         onClose={() => {
           setIdentityFormError("");
+          updateIdentityMutation.reset();
           setActiveEditor(null);
         }}
         student={student}
         onSave={handleSaveIdentity}
         saving={updateIdentityMutation.isPending}
+        success={updateIdentityMutation.isSuccess}
         errorMessage={identityFormError || (updateIdentityMutation.isError ? getErrorMessage(updateIdentityMutation.error, "No se pudo guardar la identidad") : "")}
       />
       <AccountStatementModal
@@ -389,21 +410,27 @@ export default function StudentDetailPage() {
         open={activeEditor === "notes"}
         onClose={() => {
           setIdentityFormError("");
+          updateNotesMutation.reset();
           setActiveEditor(null);
         }}
         value={internalNotes}
         onSave={handleSaveNotes}
         saving={updateNotesMutation.isPending}
+        success={updateNotesMutation.isSuccess}
         errorMessage={updateNotesMutation.isError ? getErrorMessage(updateNotesMutation.error, "No se pudo guardar las notas") : ""}
       />
 
       <TransferStudentModal
         open={transferOpen}
-        onClose={() => setTransferOpen(false)}
+        onClose={() => {
+          transferMutation.reset();
+          setTransferOpen(false);
+        }}
         reason={transferReason}
         setReason={setTransferReason}
         onConfirm={handleTransfer}
         isPending={transferMutation.isPending}
+        isSuccess={transferMutation.isSuccess}
         errorMessage={transferMutation.isError ? getErrorMessage(transferMutation.error) : ""}
       />
 
@@ -411,6 +438,7 @@ export default function StudentDetailPage() {
         open={changeClassroomOpen}
         onClose={() => {
           setClassroomChangeError("");
+          changeClassroomMutation.reset();
           setChangeClassroomOpen(false);
         }}
         classrooms={classrooms}
@@ -419,17 +447,22 @@ export default function StudentDetailPage() {
         isLoading={classroomOptionsQuery.isLoading}
         isError={classroomOptionsQuery.isError}
         mutationPending={changeClassroomMutation.isPending}
+        mutationSuccess={changeClassroomMutation.isSuccess}
         mutationErrorMessage={classroomChangeError || (changeClassroomMutation.isError ? getErrorMessage(changeClassroomMutation.error, "No se pudo cambiar el aula") : "")}
       />
 
       <CreateChargeModal
         open={createChargeOpen}
-        onClose={() => setCreateChargeOpen(false)}
+        onClose={() => {
+          createChargeMutation.reset();
+          setCreateChargeOpen(false);
+        }}
         chargeForm={chargeForm}
         setChargeForm={setChargeForm}
         billingConcepts={billingConcepts}
         onCreate={handleCreateCharge}
         isPending={createChargeMutation.isPending}
+        isSuccess={createChargeMutation.isSuccess}
         errorMessage={createChargeMutation.isError ? getErrorMessage(createChargeMutation.error) : ""}
       />
     </div>

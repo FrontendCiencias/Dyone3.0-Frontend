@@ -1,9 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Button from "../../../../../components/ui/Button";
-import LoadingOverlay from "../../../../../shared/ui/LoadingOverlay";
 import BaseModal from "../../../../../shared/ui/BaseModal";
 import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
-import Spinner from "../../../../../shared/ui/Spinner";
 import ClassroomOptionButton from "../ui/ClassroomOptionButton";
 
 const DEFAULT_REASON = "Reorganización";
@@ -17,6 +15,7 @@ export default function ChangeClassroomModal({
   isLoading,
   isError,
   mutationPending,
+  mutationSuccess,
   mutationErrorMessage,
 }) {
   const [selectedClassroomId, setSelectedClassroomId] = useState(null);
@@ -31,10 +30,10 @@ export default function ChangeClassroomModal({
   }, [open]);
 
   const isSaveDisabled = useMemo(() => {
-    if (mutationPending) return true;
+    if (mutationPending || mutationSuccess) return true;
     if (!selectedClassroomId) return true;
     return String(selectedClassroomId) === String(currentClassroomId || "");
-  }, [mutationPending, selectedClassroomId, currentClassroomId]);
+  }, [mutationPending, mutationSuccess, selectedClassroomId, currentClassroomId]);
 
   const handleSave = () => {
     if (!reason.trim()) {
@@ -51,9 +50,22 @@ export default function ChangeClassroomModal({
       open={open}
       onClose={onClose}
       title="Cambiar aula"
+      statusOverlay={mutationPending ? {
+        state: "loading",
+        title: "Cambiando aula",
+        message: "Actualizando el expediente del alumno...",
+      } : mutationSuccess ? {
+        state: "success",
+        title: "Aula actualizada",
+        message: "Verifica el check y luego cierra el modal.",
+      } : mutationErrorMessage ? {
+        state: "error",
+        title: "No se pudo cambiar el aula",
+        message: mutationErrorMessage,
+      } : null}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={mutationPending}>Cancelar</SecondaryButton>
+          <SecondaryButton onClick={onClose}>Cancelar</SecondaryButton>
           <Button onClick={handleSave} disabled={isSaveDisabled}>Guardar</Button>
         </div>
       }
@@ -103,10 +115,6 @@ export default function ChangeClassroomModal({
         ) : null}
 
         {mutationErrorMessage ? <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{mutationErrorMessage}</p> : null}
-        <LoadingOverlay open={mutationPending}>
-          <Spinner />
-          <p className="mt-3 text-sm">Cambiando aula...</p>
-        </LoadingOverlay>
       </div>
     </BaseModal>
   );

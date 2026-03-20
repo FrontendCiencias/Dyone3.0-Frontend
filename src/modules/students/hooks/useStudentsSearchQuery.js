@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getToken } from "../../../lib/authStorage";
-import { listAllByCampus, listByCampus, searchStudents } from "../services/students.service";
+import { listByCampus, searchStudents } from "../services/students.service";
 
 export function useStudentsSearchQuery({
   q,
@@ -17,9 +17,6 @@ export function useStudentsSearchQuery({
     queryFn: () => {
       if (mode === "global") {
         return searchStudents({ q, cursor, limit });
-      }
-      if (mode === "campusFull") {
-        return listAllByCampus({ campus, limit });
       }
       return listByCampus({ campus, q, cursor, limit });
     },

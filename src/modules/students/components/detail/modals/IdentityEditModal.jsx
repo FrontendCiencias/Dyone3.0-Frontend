@@ -10,6 +10,7 @@ export default function IdentityEditModal({
   student,
   onSave,
   saving = false,
+  success = false,
   errorMessage = "",
 }) {
   const [form, setForm] = useState({
@@ -19,7 +20,6 @@ export default function IdentityEditModal({
     birthDate: "",
     gender: "",
     phone: "",
-    address: "",
   });
 
   useEffect(() => {
@@ -32,7 +32,6 @@ export default function IdentityEditModal({
       birthDate: student?.birthDate ? String(student.birthDate).slice(0, 10) : "",
       gender: student?.gender || "",
       phone: student?.phone || "",
-      address: student?.address || "",
     });
   }, [open, student]);
 
@@ -41,12 +40,25 @@ export default function IdentityEditModal({
       open={open}
       onClose={onClose}
       title="Editar identidad"
+      statusOverlay={saving ? {
+        state: "loading",
+        title: "Guardando cambios",
+        message: "Actualizando la identidad del alumno...",
+      } : success ? {
+        state: "success",
+        title: "Identidad actualizada",
+        message: "",
+      } : errorMessage ? {
+        state: "error",
+        title: "No se pudo guardar",
+        message: errorMessage,
+      } : null}
       footer={
         <div className="flex justify-end gap-2">
-          <SecondaryButton onClick={onClose} disabled={saving}>
+          <SecondaryButton onClick={onClose}>
             Cancelar
           </SecondaryButton>
-          <Button onClick={() => onSave?.(form)} disabled={saving}>
+          <Button onClick={() => onSave?.(form)} disabled={saving || success}>
             {saving ? "Guardando..." : "Guardar"}
           </Button>
         </div>
@@ -65,7 +77,7 @@ export default function IdentityEditModal({
           onChange={(e) => setForm((p) => ({ ...p, lastNames: e.target.value }))}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Input
             label="DNI"
             value={form.dni}
@@ -80,39 +92,27 @@ export default function IdentityEditModal({
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-700">Género</label>
+            <label className="text-sm font-medium text-gray-700">Genero</label>
             <select
               value={form.gender}
               onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
-              className="
-                w-full h-11
-                rounded-xl border border-gray-200 bg-white px-3
-                text-sm text-gray-900
-                focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300
-                disabled:opacity-60
-              "
+              className="w-full h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-60"
               disabled={saving}
             >
-              <option value="">Seleccionar…</option>
+              <option value="">Seleccionar...</option>
               <option value="F">Femenino</option>
               <option value="M">Masculino</option>
             </select>
           </div>
 
           <Input
-            label="Teléfono"
+            label="Telefono"
             value={form.phone}
             onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
           />
         </div>
-
-        <Input
-          label="Dirección"
-          value={form.address}
-          onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-        />
 
         {errorMessage ? <p className="text-xs text-red-600">{errorMessage}</p> : null}
       </div>
