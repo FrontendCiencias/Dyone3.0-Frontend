@@ -14,6 +14,11 @@ import { getPrimaryTutorDisplayName } from "../families/domain/familyDisplay";
 
 const PAGE_META = {
   dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del dia." },
+  attendance: { title: "Preparar sesion", description: "Configura la jornada de hoy o continua con una ya preparada." },
+  attendanceIntake: { title: "Preparar sesion", description: "Configura la jornada de hoy o continua con una ya preparada." },
+  attendanceTake: { title: "Toma operativa", description: "Registra codigos en ingreso y monitorea ultimos marcados." },
+  attendanceJustifications: { title: "Justificaciones", description: "Gestiona tardanzas y faltas justificadas." },
+  attendanceReports: { title: "Reportes de asistencia", description: "Consulta resumenes por alumno y salon." },
   students: { title: "Alumnos", description: "Busca, filtra y gestiona expedientes estudiantiles." },
   studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matricula, aula y finanzas." },
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
@@ -29,6 +34,12 @@ const PAGE_META = {
 
 function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboard) return "dashboard";
+  if (pathname === ROUTES.dashboardAttendance) return "attendance";
+  if (pathname === ROUTES.dashboardAttendanceIntake) return "attendanceIntake";
+  if (/^\/dashboard\/attendance\/intake\/[^/]+$/.test(pathname)) return "attendanceTake";
+  if (pathname === ROUTES.dashboardAttendanceJustifications) return "attendanceJustifications";
+  if (pathname === ROUTES.dashboardAttendanceReports) return "attendanceReports";
+  if (pathname.startsWith(ROUTES.dashboardAttendance)) return "attendance";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
   if (/^\/dashboard\/payments\/[^/]+$/.test(pathname)) return "paymentDetail";
   if (pathname.startsWith(ROUTES.dashboardStudents)) return "students";
@@ -157,6 +168,39 @@ export default function DashboardShell() {
       ];
     }
 
+    if (pageKey === "attendanceIntake") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Asistencia", to: ROUTES.dashboardAttendance },
+        { label: "Preparar sesion" },
+      ];
+    }
+
+    if (pageKey === "attendanceTake") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Asistencia", to: ROUTES.dashboardAttendance },
+        { label: "Preparar sesion", to: ROUTES.dashboardAttendanceIntake },
+        { label: "Toma operativa" },
+      ];
+    }
+
+    if (pageKey === "attendanceJustifications") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Asistencia", to: ROUTES.dashboardAttendance },
+        { label: "Justificaciones" },
+      ];
+    }
+
+    if (pageKey === "attendanceReports") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Asistencia", to: ROUTES.dashboardAttendance },
+        { label: "Reportes" },
+      ];
+    }
+
     if (pageKey !== "studentDetail" && pageKey !== "paymentDetail") return null;
 
     const label = studentSummaryQuery.isLoading
@@ -203,6 +247,7 @@ export default function DashboardShell() {
           queryClient.invalidateQueries({ queryKey: ["enrollments"] });
           queryClient.invalidateQueries({ queryKey: ["payments"] });
           queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+          queryClient.invalidateQueries({ queryKey: ["attendance"] });
         }}
         offsetLeft={leftPad}
       />

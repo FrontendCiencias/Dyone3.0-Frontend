@@ -1,10 +1,12 @@
 import React from "react";
 import { useAuth } from "../../../lib/auth";
+import AuxiliarHome from "../../overwiew/auxiliar/pages/AuxiliarHome";
 import SecretaryHome from "../../overwiew/secretary/pages/SecretaryHome";
 
 function roleGroup(role) {
   const r = String(role || "").toUpperCase();
-  if (["SECRETARY", "SECRETARY_VIEWER", "AUXILIAR"].includes(r)) return "SECRETARY";
+  if (["SECRETARY", "SECRETARY_VIEWER"].includes(r)) return "SECRETARY";
+  if (r === "AUXILIAR") return "AUXILIAR";
   if (r === "ADMIN") return "ADMIN";
   if (r === "DIRECTOR") return "DIRECTOR";
   if (r === "PROMOTER") return "PROMOTER";
@@ -28,6 +30,7 @@ export default function DashboardHome() {
   const group = roleGroup(role);
 
   if (group === "SECRETARY") return <SecretaryHome />;
+  if (group === "AUXILIAR") return <AuxiliarHome />;
 
   if (group === "ADMIN") return <Placeholder title="Panel de Admin" />;
   if (group === "DIRECTOR") return <Placeholder title="Panel de Dirección" />;

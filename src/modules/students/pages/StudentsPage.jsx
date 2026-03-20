@@ -8,6 +8,7 @@ import { useStudentsSearchQuery } from "../hooks/useStudentsSearchQuery";
 import StudentSummaryModal from "../components/StudentSummaryModal";
 import { useAuth } from "../../../lib/auth";
 import { ROUTES } from "../../../config/routes";
+import { isSecretaryRole } from "../../auth/utils/roleAccess";
 import StudentsContextBar from "../components/StudentsContextBar";
 import { normalizeSearchText } from "../domain/searchText";
 import { getClassroomCapacityStatus } from "../domain/classroomCapacityStatus";
@@ -25,11 +26,6 @@ function getErrorMessage(error) {
 function isGlobalRole(activeRole) {
   const role = String(activeRole || "").toUpperCase();
   return role.startsWith("ADMIN") || role.startsWith("PROMOTER");
-}
-
-function isSecretaryRole(activeRole) {
-  const role = String(activeRole || "").toUpperCase();
-  return role.startsWith("SECRETARY");
 }
 
 function fullName(student) {

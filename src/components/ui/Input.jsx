@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Input({
+const Input = React.forwardRef(function Input({
   label,
   type = 'text',
   value,
@@ -9,11 +9,12 @@ export default function Input({
   className = '',
   name,
   ...rest
-}) {
+}, ref) {
   return (
     <div className={`flex flex-col space-y-1 ${className}`}>
       {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
       <input
+        ref={ref}
         type={type}
         name={name}
         value={value}
@@ -24,4 +25,6 @@ export default function Input({
       />
     </div>
   );
-}
+});
+
+export default Input;

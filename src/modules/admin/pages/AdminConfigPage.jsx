@@ -5,6 +5,7 @@ import CyclesSection from "../components/CyclesSection";
 import ClassroomsSection from "../components/ClassroomsSection";
 import BillingConceptsSection from "../components/BillingConceptsSection";
 import BillingScheduleTable from "../components/BillingScheduleTable";
+import AttendancePolicySection from "../components/AttendancePolicySection";
 import { roleCanManageAdminSettings } from "../utils/permissions";
 
 export default function AdminConfigPage() {
@@ -18,6 +19,7 @@ export default function AdminConfigPage() {
       <ClassroomsSection canAccess={canAccess} />
       <BillingConceptsSection canAccess={canAccess} />
       <BillingScheduleTable canAccess={canAccess} />
+      <AttendancePolicySection canAccess={canAccess} />
     </div>
   );
 }

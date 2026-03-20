@@ -12,7 +12,8 @@ import {
 import { ROUTES } from "../../../config/routes";
 
 const isAdmin = (r) => String(r || "").toUpperCase() === "ADMIN";
-const isSecretary = (r) => ["SECRETARY", "SECRETARY_VIEWER", "AUXILIAR"].includes(String(r || "").toUpperCase());
+const isSecretary = (r) => ["SECRETARY", "SECRETARY_VIEWER"].includes(String(r || "").toUpperCase());
+const isAuxiliar = (r) => String(r || "").toUpperCase() === "AUXILIAR";
 const isDirector = (r) => String(r || "").toUpperCase() === "DIRECTOR";
 const isPromoter = (r) => String(r || "").toUpperCase() === "PROMOTER";
 
@@ -54,6 +55,30 @@ export function getNavItemsByRole(activeRole) {
         label: "Pagos",
         description: "Cobros y pensiones",
         icon: CreditCard,
+      },
+    ];
+  }
+
+  if (isAuxiliar(role)) {
+    return [
+      ...base,
+      {
+        to: ROUTES.dashboardAttendance,
+        label: "Asistencia",
+        description: "Preparar y tomar asistencia",
+        icon: ClipboardList,
+      },
+      {
+        to: ROUTES.dashboardAttendanceJustifications,
+        label: "Justificaciones",
+        description: "Tardanzas y faltas",
+        icon: Users,
+      },
+      {
+        to: ROUTES.dashboardAttendanceReports,
+        label: "Reportes",
+        description: "Consulta y seguimiento",
+        icon: GraduationCap,
       },
     ];
   }

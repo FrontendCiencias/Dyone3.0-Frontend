@@ -6,6 +6,11 @@ export const ROUTES = {
   dashboard: "/dashboard",
 
   // Dashboard subroutes
+  dashboardAttendance: "/dashboard/attendance",
+  dashboardAttendanceIntake: "/dashboard/attendance/intake",
+  dashboardAttendanceTake: (sessionId = ":sessionId") => `/dashboard/attendance/intake/${sessionId}`,
+  dashboardAttendanceJustifications: "/dashboard/attendance/justifications",
+  dashboardAttendanceReports: "/dashboard/attendance/reports",
   dashboardStudents: "/dashboard/students",
   dashboardStudentsPrintCards: "/dashboard/students/print-cards",
   dashboardStudentsPrintCardsPreview: "/dashboard/students/print-cards/preview",

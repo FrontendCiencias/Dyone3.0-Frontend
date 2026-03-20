@@ -51,3 +51,15 @@ export async function getAdminModels() {
   const response = await axiosInstance.get(API_ROUTES.adminModels);
   return response.data;
 }
+
+export async function getAttendancePolicy({ campusId, cycleId, level }) {
+  const response = await axiosInstance.get(API_ROUTES.adminAttendancePolicy, {
+    params: { campusId, cycleId, level },
+  });
+  return response.data;
+}
+
+export async function upsertAttendancePolicy(payload) {
+  const response = await axiosInstance.put(API_ROUTES.adminAttendancePolicy, payload);
+  return response.data;
+}
