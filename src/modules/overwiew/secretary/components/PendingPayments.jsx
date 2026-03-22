@@ -103,7 +103,7 @@ export default function PendingPayments({ data = {} }) {
 
         <div className="space-y-2">
           <div className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">
-            Familias con mayor deuda
+            Alumnos con mayor deuda
           </div>
           {topDebtors.length ? (
             <div className="space-y-2">

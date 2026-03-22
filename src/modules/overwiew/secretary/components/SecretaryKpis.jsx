@@ -52,7 +52,7 @@ export default function SecretaryKpis({ data, activeCampus }) {
         icon={CircleAlert}
         label="Pendientes abiertos"
         value={summary.openIssues}
-        hint={`Sin familia ${critical.studentsWithoutFamilyCount || 0} · Incompletos ${critical.incompleteStudentsCount || 0}`}
+        hint={`Sin tutores ${critical.studentsWithoutTutorsCount || 0} · Incompletos ${critical.incompleteStudentsCount || 0}`}
         accent={theme}
       />
       <KpiCard

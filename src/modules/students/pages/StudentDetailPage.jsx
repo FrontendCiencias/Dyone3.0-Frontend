@@ -76,7 +76,7 @@ export default function StudentDetailPage() {
   const detail = detailQuery.data || {};
 
   const student = detail.student || {};
-  const familyLink = detail.familyLink || {};
+  const tutorLink = detail.tutorLink || detail.familyLink || {};
   const enrollmentStatus = detail.enrollmentStatus || {};
   const debtsSummary = detail.debtsSummary || {};
   const enrollment = detail.enrollment || {};
@@ -104,28 +104,17 @@ export default function StudentDetailPage() {
   }, [classroomOptionsQuery.data]);
 
   const tutors = useMemo(() => {
-    const primaryTutor = familyLink?.primaryTutor_send
-      ? { ...familyLink.primaryTutor_send, isPrimary: true }
+    const primaryTutorBase = tutorLink?.primaryTutor || tutorLink?.primaryTutor_send;
+    const primaryTutor = primaryTutorBase
+      ? { ...primaryTutorBase, isPrimary: true }
       : null;
-    const others = Array.isArray(familyLink?.otherTutors_send) ? familyLink.otherTutors_send : [];
+    const others = Array.isArray(tutorLink?.otherTutors)
+      ? tutorLink.otherTutors
+      : Array.isArray(tutorLink?.otherTutors_send)
+        ? tutorLink.otherTutors_send
+        : [];
     return [primaryTutor, ...others].filter(Boolean);
-  }, [familyLink]);
-
-  const familyId = useMemo(() => {
-    const candidates = [
-      detail?.familyId,
-      detail?.family?.id,
-      detail?.family?._id,
-      familyLink?.familyId,
-      familyLink?.id,
-      familyLink?._id,
-      familyLink?.family?.id,
-      familyLink?.family?._id,
-    ];
-
-    const match = candidates.find((value) => String(value || "").trim());
-    return match ? String(match).trim() : "";
-  }, [detail, familyLink]);
+  }, [tutorLink]);
 
   const billingConcepts = useMemo(() => {
     const rows = Array.isArray(billingConceptsQuery.data)

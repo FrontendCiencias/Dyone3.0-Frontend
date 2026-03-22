@@ -80,7 +80,7 @@ export async function createStudentIntake(payload) {
   const res = await axiosInstance.post(endpoint, payload);
   logResponse(endpoint, res.status, {
     studentId: res.data?.studentId || res.data?.student?.id || null,
-    familyId: res.data?.familyId || res.data?.family?.id || null,
+    tutorIds: Array.isArray(res.data?.tutorIds) ? res.data.tutorIds.length : 0,
   });
   return res.data;
 }
@@ -120,13 +120,6 @@ export async function getClassroomCapacity(classroomId) {
   const res = await axiosInstance.get(endpoint);
   logResponse(endpoint, res.status, res.data);
 
-  return res.data;
-}
-
-export async function createEnrollment(payload) {
-  logRequest(API_ROUTES.enrollments, "POST", payload);
-  const res = await axiosInstance.post(API_ROUTES.enrollments, payload);
-  logResponse(API_ROUTES.enrollments, res.status, res.data);
   return res.data;
 }
 

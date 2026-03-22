@@ -105,6 +105,7 @@ function buildContractPayload({ activeCampus, students, tutors, observations }) 
     campus: activeCampus || "",
     city: "Majes",
     generatedAt: new Date().toISOString(),
+    tutorContext: { address: observations.address || "" },
     family: { address: observations.address || "" },
     tutors: tutors
       .filter((tutor) => tutor.includeInContract)
@@ -419,8 +420,13 @@ export default function MatriculasV2Page() {
     studentsDraft.forEach((student) => {
       if (student.mode !== "existing" || !student.existingStudentId) return;
       const summary = studentSummaryMap.get(student.existingStudentId);
-      const primaryTutor = summary?.familyLink?.primaryTutor_send;
-      const otherTutors = Array.isArray(summary?.familyLink?.otherTutors_send) ? summary.familyLink.otherTutors_send : [];
+      const tutorLink = summary?.tutorLink || summary?.familyLink || {};
+      const primaryTutor = tutorLink?.primaryTutor || tutorLink?.primaryTutor_send;
+      const otherTutors = Array.isArray(tutorLink?.otherTutors)
+        ? tutorLink.otherTutors
+        : Array.isArray(tutorLink?.otherTutors_send)
+          ? tutorLink.otherTutors_send
+          : [];
       [primaryTutor, ...otherTutors].filter(Boolean).forEach((tutor) => {
         suggestedTutors.push({
           localId: `suggested-${student.existingStudentId}-${tutor.dni || tutor.phone || tutor.names}`,

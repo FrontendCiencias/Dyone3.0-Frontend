@@ -33,7 +33,7 @@ function getTutorLine(tutor) {
 
 function normalizeContractData(raw) {
   const items = Array.isArray(raw?.items) ? raw.items : [];
-  const family = raw?.family || {};
+  const tutorContext = raw?.tutorContext || raw?.family || {};
   const tutors = (Array.isArray(raw?.tutors) ? raw.tutors : []).map(getTutorLine);
 
   const students = items.map((item) => {
@@ -76,7 +76,7 @@ function normalizeContractData(raw) {
     campus: raw?.campus || "",
     city: raw?.city || "Majes",
     generatedAt: raw?.generatedAt || new Date().toISOString(),
-    familyAddress: family?.address || family?.addressLine || "",
+    familyAddress: tutorContext?.address || tutorContext?.addressLine || "",
     tutors,
     students,
     rights,

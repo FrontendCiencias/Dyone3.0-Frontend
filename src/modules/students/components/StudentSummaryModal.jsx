@@ -32,9 +32,15 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
 
   const summary = summaryQuery.data || {};
   const student = summary.student || {};
-  const familyLink = summary.familyLink || {};
+  const tutorLink = summary.tutorLink || summary.familyLink || {};
   const enrollmentStatus = summary.enrollmentStatus || {};
   const debtsSummary = summary.debtsSummary || {};
+  const primaryTutor = tutorLink?.primaryTutor || tutorLink?.primaryTutor_send || null;
+  const otherTutors = Array.isArray(tutorLink?.otherTutors)
+    ? tutorLink.otherTutors
+    : Array.isArray(tutorLink?.otherTutors_send)
+      ? tutorLink.otherTutors_send
+      : [];
 
 
   if (!open) return null;
@@ -109,7 +115,7 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
             </section>
 
             <section className="rounded-lg border bg-gray-50 p-4">
-              <h4 className="mb-3 text-sm font-semibold text-gray-900">Familia</h4>
+              <h4 className="mb-3 text-sm font-semibold text-gray-900">Tutores relacionados</h4>
 
               <div className="rounded-md bg-white p-3 text-sm text-gray-700">
                 <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -121,41 +127,41 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
                 <div className="grid gap-2 px-4 text-sm text-gray-700 md:grid-cols-2">
                   <p>
                     <span className="font-medium">Relación:</span>{" "}
-                    {familyLink?.primaryTutor_send?.relationship || "-"}
+                    {primaryTutor?.relationship || "-"}
                   </p>
                   <p>
                     <span className="font-medium">Apellidos y nombres:</span>{" "}
-                    {`${familyLink?.primaryTutor_send?.lastNames || ""}, ${familyLink?.primaryTutor_send?.names || ""}`
+                    {`${primaryTutor?.lastNames || ""}, ${primaryTutor?.names || ""}`
                       .replace(/^,\s*/, "")
                       .trim() || "-"}
                   </p>
 
                   <p>
                     <span className="font-medium">Celular/es:</span>{" "}
-                    {(familyLink?.primaryTutor_send?.phones?.length
-                      ? familyLink.primaryTutor_send.phones.filter(Boolean).join(" - ")
-                      : familyLink?.primaryTutor_send?.phone) || "-"}
+                    {(primaryTutor?.phones?.length
+                      ? primaryTutor.phones.filter(Boolean).join(" - ")
+                      : primaryTutor?.phone) || "-"}
                   </p>
 
                   <p>
                     <span className="font-medium">Vive con el estudiante:</span>{" "}
-                    {familyLink?.primaryTutor_send?.livesWithStudent === true
+                    {primaryTutor?.livesWithStudent === true
                       ? "Sí"
-                      : familyLink?.primaryTutor_send?.livesWithStudent === false
+                      : primaryTutor?.livesWithStudent === false
                       ? "No"
                       : "-"}
                   </p>
                 </div>
               </div>
 
-              {familyLink?.otherTutors_send?.length > 0 && (
+              {otherTutors.length > 0 && (
                 <div className="mt-4 space-y-3">
                   <hr className="border-gray-200" />
                   <h5 className="text-xs font-semibold uppercase text-gray-600">
                     Otros tutores
                   </h5>
 
-                  {familyLink.otherTutors_send.map((tutor, index) => (
+                  {otherTutors.map((tutor, index) => (
                     <div
                       key={`${tutor._id || "tutor"}-${index}`}
                       className="rounded-md bg-white p-3 text-sm text-gray-700"
@@ -169,27 +175,27 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
                       <div className="grid gap-2 px-4 text-sm text-gray-700 md:grid-cols-2">
                         <p>
                           <span className="font-medium">Relación:</span>{" "}
-                          {familyLink?.primaryTutor_send?.relationship || "-"}
+                          {tutor?.relationship || "-"}
                         </p>
                         <p>
                           <span className="font-medium">Apellidos y nombres:</span>{" "}
-                          {`${familyLink?.primaryTutor_send?.lastNames || ""}, ${familyLink?.primaryTutor_send?.names || ""}`
+                          {`${tutor?.lastNames || ""}, ${tutor?.names || ""}`
                             .replace(/^,\s*/, "")
                             .trim() || "-"}
                         </p>
 
                         <p>
                           <span className="font-medium">Celular/es:</span>{" "}
-                          {(familyLink?.primaryTutor_send?.phones?.length
-                            ? familyLink.primaryTutor_send.phones.filter(Boolean).join(" - ")
-                            : familyLink?.primaryTutor_send?.phone) || "-"}
+                          {(tutor?.phones?.length
+                            ? tutor.phones.filter(Boolean).join(" - ")
+                            : tutor?.phone) || "-"}
                         </p>
 
                         <p>
                           <span className="font-medium">Vive con el estudiante:</span>{" "}
-                          {familyLink?.primaryTutor_send?.livesWithStudent === true
+                          {tutor?.livesWithStudent === true
                             ? "Sí"
-                            : familyLink?.primaryTutor_send?.livesWithStudent === false
+                            : tutor?.livesWithStudent === false
                             ? "No"
                             : "-"}
                         </p>

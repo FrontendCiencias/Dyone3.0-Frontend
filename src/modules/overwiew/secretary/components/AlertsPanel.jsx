@@ -45,7 +45,7 @@ function SectionBlock({ title, emptyText, children }) {
 export default function AlertsPanel({ data = {} }) {
   const navigate = useNavigate();
   const critical = data?.critical || {};
-  const studentsWithoutFamily = Array.isArray(data?.studentsWithoutFamily) ? data.studentsWithoutFamily.slice(0, 3) : [];
+  const studentsWithoutTutors = Array.isArray(data?.studentsWithoutTutors) ? data.studentsWithoutTutors.slice(0, 3) : [];
   const incompleteStudents = Array.isArray(data?.incompleteStudents) ? data.incompleteStudents.slice(0, 3) : [];
 
   return (
@@ -68,8 +68,8 @@ export default function AlertsPanel({ data = {} }) {
         <div className="grid grid-cols-2 gap-3">
           <SummaryTile
             icon={UsersRound}
-            label="Sin familia"
-            value={critical.studentsWithoutFamilyCount}
+            label="Sin tutores"
+            value={critical.studentsWithoutTutorsCount}
           />
           <SummaryTile
             icon={FileWarning}
@@ -89,12 +89,12 @@ export default function AlertsPanel({ data = {} }) {
         </div>
 
         <SectionBlock
-          title="Alumnos sin familia vinculada"
-          emptyText="No hay alumnos pendientes de vincular a una familia."
+          title="Alumnos sin tutores relacionados"
+          emptyText="No hay alumnos pendientes de vincular a tutores."
         >
-          {studentsWithoutFamily.length ? (
+          {studentsWithoutTutors.length ? (
             <div className="space-y-2">
-              {studentsWithoutFamily.map((item) => (
+              {studentsWithoutTutors.map((item) => (
                 <StudentRow
                   key={item.studentId}
                   item={item}
