@@ -350,7 +350,7 @@ export default function StudentsPage() {
             </SecondaryButton>
             <SecondaryButton
               className="w-full md:w-auto"
-              onClick={() => navigate(ROUTES.dashboardEnrollmentCaseNew)}
+              onClick={() => navigate(ROUTES.dashboardEnrollmentNew)}
             >
               + Nuevo alumno
             </SecondaryButton>

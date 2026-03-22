@@ -2,7 +2,6 @@
 import {
   LayoutDashboard,
   ClipboardList,
-  Users,
   CreditCard,
   Settings2,
   Code2,
@@ -43,12 +42,6 @@ export function getNavItemsByRole(activeRole) {
         label: "Matrículas",
         description: "Registrar y gestionar",
         icon: ClipboardList,
-      },
-      {
-        to: ROUTES.dashboardFamilies,
-        label: "Familias",
-        description: "Padres y tutores",
-        icon: Users,
       },
       {
         to: ROUTES.dashboardPayments,
@@ -114,7 +107,7 @@ export function getNavItemsByRole(activeRole) {
         to: ROUTES.dashboardPlaceholder,
         label: "Prospectos",
         description: "Captación y pipeline",
-        icon: Users,
+        icon: ClipboardList,
       },
     ];
   }
@@ -127,12 +120,6 @@ export function getNavItemsByRole(activeRole) {
         label: "Alumnos",
         description: "Búsqueda global",
         icon: GraduationCap,
-      },
-      {
-        to: ROUTES.dashboardFamilies,
-        label: "Familias",
-        description: "Padres y tutores",
-        icon: Users,
       },
       {
         to: ROUTES.dashboardPayments,

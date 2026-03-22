@@ -55,6 +55,7 @@ function mapEnrollmentItem(item) {
   const enrollmentId = item?.enrollmentId || item?.id || item?.enrollment?.id || null;
   const studentId = student?.id || student?._id || item?.studentId || null;
   const status = normalizeStatus(item?.status || item?.enrollmentStatus || item?.enrollment?.status);
+  const campus = item?.campus || null;
 
   return {
     mode: "board",
@@ -63,6 +64,13 @@ function mapEnrollmentItem(item) {
     studentId,
     student,
     status,
+    campus: typeof campus === "string"
+      ? { code: campus, name: campus }
+      : {
+        id: campus?.id || campus?._id || null,
+        code: campus?.code || null,
+        name: campus?.name || campus?.code || null,
+      },
     classroom: item?.classroom?.displayName || item?.classroomName || item?.classroomLabel || "-",
     cycle: item?.cycle?.name || item?.cycleName || "-",
     confirmedAt: item?.confirmedAt || item?.enrollment?.confirmedAt || null,
@@ -174,6 +182,7 @@ export default function EnrollmentsPage() {
         studentId,
         student,
         status,
+        campus: enrollmentStatus?.campus || null,
         classroom: enrollmentStatus?.classroomName || enrollmentStatus?.classroom?.displayName || student?.classroomLabel || "-",
         cycle: enrollmentStatus?.cycleName || enrollmentStatus?.cycle?.name || student?.cycle || "-",
         confirmedAt: enrollment?.confirmedAt || null,
@@ -218,7 +227,7 @@ export default function EnrollmentsPage() {
             <h1 className="text-xl font-semibold text-gray-900">Matrículas</h1>
             <p className="mt-1 text-sm text-gray-600">Tablero operativo de matrícula para seguimiento administrativo.</p>
           </div>
-          <Button onClick={() => navigate(ROUTES.dashboardEnrollmentCaseNew)}>Nueva Matrícula</Button>
+          <Button onClick={() => navigate(ROUTES.dashboardEnrollmentNew)}>Nueva Matrícula</Button>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-12 md:items-end">
@@ -282,6 +291,7 @@ export default function EnrollmentsPage() {
                   </p>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClasses(row.status)}`}>{statusLabel(row.status)}</span>
+                    {row.campus?.code || row.campus?.name ? <span>Campus: {row.campus?.name || row.campus?.code}</span> : null}
                     <span>Aula: {row.classroom}</span>
                     <span>Ciclo: {row.cycle}</span>
                     {row.confirmedAt && <span>Confirmada: {String(row.confirmedAt).slice(0, 10)}</span>}

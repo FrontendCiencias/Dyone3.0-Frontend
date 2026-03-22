@@ -250,7 +250,7 @@ export default function FamilyDetailPage() {
         <div className="flex flex-wrap gap-2">
           <SecondaryButton onClick={() => setLinkOpen(true)}>Vincular alumno existente</SecondaryButton>
           <SecondaryButton onClick={() => setCreateTutorOpen(true)} disabled={!studentCodes.length} title={!studentCodes.length ? "La familia no tiene alumnos con código disponible." : undefined}>Crear tutor</SecondaryButton>
-          <SecondaryButton onClick={() => navigate(ROUTES.dashboardEnrollmentCaseNew, { state: { prefillFamily: familyData, familyId: getFamilyIdLabel(familyData) } })}>Crear alumno e iniciar matrícula</SecondaryButton>
+          <SecondaryButton onClick={() => navigate(ROUTES.dashboardEnrollmentNew, { state: { prefillFamily: familyData, familyId: getFamilyIdLabel(familyData) } })}>Crear alumno e iniciar matrícula</SecondaryButton>
         </div>
       </Card>
 

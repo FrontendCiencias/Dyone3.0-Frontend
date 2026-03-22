@@ -27,6 +27,41 @@ export async function createEnrollment(payload) {
   return res.data;
 }
 
+export async function finalizeEnrollment(payload) {
+  logRequest(API_ROUTES.enrollmentFinalize, "POST", payload);
+  try {
+    const res = await axiosInstance.post(API_ROUTES.enrollmentFinalize, payload);
+    logResponse(API_ROUTES.enrollmentFinalize, res.status, res.data);
+    return res.data;
+  } catch (error) {
+    console.error("[Enrollments][Finalize][ERROR]", {
+      endpoint: API_ROUTES.enrollmentFinalize,
+      payload,
+      status: error?.response?.status,
+      data: error?.response?.data,
+      message: error?.message,
+    });
+    throw error;
+  }
+}
+
+export async function searchTutorsForEnrollments({ q, limit = 8 }) {
+  const normalizedQuery = String(q || "").trim();
+  if (normalizedQuery.length < 2) {
+    return { items: [], total: 0 };
+  }
+
+  const params = { q: normalizedQuery, limit };
+  logRequest(API_ROUTES.tutorsSearch, "GET", params);
+
+  const res = await axiosInstance.get(API_ROUTES.tutorsSearch, { params });
+  logResponse(API_ROUTES.tutorsSearch, res.status, {
+    count: Array.isArray(res.data?.items) ? res.data.items.length : 0,
+  });
+
+  return res.data;
+}
+
 export async function searchEnrollmentIntake({ q = "", campusScope }) {
   const normalizedQuery = String(q || "").trim();
   if (normalizedQuery.length < 2) return { items: [] };
@@ -89,38 +124,5 @@ export async function searchStudentsForEnrollments({ q, limit = 20 }) {
     count: Array.isArray(res.data?.items) ? res.data.items.length : 0,
   });
 
-  return res.data;
-}
-
-
-export async function createEnrollmentCaseDraft(payload) {
-  logRequest(API_ROUTES.enrollmentCases, "POST", payload);
-  const res = await axiosInstance.post(API_ROUTES.enrollmentCases, payload);
-  logResponse(API_ROUTES.enrollmentCases, res.status, res.data);
-  return res.data;
-}
-
-export async function updateEnrollmentCaseDraft(caseId, payload) {
-  const endpoint = API_ROUTES.enrollmentCaseDetail(caseId);
-  logRequest(endpoint, "PATCH", payload);
-  const res = await axiosInstance.patch(endpoint, payload);
-  logResponse(endpoint, res.status, res.data);
-  return res.data;
-}
-
-export async function confirmEnrollmentCase(caseId, payload = {}) {
-  const endpoint = API_ROUTES.enrollmentCaseConfirm(caseId);
-  logRequest(endpoint, "POST", payload);
-  const res = await axiosInstance.post(endpoint, payload);
-  logResponse(endpoint, res.status, res.data);
-  return res.data;
-}
-
-
-export async function removeEnrollmentCaseStudent({ caseId, enrollmentStudentId }) {
-  const endpoint = API_ROUTES.enrollmentCaseRemoveStudent(caseId, enrollmentStudentId);
-  logRequest(endpoint, "DELETE", {});
-  const res = await axiosInstance.delete(endpoint);
-  logResponse(endpoint, res.status, res.data);
   return res.data;
 }

@@ -14,11 +14,8 @@ import StudentsPage from "../modules/students/pages/StudentsPage";
 import StudentDetailPage from "../modules/students/pages/StudentDetailPage";
 import StudentPrintCardsPage from "../modules/students/pages/StudentPrintCardsPage";
 import StudentPrintCardsPreviewPage from "../modules/students/pages/StudentPrintCardsPreviewPage";
-import FamiliesPage from "../modules/families/pages/FamiliesPage";
-import FamilyDetailPage from "../modules/families/pages/FamilyDetailPage";
-import FamiliesNewPage from "../modules/families/pages/FamiliesNewPage";
 import EnrollmentsPage from "../modules/enrollments/pages/EnrollmentsPage";
-import EnrollmentCaseCreatePage from "../modules/enrollments/pages/EnrollmentCaseCreatePage";
+import MatriculasV2Page from "../modules/enrollments/pages/MatriculasV2Page";
 import EnrollmentContractPreviewPage from "../modules/enrollments/pages/EnrollmentContractPreviewPage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
 import PaymentStudentDetailPage from "../modules/payments/pages/PaymentStudentDetailPage";
@@ -105,14 +102,9 @@ export default function AppRoutes() {
               <Route path={ROUTES.dashboardStudentsPrintCards} element={<StudentPrintCardsPage />} />
               <Route path={ROUTES.dashboardStudentDetail()} element={<StudentDetailPage />} />
             </Route>
-            <Route element={<RoleRoute canAccess={canAccessFamilies} />}>
-              <Route path={ROUTES.dashboardFamilies} element={<FamiliesPage />} />
-              <Route path={ROUTES.dashboardFamilyNew} element={<FamiliesNewPage />} />
-              <Route path={ROUTES.dashboardFamilyDetail()} element={<FamilyDetailPage />} />
-            </Route>
             <Route element={<RoleRoute canAccess={canAccessEnrollments} />}>
               <Route path={ROUTES.dashboardEnrollments} element={<EnrollmentsPage />} />
-              <Route path={ROUTES.dashboardEnrollmentCaseNew} element={<EnrollmentCaseCreatePage />} />
+              <Route path={ROUTES.dashboardEnrollmentNew} element={<MatriculasV2Page />} />
             </Route>
             <Route element={<RoleRoute canAccess={canAccessPayments} />}>
               <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />

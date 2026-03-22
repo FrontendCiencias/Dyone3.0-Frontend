@@ -9,8 +9,6 @@ import { getNavItemsByRole } from "./config/navByRole";
 import { useAuth } from "../../lib/auth";
 import { ROUTES } from "../../config/routes";
 import { useStudentSummaryQuery } from "../students/hooks/useStudentSummaryQuery";
-import { useFamilyDetailQuery } from "../families/hooks/useFamilyDetailQuery";
-import { getPrimaryTutorDisplayName } from "../families/domain/familyDisplay";
 
 const PAGE_META = {
   dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del dia." },
@@ -27,8 +25,6 @@ const PAGE_META = {
   enrollments: { title: "Matriculas", description: "Monitorea y registra el flujo de matriculas." },
   enrollmentNew: { title: "Nueva Matricula", description: "Monitorea y registra el flujo de matriculas." },
   payments: { title: "Pagos", description: "Controla cobros, vencimientos y estado de pagos." },
-  families: { title: "Familias", description: "Gestiona tutores y relacion familiar de alumnos." },
-  familyDetail: { title: "Ficha de familia", description: "Revisa tutores e hijos vinculados de la familia." },
   notFound: { title: "Pagina no encontrada", description: "La ruta no existe en el panel." },
 };
 
@@ -45,11 +41,9 @@ function resolvePageKey(pathname) {
   if (pathname.startsWith(ROUTES.dashboardStudents)) return "students";
   if (pathname.startsWith(ROUTES.dashboardAdminDev)) return "adminDev";
   if (pathname.startsWith(ROUTES.dashboardAdminSettings) || pathname === ROUTES.dashboardAdmin) return "adminSettings";
-  if (pathname === ROUTES.dashboardEnrollmentCaseNew) return "enrollmentNew";
+  if (pathname === ROUTES.dashboardEnrollmentNew) return "enrollmentNew";
   if (pathname.startsWith(ROUTES.dashboardEnrollments)) return "enrollments";
   if (pathname.startsWith(ROUTES.dashboardPayments)) return "payments";
-  if (/^\/dashboard\/families\/[^/]+$/.test(pathname)) return "familyDetail";
-  if (pathname.startsWith(ROUTES.dashboardFamilies)) return "families";
   if (pathname.startsWith("/dashboard/")) return "notFound";
   return "dashboard";
 }
@@ -104,21 +98,7 @@ export default function DashboardShell() {
     pageKey === "studentDetail" || pageKey === "paymentDetail",
   );
 
-  const familyId = useMemo(() => {
-    const match = (location.pathname || "").match(/^\/dashboard\/families\/([^/]+)$/);
-    return match?.[1] || null;
-  }, [location.pathname]);
-  const familyDetailQuery = useFamilyDetailQuery(familyId, pageKey === "familyDetail");
-
   const pageMeta = useMemo(() => {
-    if (pageKey === "familyDetail") {
-      const familyLabel = familyDetailQuery.isLoading ? "Familia..." : getPrimaryTutorDisplayName(familyDetailQuery.data);
-      return {
-        title: `Familia: ${familyLabel}`,
-        description: PAGE_META.familyDetail.description,
-      };
-    }
-
     if (pageKey !== "studentDetail" && pageKey !== "paymentDetail") {
       return PAGE_META[pageKey] || PAGE_META.dashboard;
     }
@@ -131,19 +111,9 @@ export default function DashboardShell() {
       title: pageKey === "paymentDetail" ? `Detalle de pagos: ${label}` : `Expediente: ${label}`,
       description: pageKey === "paymentDetail" ? PAGE_META.paymentDetail.description : PAGE_META.studentDetail.description,
     };
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyDetailQuery.isLoading, familyDetailQuery.data]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
 
   const breadcrumbItems = useMemo(() => {
-    if (pageKey === "familyDetail") {
-      const label = familyDetailQuery.isLoading ? "Familia..." : getPrimaryTutorDisplayName(familyDetailQuery.data);
-
-      return [
-        { label: "Inicio", to: ROUTES.dashboard },
-        { label: "Familias", to: ROUTES.dashboardFamilies },
-        { label },
-      ];
-    }
-
     if (pageKey === "adminSettings") {
       return [
         { label: "Inicio", to: ROUTES.dashboard },
@@ -220,7 +190,7 @@ export default function DashboardShell() {
       { label: "Alumnos", to: ROUTES.dashboardStudents },
       { label },
     ];
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, familyDetailQuery.isLoading, familyDetailQuery.data]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
 
   const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
 

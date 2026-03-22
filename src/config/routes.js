@@ -16,7 +16,7 @@ export const ROUTES = {
   dashboardStudentsPrintCardsPreview: "/dashboard/students/print-cards/preview",
   dashboardStudentDetail: (studentId = ":studentId") => `/dashboard/students/${studentId}`,
   dashboardEnrollments: "/dashboard/enrollments",
-  dashboardEnrollmentCaseNew: "/dashboard/enrollments/new",
+  dashboardEnrollmentNew: "/dashboard/enrollments/new",
   dashboardEnrollmentContractPreview: "/dashboard/enrollments/contract-preview",
   dashboardFamilies: "/dashboard/families",
   dashboardFamilyNew: "/dashboard/families/new",

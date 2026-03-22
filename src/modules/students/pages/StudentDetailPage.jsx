@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { useAuth } from "../../../lib/auth";
-import { ROUTES } from "../../../config/routes";
 import { useStudentDetailQuery } from "../hooks/useStudentDetailQuery";
 import { useClassroomOptionsQuery } from "../hooks/useClassroomOptionsQuery";
 import { useUpdateStudentCycleStatusMutation } from "../hooks/useUpdateStudentCycleStatusMutation";
@@ -61,7 +60,6 @@ const initialChargeForm = {
 };
 
 export default function StudentDetailPage() {
-  const navigate = useNavigate();
   const { activeRole } = useAuth();
   const { studentId } = useParams();
   const [activeEditor, setActiveEditor] = useState(null);
@@ -266,7 +264,7 @@ export default function StudentDetailPage() {
       <Card className="border border-red-100">
         <p className="text-sm text-red-700">{getErrorMessage(detailQuery.error, "No se pudo cargar el expediente del alumno.")}</p>
         <div className="mt-3">
-          <SecondaryButton onClick={() => navigate(ROUTES.dashboardStudents)}>Volver</SecondaryButton>
+          <SecondaryButton onClick={() => window.history.back()}>Volver</SecondaryButton>
         </div>
       </Card>
     );
@@ -280,7 +278,7 @@ export default function StudentDetailPage() {
         classroom={enrollmentStatus.classroom || null}
         studentCode={student?.internalCode}
         studentDocument={student?.dni}
-        onGoBack={() => navigate(ROUTES.dashboardStudents)}
+        onGoBack={() => window.history.back()}
       />
 
       <div className=" h-[56.5vh] overflow-y-auto grid gap-4 lg:grid-cols-12">
@@ -293,12 +291,6 @@ export default function StudentDetailPage() {
 
           <StudentFamilyCard
             tutors={tutors}
-            disabled={!familyId}
-            onManage={() => {
-              if (!familyId) return;
-              navigate(ROUTES.dashboardFamilyDetail(familyId));
-            }}
-            manageDisabledReason={!familyId ? "Sin familia vinculada para gestionar." : ""}
           />
 
           <Card className="border border-gray-200 shadow-sm">

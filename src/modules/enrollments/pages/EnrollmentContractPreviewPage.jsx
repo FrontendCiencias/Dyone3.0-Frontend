@@ -24,41 +24,51 @@ function splitNames(fullName) {
 function getTutorLine(tutor) {
   const person = tutor?.tutorPerson || tutor?.person || {};
   return {
-    fullName: [person?.names, person?.lastNames].filter(Boolean).join(" ") || "",
+    fullName: [person?.names, person?.lastNames].filter(Boolean).join(" ").trim(),
     dni: person?.dni || "",
     phone: person?.phone || "",
+    relationship: tutor?.relationship || "Apoderado",
   };
 }
 
 function normalizeContractData(raw) {
   const items = Array.isArray(raw?.items) ? raw.items : [];
   const family = raw?.family || {};
-  const tutors = Array.isArray(raw?.tutors) ? raw.tutors : [];
-  const firstTutor = getTutorLine(tutors[0]);
-  const secondTutor = getTutorLine(tutors[1]);
+  const tutors = (Array.isArray(raw?.tutors) ? raw.tutors : []).map(getTutorLine);
 
   const students = items.map((item) => {
     const parsed = splitNames(item?.fullName);
+    const pensionMonthlyAmounts = Array.isArray(item?.pensionMonthlyAmounts)
+      ? item.pensionMonthlyAmounts.map((amount) => Number(amount || 0))
+      : Array(10).fill(0);
+
     return {
       paternalLastName: parsed.paternalLastName,
       maternalLastName: parsed.maternalLastName,
       names: parsed.names,
+      fullName: item?.fullName || "",
       grade: item?.grade || "",
       level: item?.level || "",
       dni: item?.dni || "",
+      campusCode: item?.campusCode || "",
+      classroomLabel: item?.classroomLabel || "",
+      previousSchoolType: item?.previousSchoolType || "",
+      previousSchoolName: item?.previousSchoolName || "",
+      admissionFeeAmount: item?.admissionFee?.applies && !item?.admissionFee?.isExempt ? Number(item?.admissionFee?.amount || 0) : 0,
+      enrollmentFeeAmount: !item?.enrollmentFee?.isExempt ? Number(item?.enrollmentFee?.amount || 0) : 0,
+      pensionMonthlyAmounts,
+      pensionMonthlyReference: pensionMonthlyAmounts.length ? Math.max(...pensionMonthlyAmounts) : 0,
     };
   });
 
-  const rights = items.reduce((acc, item) => acc + (item?.admissionFee?.applies && !item?.admissionFee?.isExempt ? Number(item?.admissionFee?.amount || 0) : 0), 0);
-  const enrollment = items.reduce((acc, item) => acc + (!item?.enrollmentFee?.isExempt ? Number(item?.enrollmentFee?.amount || 0) : 0), 0);
-
-  const pensionByMonth = items.reduce((acc, item) => {
-    (Array.isArray(item?.pensionMonthlyAmounts) ? item.pensionMonthlyAmounts : []).forEach((amount, idx) => {
+  const rights = students.reduce((acc, item) => acc + Number(item.admissionFeeAmount || 0), 0);
+  const enrollment = students.reduce((acc, item) => acc + Number(item.enrollmentFeeAmount || 0), 0);
+  const pensionByMonth = students.reduce((acc, item) => {
+    item.pensionMonthlyAmounts.forEach((amount, idx) => {
       acc[idx] = Number(acc[idx] || 0) + Number(amount || 0);
     });
     return acc;
   }, Array(10).fill(0));
-
   const pensionMonthly = pensionByMonth.length ? Math.max(...pensionByMonth) : 0;
 
   return {
@@ -67,13 +77,13 @@ function normalizeContractData(raw) {
     city: raw?.city || "Majes",
     generatedAt: raw?.generatedAt || new Date().toISOString(),
     familyAddress: family?.address || family?.addressLine || "",
-    firstTutor,
-    secondTutor,
+    tutors,
     students,
     rights,
     enrollment,
     pensionByMonth,
     pensionMonthly,
+    notes: raw?.payments?.notes || "",
   };
 }
 
@@ -160,16 +170,19 @@ export default function EnrollmentContractPreviewPage() {
           </header>
 
           <section className="mt-2 space-y-1">
-            <p>
-              YO, <span className="border-b border-dotted border-black px-1 font-medium">{contractData.firstTutor.fullName || "____________________________"}</span>,
-              padre de familia con DNI <span className="border-b border-dotted border-black px-1">{contractData.firstTutor.dni || "________"}</span>,
-              cel. <span className="border-b border-dotted border-black px-1">{contractData.firstTutor.phone || "________"}</span>.
-            </p>
-            <p>
-              Y DOÑA, <span className="border-b border-dotted border-black px-1 font-medium">{contractData.secondTutor.fullName || "____________________________"}</span>,
-              madre de familia con DNI <span className="border-b border-dotted border-black px-1">{contractData.secondTutor.dni || "________"}</span>,
-              cel. <span className="border-b border-dotted border-black px-1">{contractData.secondTutor.phone || "________"}</span>.
-            </p>
+            <p className="font-semibold">Tutores firmantes</p>
+            {contractData.tutors.length ? contractData.tutors.map((tutor, index) => (
+              <p key={`tutor-line-${index}`}>
+                <span className="font-medium">{tutor.relationship || "Apoderado"}:</span>{" "}
+                <span className="border-b border-dotted border-black px-1 font-medium">
+                  {tutor.fullName || "____________________________"}
+                </span>
+                {" · "}DNI <span className="border-b border-dotted border-black px-1">{tutor.dni || "________"}</span>
+                {" · "}Cel. <span className="border-b border-dotted border-black px-1">{tutor.phone || "________"}</span>
+              </p>
+            )) : (
+              <p>_______________________________________________</p>
+            )}
             <p>
               Domiciliados en <span className="border-b border-dotted border-black px-1">{contractData.familyAddress || "_______________________________________________"}</span>.
             </p>
@@ -178,7 +191,7 @@ export default function EnrollmentContractPreviewPage() {
           <section className="mt-2">
             <p>
               Celebramos este contrato de servicio de enseñanza con la I.E.P. CIENCIAS, representado por su promotor/director,
-              matriculando a nuestro(s) hijo(s) para el año académico vigente.
+              matriculando a nuestros estudiantes para el año académico vigente.
             </p>
           </section>
 
@@ -205,24 +218,18 @@ export default function EnrollmentContractPreviewPage() {
                     <td className="border border-black px-1 py-0.5 text-center">{student.dni || " "}</td>
                   </tr>
                 ))}
-                {Array.from({ length: Math.max(0, 3 - contractData.students.length) }).map((_, idx) => (
-                  <tr key={`empty-student-row-${idx}`}>
-                    {Array.from({ length: 6 }).map((__, cidx) => <td key={`empty-${idx}-${cidx}`} className="border border-black px-1 py-0.5">&nbsp;</td>)}
-                  </tr>
-                ))}
               </tbody>
             </table>
           </section>
 
           <section className="mt-2 text-[10.2px]">
-            <p className="font-semibold">Asumiendo los siguientes compromisos, ambos padres de familia:</p>
+            <p className="font-semibold">Asumiendo los siguientes compromisos:</p>
             <ol className="mt-1 list-decimal space-y-0.5 pl-5">
               <li>Todo alumno debe estar ASEGURADO (SIS, EsSalud u otro seguro privado) para cualquier emergencia, presentando constancia física en matrícula.</li>
-              <li>Este año es de DISCIPLINA y responsabilidad; el alumno debe estudiar y cumplir tareas, y los padres reforzar valores de respeto, obediencia y lealtad.</li>
+              <li>Este año es de DISCIPLINA y responsabilidad; el alumno debe estudiar y cumplir tareas, y los tutores reforzar valores de respeto, obediencia y lealtad.</li>
               <li>Pagaremos puntualmente las pensiones hasta el día 30 de cada mes; en caso de retraso, asumimos la mora correspondiente.</li>
               <li>Asistiremos a todas las reuniones programadas y, de faltar, asumiremos la penalidad establecida por la institución.</li>
               <li>Respetamos el reglamento interno y nos comprometemos al buen uso de recursos, evitando responsabilizar al colegio por pérdidas no autorizadas.</li>
-              <li>Para nivel inicial y primaria, las loncheras deben ingresar con el alumno en el horario de ingreso.</li>
               <li>Nos comprometemos a apoyar el proceso educativo de nuestros menores, atendiendo llamadas y seguimiento académico permanente.</li>
               <li>Autorizamos a la I.E.P. el uso institucional de imágenes y material audiovisual del menor para fines educativos e informativos.</li>
             </ol>
@@ -252,6 +259,55 @@ export default function EnrollmentContractPreviewPage() {
             </table>
           </section>
 
+          <section className="mt-3 space-y-3 text-[10px]">
+            <p className="font-semibold">Detalle económico por alumno</p>
+            {contractData.students.map((student, studentIndex) => (
+              <div key={`student-payment-${studentIndex}`} className="break-inside-avoid rounded border border-black p-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{student.fullName || "Alumno"}</p>
+                    <p className="text-[9.5px]">
+                      {student.level || "-"} · {student.grade || "-"} · {student.classroomLabel || "Sin salón"} · {student.campusCode || "Sin campus"}
+                    </p>
+                    <p className="text-[9.5px]">
+                      Procedencia: {student.previousSchoolType === "OTHER" ? (student.previousSchoolName || "Otro colegio") : (student.previousSchoolType || "-")}
+                    </p>
+                  </div>
+                  <div className="text-right text-[9.5px]">
+                    <p>Derecho de ingreso: <span className="font-semibold">{formatMoney(student.admissionFeeAmount)}</span></p>
+                    <p>Matrícula: <span className="font-semibold">{formatMoney(student.enrollmentFeeAmount)}</span></p>
+                    <p>Pensión referencial: <span className="font-semibold">{formatMoney(student.pensionMonthlyReference)}</span></p>
+                  </div>
+                </div>
+                <table className="mt-2 w-full border-collapse text-[9.3px]">
+                  <thead>
+                    <tr>
+                      {MONTHS.map((month) => (
+                        <th key={`student-${studentIndex}-${month}`} className="border border-black px-1 py-0.5 text-center">{month.toUpperCase()}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {student.pensionMonthlyAmounts.map((amount, idx) => (
+                        <td key={`student-${studentIndex}-amount-${idx}`} className="border border-black px-1 py-1 text-center">
+                          {amount ? formatMoney(amount) : "-"}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </section>
+
+          {contractData.notes ? (
+            <section className="mt-2 text-[10.2px]">
+              <p className="font-semibold">Observaciones</p>
+              <p className="mt-1">{contractData.notes}</p>
+            </section>
+          ) : null}
+
           <section className="mt-2 text-[10.2px]">
             <p>
               Aclaramos que la vigencia del presente contrato es desde marzo hasta diciembre del año académico, tiempo en el cual buscamos alcanzar los fines educativos institucionales.
@@ -267,17 +323,15 @@ export default function EnrollmentContractPreviewPage() {
             </p>
           </section>
 
-          <footer className="mt-3 grid grid-cols-3 gap-3 text-center text-[10.2px]">
-            <div>
-              <p className="mx-auto w-[90%] border-t border-black pt-0.5">{contractData.firstTutor.fullName || " "}</p>
-              <p>DNI: {contractData.firstTutor.dni || "________"}</p>
-              <p className="font-semibold">PADRE DE FAMILIA</p>
-            </div>
-            <div>
-              <p className="mx-auto w-[90%] border-t border-black pt-0.5">{contractData.secondTutor.fullName || " "}</p>
-              <p>DNI: {contractData.secondTutor.dni || "________"}</p>
-              <p className="font-semibold">MADRE DE FAMILIA</p>
-            </div>
+          <footer className="mt-4 grid grid-cols-2 gap-4 text-center text-[10.2px]">
+            {contractData.tutors.map((tutor, index) => (
+              <div key={`signature-tutor-${index}`}>
+                <p className="mx-auto w-[90%] border-t border-black pt-0.5">{tutor.fullName || " "}</p>
+                <p>DNI: {tutor.dni || "________"}</p>
+                <p>Cel.: {tutor.phone || "________"}</p>
+                <p className="font-semibold">{String(tutor.relationship || "Apoderado").toUpperCase()}</p>
+              </div>
+            ))}
             <div>
               <p className="mx-auto w-[90%] border-t border-black pt-0.5">Mg. Juan Mesías Arizmendi Ortega</p>
               <p>DNI: 06811045</p>

@@ -38,6 +38,7 @@ export const API_ROUTES = {
   studentsUnassigned: "/api/students/unassigned",
   studentsUnassignedSearch: "/api/students/unassigned/search",
   createTutor: "/api/tutors",
+  tutorsSearch: "/api/tutors/search",
   tutorById: (id) => `/api/tutors/${id}`,
   personById: (id) => `/api/people/${id}`,
 
@@ -50,19 +51,11 @@ export const API_ROUTES = {
   familyUnlinkStudent: (familyId) => `/api/families/${familyId}/unlink-student`,
 
   enrollments: "/api/enrollments",
+  enrollmentFinalize: "/api/enrollments/finalize",
   enrollmentsList: "/api/enrollments",
   enrollmentDetail: (id) => `/api/enrollments/${id}`,
   enrollmentClassroomCapacity: (classroomId) => `/api/enrollments/classrooms/${classroomId}/capacity`,
-  enrollmentCases: "/api/enrollment-cases",
   enrollmentIntakeSearch: "/api/enrollments/intake-search",
-  // TODO (backend): implement EnrollmentCase draft flow (create/list/detail) with fields: id, campusId/campusCode, cycleId, status, familyId, enrollmentStudents[].
-  enrollmentCaseDetail: (id) => `/api/enrollment-cases/${id}`,
-  enrollmentCaseConfirm: (id) => `/api/enrollment-cases/${id}/confirm`,
-  // TODO (backend): confirm should return updated case + summary { studentsConfirmedCount, chargesCreatedCount }.
-  enrollmentCaseAddStudent: (id) => `/api/enrollment-cases/${id}/students`,
-  enrollmentCaseUpdateStudent: (caseId, esId) => `/api/enrollment-cases/${caseId}/students/${esId}`,
-  enrollmentCaseSetFamily: (id) => `/api/enrollment-cases/${id}/family`,
-  enrollmentCaseRemoveStudent: (caseId, esId) => `/api/enrollment-cases/${caseId}/students/${esId}`,
   charges: "/api/charges",
   chargeDetail: (id) => `/api/charges/${id}`,
   paymentsCreate: "/api/payments",
