@@ -27,7 +27,7 @@ function formatMethod(value) {
   return value || "-";
 }
 
-export default function PaymentDetailModal({ open, onClose, student, payment }) {
+export default function PaymentDetailModal({ open, onClose, student, payment, canCorrect = false, onOpenCorrect = null }) {
   const allocations = Array.isArray(payment?.allocations) ? payment.allocations : [];
 
   return (
@@ -39,6 +39,9 @@ export default function PaymentDetailModal({ open, onClose, student, payment }) 
       footer={
         <div className="flex justify-end gap-2">
           <SecondaryButton onClick={onClose}>Cerrar</SecondaryButton>
+          {canCorrect ? (
+            <SecondaryButton onClick={onOpenCorrect}>Corregir recibo</SecondaryButton>
+          ) : null}
           <Button
             onClick={() =>
               printPaymentReceipt({
@@ -60,6 +63,9 @@ export default function PaymentDetailModal({ open, onClose, student, payment }) 
             </p>
             <p className="mt-2">
               <strong>Recibo fisico:</strong> {payment?.receiptNumber || "-"}
+            </p>
+            <p className="mt-2">
+              <strong>Voucher / operación:</strong> {payment?.voucherNumber || "-"}
             </p>
             <p className="mt-2">
               <strong>Fecha:</strong> {formatDate(payment?.date || payment?.paidAt)}

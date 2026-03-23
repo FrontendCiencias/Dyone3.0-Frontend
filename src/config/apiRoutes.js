@@ -50,6 +50,7 @@ export const API_ROUTES = {
   charges: "/api/charges",
   chargeDetail: (id) => `/api/charges/${id}`,
   paymentsCreate: "/api/payments",
+  paymentReceiptCorrection: (id) => `/api/payments/${id}/receipt`,
   paymentsDebtors: "/api/payments/debtors",
   paymentsDebtorsSearch: "/api/payments/debtors/search",
   payments: "/api/payments",

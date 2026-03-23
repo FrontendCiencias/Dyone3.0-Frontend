@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import { useAuth } from "../../../lib/auth";
 import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQuery";
 import CreateChargeModal from "../../students/components/detail/modals/CreateChargeModal";
 import { useCreateStudentChargeMutation } from "../../students/hooks/useCreateStudentChargeMutation";
@@ -12,6 +13,8 @@ import { useStudentAccountStatementQuery } from "../hooks/useStudentAccountState
 import PaymentAllocationDrawer from "../components/PaymentAllocationDrawer";
 import PaymentDetailModal from "../components/PaymentDetailModal";
 import EditChargeModal from "../components/EditChargeModal";
+import CorrectPaymentReceiptModal from "../components/CorrectPaymentReceiptModal";
+import { useUpdatePaymentReceiptMutation } from "../hooks/useUpdatePaymentReceiptMutation";
 
 function formatMoney(value) {
   const amount = Number(value || 0);
@@ -60,9 +63,11 @@ const initialChargeForm = {
 export default function PaymentStudentDetailPage() {
   const navigate = useNavigate();
   const { studentId } = useParams();
+  const { activeRole } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedCharges, setSelectedCharges] = useState({});
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [correctPaymentOpen, setCorrectPaymentOpen] = useState(false);
   const [createChargeOpen, setCreateChargeOpen] = useState(false);
   const [editingCharge, setEditingCharge] = useState(null);
   const [chargeForm, setChargeForm] = useState(initialChargeForm);
@@ -71,6 +76,7 @@ export default function PaymentStudentDetailPage() {
   const createChargeMutation = useCreateStudentChargeMutation(studentId);
   const updateChargeMutation = useUpdateStudentChargeMutation(studentId);
   const deleteChargeMutation = useDeleteStudentChargeMutation(studentId);
+  const updatePaymentReceiptMutation = useUpdatePaymentReceiptMutation(studentId);
 
   const account = accountQuery.data || {};
   const charges = Array.isArray(account.charges) ? account.charges : [];
@@ -91,6 +97,7 @@ export default function PaymentStudentDetailPage() {
     [charges, selectedCharges],
   );
   const showDrawer = drawerOpen && selectedChargeRows.length > 0;
+  const canCorrectReceipt = String(activeRole || "").toUpperCase().startsWith("SECRETARY");
 
   useEffect(() => {
     if (!selectedChargeRows.length) {
@@ -177,6 +184,30 @@ export default function PaymentStudentDetailPage() {
     await deleteChargeMutation.mutateAsync({
       chargeId: editingCharge.id,
     });
+  };
+
+  const handleCorrectPayment = async (formValues) => {
+    if (!selectedPayment?.id) return;
+
+    const updated = await updatePaymentReceiptMutation.mutateAsync({
+      paymentId: selectedPayment.id,
+      payload: {
+        method: formValues.method,
+        receiptNumber: String(formValues.receiptNumber || "").trim() || undefined,
+        voucherNumber: String(formValues.voucherNumber || "").trim() || undefined,
+        notes: String(formValues.notes || "").trim() || undefined,
+        correctionReason: String(formValues.correctionReason || "").trim(),
+      },
+    });
+
+    setSelectedPayment((prev) => ({
+      ...(prev || {}),
+      method: updated?.method || formValues.method,
+      receiptNumber: updated?.receiptNumber ?? (String(formValues.receiptNumber || "").trim() || null),
+      voucherNumber: updated?.voucherNumber ?? (String(formValues.voucherNumber || "").trim() || null),
+      note: updated?.notes ?? (String(formValues.notes || "").trim() || null),
+    }));
+    setCorrectPaymentOpen(false);
   };
 
   return (
@@ -356,6 +387,21 @@ export default function PaymentStudentDetailPage() {
           code: student.code,
         }}
         payment={selectedPayment}
+        canCorrect={canCorrectReceipt}
+        onOpenCorrect={() => setCorrectPaymentOpen(true)}
+      />
+
+      <CorrectPaymentReceiptModal
+        open={Boolean(selectedPayment) && correctPaymentOpen}
+        onClose={() => {
+          updatePaymentReceiptMutation.reset();
+          setCorrectPaymentOpen(false);
+        }}
+        payment={selectedPayment}
+        onSave={handleCorrectPayment}
+        isPending={updatePaymentReceiptMutation.isPending}
+        isSuccess={updatePaymentReceiptMutation.isSuccess}
+        error={updatePaymentReceiptMutation.error}
       />
 
       <CreateChargeModal

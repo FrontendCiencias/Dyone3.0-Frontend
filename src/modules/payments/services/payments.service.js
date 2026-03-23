@@ -44,6 +44,14 @@ export async function createPayment(payload) {
   return res.data;
 }
 
+export async function updatePaymentReceipt(paymentId, payload) {
+  const endpoint = API_ROUTES.paymentReceiptCorrection(paymentId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
 export async function getStudentAccountStatement(studentId) {
   const endpoint = API_ROUTES.studentAccountStatement(studentId);
   logRequest(endpoint, "GET", {});
