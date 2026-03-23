@@ -32,8 +32,8 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
 
   const summary = summaryQuery.data || {};
   const student = summary.student || {};
-  const familyLink = summary.familyLink || {};
-  const enrollmentStatus = summary.enrollmentStatus || {};
+  const familyLink = summary.tutorLink || {};
+  const enrollmentStatus = summary.currentEnrollment || {};
   const debtsSummary = summary.debtsSummary || {};
 
 
@@ -97,10 +97,10 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
               <h4 className="mb-2 text-sm font-semibold text-gray-900">Estado matrícula</h4>
               <div className="grid gap-2 px-4 text-sm text-gray-700 md:grid-cols-3">
                 <p>
-                  <span className="font-medium">Ciclo:</span> {enrollmentStatus.cycleName || enrollmentStatus.cycle?.name || "-"}
+                  <span className="font-medium">Ciclo:</span> {enrollmentStatus.cycleName || "-"}
                 </p>
                 <p>
-                  <span className="font-medium">Aula:</span> {enrollmentStatus.classroomName || enrollmentStatus.classroom?.displayName || "-"}
+                  <span className="font-medium">Aula:</span> {enrollmentStatus.classroom?.displayName || "-"}
                 </p>
                 <p>
                   <span className="font-medium">Estado:</span> {enrollmentStatus.status || "-"}

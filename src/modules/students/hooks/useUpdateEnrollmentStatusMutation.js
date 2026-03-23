@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateStudentCycleStatus } from "../services/students.service";
+import { updateEnrollmentStatus } from "../services/students.service";
 
-export function useUpdateStudentCycleStatusMutation(studentId) {
+export function useUpdateEnrollmentStatusMutation(studentId, enrollmentId) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload) => updateStudentCycleStatus(studentId, payload),
+    mutationFn: (payload) => updateEnrollmentStatus(enrollmentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["students", "summary", studentId] });
       queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });

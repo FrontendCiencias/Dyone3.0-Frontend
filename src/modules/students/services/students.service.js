@@ -102,17 +102,6 @@ export async function getClassroomOptions({ level, grade, campus, includeCapacit
   return res.data;
 }
 
-export async function getStudentCycleStatus(studentId, { cycleId } = {}) {
-  const endpoint = API_ROUTES.studentCycleStatus(studentId);
-  const params = {};
-  if (cycleId) params.cycleId = cycleId;
-
-  logRequest(endpoint, "GET", params);
-  const res = await axiosInstance.get(endpoint, { params });
-  logResponse(endpoint, res.status, res.data);
-  return res.data;
-}
-
 export async function getClassroomCapacity(classroomId) {
   const endpoint = API_ROUTES.enrollmentClassroomCapacity(classroomId);
 
@@ -130,8 +119,8 @@ export async function createEnrollment(payload) {
   return res.data;
 }
 
-export async function updateStudentCycleStatus(studentId, payload) {
-  const endpoint = API_ROUTES.studentCycleStatus(studentId);
+export async function updateEnrollmentStatus(enrollmentId, payload) {
+  const endpoint = API_ROUTES.enrollmentStatus(enrollmentId);
   logRequest(endpoint, "PATCH", payload);
   const res = await axiosInstance.patch(endpoint, payload);
   logResponse(endpoint, res.status, res.data);

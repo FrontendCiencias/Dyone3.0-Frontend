@@ -5,7 +5,7 @@ import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { useAuth } from "../../../lib/auth";
 import { useStudentDetailQuery } from "../hooks/useStudentDetailQuery";
 import { useClassroomOptionsQuery } from "../hooks/useClassroomOptionsQuery";
-import { useUpdateStudentCycleStatusMutation } from "../hooks/useUpdateStudentCycleStatusMutation";
+import { useUpdateEnrollmentStatusMutation } from "../hooks/useUpdateEnrollmentStatusMutation";
 import { useChangeStudentClassroomMutation } from "../hooks/useChangeStudentClassroomMutation";
 import { useCreateStudentChargeMutation } from "../hooks/useCreateStudentChargeMutation";
 import { useUpdateStudentIdentityMutation } from "../hooks/useUpdateStudentIdentityMutation";
@@ -76,24 +76,23 @@ export default function StudentDetailPage() {
   const detail = detailQuery.data || {};
 
   const student = detail.student || {};
-  const familyLink = detail.familyLink || {};
-  const enrollmentStatus = detail.enrollmentStatus || {};
+  const familyLink = detail.tutorLink || {};
+  const enrollmentStatus = detail.currentEnrollment || {};
   const debtsSummary = detail.debtsSummary || {};
-  const enrollment = detail.enrollment || {};
 
-  const status = safeUpper(enrollmentStatus?.cycle?.status || "?");
+  const status = safeUpper(enrollmentStatus?.status || "?");
   const internalNotes = detail.internalNotes || student.internalNotes || "";
 
   const billingConceptsQuery = useBillingConceptsQuery();
 
-  const transferMutation = useUpdateStudentCycleStatusMutation(studentId);
+  const transferMutation = useUpdateEnrollmentStatusMutation(studentId, enrollmentStatus?.id);
   const changeClassroomMutation = useChangeStudentClassroomMutation(studentId);
   const createChargeMutation = useCreateStudentChargeMutation(studentId);
   const updateIdentityMutation = useUpdateStudentIdentityMutation(studentId);
   const updateNotesMutation = useUpdateStudentInternalNotesMutation(studentId);
   const accountStatementQuery = useStudentAccountStatementQuery(studentId, true);
 
-  const currentClassroomId = enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollmentStatus?.classroom?._id || enrollment?.classroomId;
+  const currentClassroomId = enrollmentStatus?.classroomId || enrollmentStatus?.classroom?.id || enrollmentStatus?.classroom?._id;
   const classroomLevel = enrollmentStatus?.classroom?.level || student?.level;
   const classroomGrade = enrollmentStatus?.classroom?.grade || student?.grade;
   const classroomOptionsQuery = useClassroomOptionsQuery({ level: classroomLevel, grade: classroomGrade });
@@ -156,7 +155,7 @@ export default function StudentDetailPage() {
 
   const handleClassroomChange = async ({ classroomId, reason }) => {
     const targetClassroomId = String(classroomId || "").trim();
-    const cycleId = String(enrollmentStatus?.cycleId || enrollmentStatus?.cycle?.id || enrollment?.cycleId || "").trim();
+    const cycleId = String(enrollmentStatus?.cycleId || "").trim();
 
     if (!isObjectId(targetClassroomId)) {
       setClassroomChangeError("No se pudo identificar el aula seleccionada. Recargue e intente nuevamente.");
@@ -299,19 +298,19 @@ export default function StudentDetailPage() {
             </div>
             <div className="space-y-2 text-sm text-gray-700">
               <p>Estado del ciclo: <span className="font-medium">{status}</span></p>
-              <p>Aula actual: {enrollmentStatus.classroomName || enrollmentStatus.classroom?.displayName || "-"}</p>
-              <p>Ciclo actual: {enrollmentStatus.cycleName || enrollmentStatus.cycle?.name || "-"}</p>
-              <p>Enrollment ID: {enrollment?.id || "Sin enrollment"}</p>
+              <p>Aula actual: {enrollmentStatus.classroom?.displayName || "-"}</p>
+              <p>Ciclo actual: {enrollmentStatus.cycleName || "-"}</p>
+              <p>Enrollment ID: {enrollmentStatus?.id || "Sin enrollment"}</p>
             </div>
 
-            {!enrollment?.id ? (
+            {!enrollmentStatus?.id ? (
               <p className="mt-3 text-sm text-gray-600">Sin matrícula confirmada.</p>
             ) : (
               <div className="mt-3 space-y-2 text-sm text-gray-700">
-                <p>Pensión mensual: {formatMoney(enrollment?.monthlyFee || detail?.financial?.monthlyFee)}</p>
-                <p>Descuentos / exoneraciones: {enrollment?.discountsDescription || "-"}</p>
-                <p>Observaciones: {enrollment?.observations || "-"}</p>
-                <p>Fecha confirmación: {enrollment?.confirmedAt?.slice?.(0, 10) || "-"}</p>
+                <p>Pensión mensual: {formatMoney(detail?.financial?.monthlyFee)}</p>
+                <p>Observaciones: {enrollmentStatus?.notes || "-"}</p>
+                <p>Fecha confirmación: {enrollmentStatus?.confirmedAt?.slice?.(0, 10) || "-"}</p>
+                <p>Fecha traslado: {enrollmentStatus?.transferredAt?.slice?.(0, 10) || "-"}</p>
               </div>
             )}
           </Card>

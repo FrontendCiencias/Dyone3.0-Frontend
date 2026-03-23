@@ -11,14 +11,15 @@ export default function StudentPackageCard({ item, classroomOptions = [], onChoo
   const blocked = Boolean(item?.blockedReason);
   const summary = studentSummary?.data;
   const isSummaryLoading = Boolean(studentSummary?.isLoading);
+  const currentEnrollment = summary?.currentEnrollment || summary?.enrollmentStatus || {};
   const summaryClassroomLabel =
-    summary?.enrollmentStatus?.classroom?.displayName ||
-    summary?.enrollmentStatus?.classroom?.label ||
-    summary?.enrollmentStatus?.classroom?.name ||
+    currentEnrollment?.classroom?.displayName ||
+    currentEnrollment?.classroom?.label ||
+    currentEnrollment?.classroom?.name ||
     "";
   const currentCampusLabel =
-    summary?.enrollmentStatus?.campus?.name ||
-    summary?.enrollmentStatus?.campus?.code ||
+    currentEnrollment?.campus?.name ||
+    currentEnrollment?.campus?.code ||
     "";
   const previousCampus = summary?.student?.previousCampus;
   const admissionBlockedByCampus = INTERNAL_SCHOOLS.has(String(previousCampus || "").toUpperCase());
