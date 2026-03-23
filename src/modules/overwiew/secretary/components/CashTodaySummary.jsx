@@ -29,6 +29,13 @@ function methodIcon(method) {
   return Landmark;
 }
 
+function methodAccent(method) {
+  const normalized = String(method || "").toUpperCase();
+  if (normalized === "CASH") return "bg-emerald-50 text-emerald-700 border-emerald-100";
+  if (normalized === "YAPE") return "bg-sky-50 text-sky-700 border-sky-100";
+  return "bg-amber-50 text-amber-700 border-amber-100";
+}
+
 function SummaryCard({ label, value, hint, accent = "text-gray-900" }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-3">
@@ -51,6 +58,7 @@ export default function CashTodaySummary({ data = {} }) {
   const navigate = useNavigate();
   const categories = Array.isArray(data?.byCategory) ? data.byCategory : [];
   const recentPayments = Array.isArray(data?.recentPayments) ? data.recentPayments : [];
+  const totalsByMethod = Array.isArray(data?.totalsByMethod) ? data.totalsByMethod : [];
   const [expandedCategories, setExpandedCategories] = useState(() => new Set(categories.slice(0, 1).map((row) => row.category)));
 
   useEffect(() => {
@@ -111,6 +119,30 @@ export default function CashTodaySummary({ data = {} }) {
               hint="Conceptos con movimiento hoy"
             />
           </div>
+
+          {totalsByMethod.length ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {totalsByMethod.map((row) => {
+                const MethodIcon = methodIcon(row.method);
+                return (
+                  <div key={row.method} className={`rounded-2xl border px-4 py-3 ${methodAccent(row.method)}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-80">{row.label}</p>
+                        <p className="mt-2 text-2xl font-semibold tracking-tight">{formatMoney(row.totalAmount)}</p>
+                        <p className="mt-1 text-xs opacity-80">
+                          {row.paymentsCount} pago(s) · {row.share}% del día
+                        </p>
+                      </div>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/70">
+                        <MethodIcon className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
             <div className="space-y-3">
