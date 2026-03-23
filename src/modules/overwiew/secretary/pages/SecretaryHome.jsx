@@ -6,6 +6,7 @@ import SecretaryKpis from "../components/SecretaryKpis";
 import RecentEnrollments from "../components/RecentEnrollments";
 import PendingPayments from "../components/PendingPayments";
 import AlertsPanel from "../components/AlertsPanel";
+import CashTodaySummary from "../components/CashTodaySummary";
 
 function LoadingBlock() {
   return (
@@ -94,6 +95,8 @@ export default function SecretaryHome() {
       </section>
 
       <SecretaryKpis data={data} activeCampus={activeCampus} />
+
+      <CashTodaySummary data={data?.cashToday} />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div className="xl:col-span-5">
