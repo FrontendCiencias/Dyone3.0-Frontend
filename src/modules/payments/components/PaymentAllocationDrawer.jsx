@@ -12,7 +12,15 @@ function formatMoney(value) {
 }
 
 function todayDate() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function currentTimestamp() {
+  return new Date().toISOString();
 }
 
 function normalizeAmountInput(value) {
@@ -91,7 +99,7 @@ export default function PaymentAllocationDrawer({
     }
 
     setFormError("");
-    const effectivePaymentDate = useHistoricalReceipt ? paymentDate : todayDate();
+    const effectivePaymentDate = useHistoricalReceipt ? paymentDate : currentTimestamp();
     const result = await createPaymentMutation.mutateAsync({
       studentId: student.id,
       paidAt: effectivePaymentDate,

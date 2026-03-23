@@ -11,7 +11,15 @@ import { useStudentsSearchQuery } from "../../students/hooks/useStudentsSearchQu
 import { useCreatePaymentMutation } from "../hooks/useCreatePaymentMutation";
 
 function todayDate() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function currentTimestamp() {
+  return new Date().toISOString();
 }
 
 function getErrorMessage(error) {
@@ -108,10 +116,11 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
     setServerError("");
 
     try {
+      const shouldUseCurrentTimestamp = !receiptNumber.trim() && paymentDate === todayDate();
       await createPaymentMutation.mutateAsync({
         studentId,
         amount: parsedAmount,
-        paidAt: paymentDate,
+        paidAt: shouldUseCurrentTimestamp ? currentTimestamp() : paymentDate,
         method,
         receiptNumber: receiptNumber.trim() || undefined,
         notes: observation.trim() || undefined,
