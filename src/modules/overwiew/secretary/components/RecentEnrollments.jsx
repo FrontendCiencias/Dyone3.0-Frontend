@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowRight, CreditCard, GraduationCap, Home, Users } from "lucide-react";
+import { ArrowRight, CreditCard, GraduationCap, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../../../config/routes";
 import WidgetShell from "./WidgetShell";
@@ -22,7 +22,6 @@ function activityTypeLabel(type) {
 
 const quickActions = [
   { label: "Alumnos", to: ROUTES.dashboardStudents, icon: GraduationCap },
-  { label: "Familias", to: ROUTES.dashboardFamilies, icon: Users },
   { label: "Matrículas", to: ROUTES.dashboardEnrollments, icon: Home },
   { label: "Pagos", to: ROUTES.dashboardPayments, icon: CreditCard },
 ];

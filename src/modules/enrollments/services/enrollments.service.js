@@ -17,16 +17,6 @@ function logResponse(endpoint, status, dataSummary) {
   });
 }
 
-export async function createEnrollment(payload) {
-  logRequest(API_ROUTES.enrollments, "POST", payload);
-
-  const res = await axiosInstance.post(API_ROUTES.enrollments, payload);
-
-  logResponse(API_ROUTES.enrollments, res.status, res.data);
-
-  return res.data;
-}
-
 export async function finalizeEnrollment(payload) {
   logRequest(API_ROUTES.enrollmentFinalize, "POST", payload);
   try {
@@ -59,25 +49,6 @@ export async function searchTutorsForEnrollments({ q, limit = 8 }) {
     count: Array.isArray(res.data?.items) ? res.data.items.length : 0,
   });
 
-  return res.data;
-}
-
-export async function searchEnrollmentIntake({ q = "", campusScope }) {
-  const normalizedQuery = String(q || "").trim();
-  if (normalizedQuery.length < 2) return { items: [] };
-
-  const params = { q: normalizedQuery };
-  if (campusScope) params.campusScope = campusScope;
-
-  console.log("[NewEnrollment][Search]");
-  const res = await axiosInstance.get(API_ROUTES.enrollmentIntakeSearch, { params });
-  return res.data;
-}
-
-export async function getEnrollmentDetailById(id) {
-  const endpoint = API_ROUTES.enrollmentDetail(id);
-  console.log("[NewEnrollment][Draft]");
-  const res = await axiosInstance.get(endpoint);
   return res.data;
 }
 

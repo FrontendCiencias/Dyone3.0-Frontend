@@ -105,6 +105,7 @@ function buildContractPayload({ activeCampus, students, tutors, observations }) 
     campus: activeCampus || "",
     city: "Majes",
     generatedAt: new Date().toISOString(),
+    tutorContext: { address: observations.address || "" },
     family: { address: observations.address || "" },
     tutors: tutors
       .filter((tutor) => tutor.includeInContract)
@@ -347,10 +348,11 @@ export default function MatriculasV2Page() {
         const summary = studentSummaryMap.get(student.existingStudentId);
         if (!summary) return student;
 
-        const suggestedCampus = summary?.enrollmentStatus?.campus?.code || student.campusCode;
-        const suggestedLevel = summary?.enrollmentStatus?.classroom?.level || student.level;
-        const suggestedGrade = summary?.enrollmentStatus?.classroom?.grade || student.grade;
-        const suggestedClassroomId = summary?.enrollmentStatus?.classroom?.id || student.classroomId;
+        const currentEnrollment = summary?.currentEnrollment || summary?.enrollmentStatus || {};
+        const suggestedCampus = currentEnrollment?.campus?.code || student.campusCode;
+        const suggestedLevel = currentEnrollment?.classroom?.level || student.level;
+        const suggestedGrade = currentEnrollment?.classroom?.grade || student.grade;
+        const suggestedClassroomId = currentEnrollment?.classroom?.id || student.classroomId;
         const previousSchoolDraft = normalizePreviousSchoolDraft(summary?.student?.previousCampus);
 
         const nextStudent = {
@@ -420,8 +422,12 @@ export default function MatriculasV2Page() {
       if (student.mode !== "existing" || !student.existingStudentId) return;
       const summary = studentSummaryMap.get(student.existingStudentId);
       const tutorLink = summary?.tutorLink || summary?.familyLink || {};
-      const primaryTutor = tutorLink?.primaryTutor_send;
-      const otherTutors = Array.isArray(tutorLink?.otherTutors_send) ? tutorLink.otherTutors_send : [];
+      const primaryTutor = tutorLink?.primaryTutor || tutorLink?.primaryTutor_send;
+      const otherTutors = Array.isArray(tutorLink?.otherTutors)
+        ? tutorLink.otherTutors
+        : Array.isArray(tutorLink?.otherTutors_send)
+          ? tutorLink.otherTutors_send
+          : [];
       [primaryTutor, ...otherTutors].filter(Boolean).forEach((tutor) => {
         suggestedTutors.push({
           localId: `suggested-${student.existingStudentId}-${tutor.dni || tutor.phone || tutor.names}`,

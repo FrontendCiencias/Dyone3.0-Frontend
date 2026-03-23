@@ -7,7 +7,6 @@ const DEFAULT_LABELS = {
   dashboard: "Inicio",
   enrollments: "Matrículas",
   payments: "Pagos",
-  families: "Familias",
   students: "Alumnos",
   admin: "Administración",
   placeholder: "Módulo",

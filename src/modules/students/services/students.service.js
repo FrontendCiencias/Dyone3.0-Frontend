@@ -80,7 +80,7 @@ export async function createStudentIntake(payload) {
   const res = await axiosInstance.post(endpoint, payload);
   logResponse(endpoint, res.status, {
     studentId: res.data?.studentId || res.data?.student?.id || null,
-    familyId: res.data?.familyId || res.data?.family?.id || null,
+    tutorIds: Array.isArray(res.data?.tutorIds) ? res.data.tutorIds.length : 0,
   });
   return res.data;
 }
