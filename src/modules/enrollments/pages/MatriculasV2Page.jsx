@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQueries } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
@@ -154,18 +154,31 @@ function compactOptionalId(value) {
 }
 
 function normalizeStudentDni(value) {
-  return String(value || "").trim();
+  return String(value || "").replace(/\D/g, "").trim();
+}
+
+function sanitizeDniInput(value) {
+  return normalizeStudentDni(value).slice(0, 8);
+}
+
+function isValidDni(value) {
+  return normalizeStudentDni(value).length === 8;
 }
 
 function isStudentReady(student = {}) {
+  const requiresDni = student.mode === "existing" && !isValidDni(student.dni);
   return Boolean(
     !student.isBlocked
+    && !requiresDni
+    && String(student.names || "").trim()
+    && String(student.lastNames || "").trim()
     && student.previousSchoolType
     && (student.previousSchoolType !== "OTHER" || String(student.previousSchoolName || "").trim())
     && student.campusCode
     && student.level
     && student.grade
     && student.classroomId
+    && String(student.classroomLabel || "").trim()
   );
 }
 
@@ -182,6 +195,31 @@ function normalizePreviousSchoolDraft(previousCampus) {
     previousSchoolType: "OTHER",
     previousSchoolName: String(previousCampus || "").trim(),
   };
+}
+
+function isExistingStudentAlreadyEnrolled(student = {}) {
+  const directStatus = String(student?.enrollmentStatus || "").trim().toUpperCase();
+  const nestedStatus = String(
+    student?.currentEnrollment?.status
+    || student?.currentEnrollment?.enrollment?.status
+    || student?.enrollmentStatus?.status
+    || student?.enrollmentStatus?.cycle?.status
+    || ""
+  ).trim().toUpperCase();
+
+  return ["ENROLLED", "CONFIRMED"].includes(directStatus) || ["ENROLLED", "CONFIRMED"].includes(nestedStatus);
+}
+
+function isStudentSummaryAlreadyEnrolled(summary = {}) {
+  const currentStatus = String(
+    summary?.currentEnrollment?.status
+    || summary?.currentEnrollment?.enrollment?.status
+    || summary?.enrollmentStatus?.status
+    || summary?.enrollmentStatus?.cycle?.status
+    || ""
+  ).trim().toUpperCase();
+
+  return ["ENROLLED", "CONFIRMED"].includes(currentStatus);
 }
 
 export default function MatriculasV2Page() {
@@ -202,6 +240,28 @@ export default function MatriculasV2Page() {
   const [manualTutorErrors, setManualTutorErrors] = useState({});
   const [stepOneFlashIds, setStepOneFlashIds] = useState([]);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [personalEdit, setPersonalEdit] = useState({ open: false, localId: "", names: "", lastNames: "", dni: "", error: "" });
+  const [tutorEdit, setTutorEdit] = useState({
+    open: false,
+    localId: "",
+    names: "",
+    lastNames: "",
+    dni: "",
+    phone: "",
+    relationship: "Apoderado",
+    error: "",
+  });
+  const [academicEdit, setAcademicEdit] = useState({
+    open: false,
+    localId: "",
+    previousSchoolType: "OTHER",
+    previousSchoolName: "",
+    campusCode: "",
+    level: "",
+    grade: "",
+    classroomId: "",
+    error: "",
+  });
   const [studentSearch, setStudentSearch] = useState("");
   const [studentResults, setStudentResults] = useState([]);
   const [isSearchingStudents, setIsSearchingStudents] = useState(false);
@@ -213,14 +273,11 @@ export default function MatriculasV2Page() {
   const [manualTutor, setManualTutor] = useState(() => emptyTutorDraft());
   const [tutorsDraft, setTutorsDraft] = useState([]);
   const [observations, setObservations] = useState({ general: "", address: "" });
+  const [completedEnrollment, setCompletedEnrollment] = useState(null);
   const manualStudentDniRef = useRef(null);
   const manualTutorDniRef = useRef(null);
   const finalizeMutation = useMutation({
     mutationFn: finalizeEnrollment,
-    onSuccess: () => {
-      setStatusMessage("Matricula registrada correctamente.");
-      resetDraft();
-    },
     onError: (error) => {
       setStatusMessage(getErrorMessage(error, "No se pudo registrar la matrícula."));
     },
@@ -353,6 +410,7 @@ export default function MatriculasV2Page() {
         const suggestedLevel = currentEnrollment?.classroom?.level || student.level;
         const suggestedGrade = currentEnrollment?.classroom?.grade || student.grade;
         const suggestedClassroomId = currentEnrollment?.classroom?.id || student.classroomId;
+        const suggestedClassroomLabel = currentEnrollment?.classroom?.displayName || student.classroomLabel;
         const previousSchoolDraft = normalizePreviousSchoolDraft(summary?.student?.previousCampus);
 
         const nextStudent = {
@@ -361,6 +419,7 @@ export default function MatriculasV2Page() {
           level: suggestedLevel,
           grade: suggestedGrade,
           classroomId: suggestedClassroomId,
+          classroomLabel: suggestedClassroomLabel,
           previousSchoolType: previousSchoolDraft.previousSchoolType,
           previousSchoolName: previousSchoolDraft.previousSchoolName,
           inferredOnce: true,
@@ -371,6 +430,7 @@ export default function MatriculasV2Page() {
           || nextStudent.level !== student.level
           || nextStudent.grade !== student.grade
           || nextStudent.classroomId !== student.classroomId
+          || nextStudent.classroomLabel !== student.classroomLabel
           || nextStudent.previousSchoolType !== student.previousSchoolType
           || nextStudent.previousSchoolName !== student.previousSchoolName
         );
@@ -415,6 +475,53 @@ export default function MatriculasV2Page() {
     return map;
   }, [studentsDraft, classroomQueries]);
 
+  const academicClassroomOptionsQuery = useQuery({
+    queryKey: ["classroom-options", "matriculas-v2", "modal", academicEdit.campusCode, academicEdit.level, academicEdit.grade],
+    queryFn: () => getClassroomOptions({
+      level: academicEdit.level,
+      grade: academicEdit.grade,
+      campus: academicEdit.campusCode,
+      includeCapacity: true,
+    }),
+    enabled: academicEdit.open && Boolean(academicEdit.level && academicEdit.grade && academicEdit.campusCode),
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  const academicClassroomOptions = useMemo(() => {
+    const rows = Array.isArray(academicClassroomOptionsQuery.data?.items)
+      ? academicClassroomOptionsQuery.data.items
+      : Array.isArray(academicClassroomOptionsQuery.data)
+        ? academicClassroomOptionsQuery.data
+        : [];
+    return rows;
+  }, [academicClassroomOptionsQuery.data]);
+
+  const relatedTutorDniSet = useMemo(() => {
+    const dniSet = new Set();
+
+    studentsDraft.forEach((student) => {
+      if (student.mode !== "existing" || !student.existingStudentId) return;
+      const summary = studentSummaryMap.get(student.existingStudentId);
+      const tutorLink = summary?.tutorLink || summary?.familyLink || {};
+      const primaryTutor = tutorLink?.primaryTutor || tutorLink?.primaryTutor_send;
+      const otherTutors = Array.isArray(tutorLink?.otherTutors)
+        ? tutorLink.otherTutors
+        : Array.isArray(tutorLink?.otherTutors_send)
+          ? tutorLink.otherTutors_send
+          : [];
+
+      [primaryTutor, ...otherTutors]
+        .filter(Boolean)
+        .forEach((tutor) => {
+          const dni = normalizeStudentDni(tutor.dni);
+          if (dni) dniSet.add(dni);
+        });
+    });
+
+    return dniSet;
+  }, [studentSummaryMap, studentsDraft]);
+
   useEffect(() => {
     const suggestedTutors = [];
 
@@ -430,9 +537,10 @@ export default function MatriculasV2Page() {
           : [];
       [primaryTutor, ...otherTutors].filter(Boolean).forEach((tutor) => {
         suggestedTutors.push({
-          localId: `suggested-${student.existingStudentId}-${tutor.dni || tutor.phone || tutor.names}`,
+          localId: `suggested-${student.existingStudentId}-${tutor.personId || tutor.dni || tutor.phone || tutor.names}`,
           mode: "existing-related",
-          existingTutorId: "",
+          existingTutorId: tutor.personId || "",
+          personId: tutor.personId || "",
           relationship: tutor.relationship || "Apoderado",
           names: tutor.names || "",
           lastNames: tutor.lastNames || "",
@@ -492,30 +600,59 @@ export default function MatriculasV2Page() {
   const enabledTutorCount = tutorsDraft.filter((tutor) => tutor.includeInContract).length;
   const hasBlockedStudent = studentsDraft.some((student) => student.isBlocked);
   const hasStudentWithoutClassroom = studentsDraft.some((student) => !student.classroomId);
+  const hasContactAddress = Boolean(String(observations.address || "").trim());
   const incompleteStepOneStudentIds = studentsDraft
     .filter((student) => !isStudentReady(student))
     .map((student) => student.localId);
-  const canPreview = studentsDraft.length > 0 && enabledTutorCount > 0;
+  const canPreview = studentsDraft.length > 0 && enabledTutorCount > 0 && hasContactAddress;
   const canSubmit = Boolean(activeCycle?._id || activeCycle?.id)
     && studentsDraft.length > 0
     && enabledTutorCount > 0
     && !hasBlockedStudent
-    && !hasStudentWithoutClassroom;
+    && !hasStudentWithoutClassroom
+    && hasContactAddress;
   const canContinueFromStudents = studentsDraft.length > 0 && incompleteStepOneStudentIds.length === 0;
   const canContinueFromTutors = tutorsDraft.length > 0 && enabledTutorCount > 0;
 
-  function addExistingStudent(student) {
+  async function addExistingStudent(student) {
     const studentId = student.id || student._id;
     const studentDni = normalizeStudentDni(student.dni || student.personId?.dni);
     if (!studentId) return;
+    if (isExistingStudentAlreadyEnrolled(student)) {
+      setStatusMessage("Este alumno ya se matriculó y no puede volver a seleccionarse.");
+      setToast({ type: "error", message: "Este alumno ya se matriculó." });
+      return;
+    }
+    try {
+      const summary = await getStudentSummary(studentId);
+      if (isStudentSummaryAlreadyEnrolled(summary)) {
+        setStatusMessage("Este alumno ya se matriculó y no puede volver a seleccionarse.");
+        setToast({ type: "error", message: "Este alumno ya se matriculó." });
+        return;
+      }
+    } catch (error) {
+      setStatusMessage(getErrorMessage(error, "No se pudo validar el estado actual del alumno."));
+      setToast({ type: "error", message: "No se pudo validar si el alumno ya está matriculado." });
+      return;
+    }
     if (studentsDraft.some((row) => row.existingStudentId === studentId)) return;
+    if (studentDni && relatedTutorDniSet.has(studentDni)) {
+      setStatusMessage("Ese DNI ya pertenece a un tutor relacionado con los alumnos seleccionados.");
+      setToast({ type: "error", message: "El DNI ingresado ya pertenece a un tutor relacionado con esta matrícula." });
+      return;
+    }
+    if (studentDni && tutorsDraft.some((tutor) => normalizeStudentDni(tutor.dni) === studentDni)) {
+      setStatusMessage("Ese DNI ya fue usado por un tutor en esta matrícula.");
+      setToast({ type: "error", message: "El DNI ingresado ya pertenece a un tutor de esta matrícula." });
+      return;
+    }
     if (studentDni && studentsDraft.some((row) => normalizeStudentDni(row.dni) === studentDni)) {
       setStatusMessage("Ya existe un alumno con ese DNI en la matrícula.");
       setToast({ type: "error", message: "El DNI ya se encuentra en uso en esta matrícula." });
       return;
     }
 
-    const blocked = String(student.enrollmentStatus || "").toUpperCase() === "ENROLLED";
+    const blocked = isExistingStudentAlreadyEnrolled(student);
     setStudentsDraft((prev) => [
       ...prev,
       {
@@ -559,6 +696,29 @@ export default function MatriculasV2Page() {
     }
 
     const normalizedDni = normalizeStudentDni(manualStudent.dni);
+    if (manualStudent.dni && !isValidDni(manualStudent.dni)) {
+      setStatusMessage("El DNI del alumno debe tener 8 dígitos numéricos.");
+      setToast({ type: "error", message: "El DNI del alumno debe tener exactamente 8 números." });
+      setManualStudentErrors({ dni: "El DNI debe tener exactamente 8 números." });
+      manualStudentDniRef.current?.focus();
+      return;
+    }
+
+    if (normalizedDni && relatedTutorDniSet.has(normalizedDni)) {
+      setStatusMessage("Ese DNI ya pertenece a un tutor relacionado con los alumnos seleccionados.");
+      setToast({ type: "error", message: "El DNI ingresado ya pertenece a un tutor relacionado con esta matrícula." });
+      setManualStudentErrors({ dni: "Este DNI ya pertenece a un tutor relacionado con esta matrícula." });
+      manualStudentDniRef.current?.focus();
+      return;
+    }
+    if (normalizedDni && tutorsDraft.some((tutor) => normalizeStudentDni(tutor.dni) === normalizedDni)) {
+      setStatusMessage("Ese DNI ya fue usado por un tutor en esta matrícula.");
+      setToast({ type: "error", message: "El DNI ingresado ya pertenece a un tutor de esta matrícula." });
+      setManualStudentErrors({ dni: "Este DNI ya pertenece a un tutor de esta matrícula." });
+      manualStudentDniRef.current?.focus();
+      return;
+    }
+
     if (normalizedDni && studentsDraft.some((student) => normalizeStudentDni(student.dni) === normalizedDni)) {
       setStatusMessage("Ya existe un alumno con ese DNI en la matrícula.");
       setToast({ type: "error", message: "El DNI ya se encuentra en uso en esta matrícula." });
@@ -592,7 +752,58 @@ export default function MatriculasV2Page() {
     setStatusMessage("");
   }
 
+  function validateDraftStudentDni(localId, rawDni) {
+    const normalizedDni = normalizeStudentDni(rawDni);
+    if (!normalizedDni) return "";
+
+    const duplicatedStudent = studentsDraft.some((student) => (
+      student.localId !== localId && normalizeStudentDni(student.dni) === normalizedDni
+    ));
+    if (duplicatedStudent) {
+      return "Este DNI ya fue usado por otro alumno de esta matrícula.";
+    }
+
+    const duplicatedTutor = tutorsDraft.some((tutor) => normalizeStudentDni(tutor.dni) === normalizedDni);
+    if (duplicatedTutor) {
+      return "Este DNI ya pertenece a un tutor de esta matrícula.";
+    }
+
+    if (relatedTutorDniSet.has(normalizedDni)) {
+      return "Este DNI ya pertenece a un tutor relacionado con esta matrícula.";
+    }
+
+    return "";
+  }
+
+  function validateDraftTutorDni(localId, rawDni) {
+    const normalizedDni = normalizeStudentDni(rawDni);
+    if (!normalizedDni) return "";
+
+    const duplicatedStudent = studentsDraft.some((student) => normalizeStudentDni(student.dni) === normalizedDni);
+    if (duplicatedStudent) {
+      return "Este DNI ya pertenece a un alumno de esta matrícula.";
+    }
+
+    const duplicatedTutor = tutorsDraft.some((tutor) => (
+      tutor.localId !== localId && normalizeStudentDni(tutor.dni) === normalizedDni
+    ));
+    if (duplicatedTutor) {
+      return "Este DNI ya fue usado por otro tutor de esta matrícula.";
+    }
+
+    return "";
+  }
+
   function updateStudent(localId, patch) {
+    if (patch.dni !== undefined) {
+      const dniError = validateDraftStudentDni(localId, patch.dni);
+      if (dniError) {
+        setStatusMessage(dniError);
+        setToast({ type: "error", message: dniError });
+        return false;
+      }
+    }
+
     setStudentsDraft((prev) => prev.map((student) => {
       if (student.localId !== localId) return student;
       const next = { ...student, ...patch };
@@ -600,9 +811,11 @@ export default function MatriculasV2Page() {
         next.previousSchoolName = "";
       }
       if (patch.classroomId !== undefined) {
-        const classroomOptions = classroomOptionsByStudent.get(localId) || [];
-        const classroom = classroomOptions.find((row) => String(row.classroomId || row.id || row._id) === String(patch.classroomId));
-        next.classroomLabel = classroom?.label || classroom?.displayName || "";
+        if (patch.classroomLabel === undefined) {
+          const classroomOptions = classroomOptionsByStudent.get(localId) || [];
+          const classroom = classroomOptions.find((row) => String(row.classroomId || row.id || row._id) === String(patch.classroomId));
+          next.classroomLabel = classroom?.label || classroom?.displayName || "";
+        }
       }
       if (patch.previousSchoolType !== undefined && patch.previousSchoolType !== "OTHER") {
         next.amounts = {
@@ -612,6 +825,7 @@ export default function MatriculasV2Page() {
       }
       return next;
     }));
+    return true;
   }
 
   function updateStudentAmount(localId, field, value) {
@@ -662,6 +876,112 @@ export default function MatriculasV2Page() {
     })));
   }
 
+  function openPersonalEdit(student) {
+    setPersonalEdit({
+      open: true,
+      localId: student.localId,
+      names: student.names || "",
+      lastNames: student.lastNames || "",
+      dni: student.dni || "",
+      error: "",
+    });
+  }
+
+  function closePersonalEdit() {
+    setPersonalEdit({ open: false, localId: "", names: "", lastNames: "", dni: "", error: "" });
+  }
+
+  function savePersonalEdit() {
+    const names = String(personalEdit.names || "").trim();
+    const lastNames = String(personalEdit.lastNames || "").trim();
+    const dni = sanitizeDniInput(personalEdit.dni);
+
+    if (!names || !lastNames) {
+      setPersonalEdit((prev) => ({ ...prev, error: "Completa nombres y apellidos del alumno." }));
+      return;
+    }
+
+    if (!isValidDni(dni)) {
+      setPersonalEdit((prev) => ({ ...prev, error: "El DNI debe tener exactamente 8 números." }));
+      return;
+    }
+
+    const dniError = validateDraftStudentDni(personalEdit.localId, dni);
+    if (dniError) {
+      setPersonalEdit((prev) => ({ ...prev, error: dniError }));
+      return;
+    }
+
+    const didUpdate = updateStudent(personalEdit.localId, {
+      names,
+      lastNames,
+      fullName: `${lastNames}, ${names}`,
+      dni,
+    });
+
+    if (didUpdate !== false) {
+      closePersonalEdit();
+    }
+  }
+
+  function openAcademicEdit(student) {
+    setAcademicEdit({
+      open: true,
+      localId: student.localId,
+      previousSchoolType: student.previousSchoolType || "OTHER",
+      previousSchoolName: student.previousSchoolName || "",
+      campusCode: student.campusCode || "",
+      level: student.level || "",
+      grade: student.grade || "",
+      classroomId: student.classroomId || "",
+      error: "",
+    });
+  }
+
+  function closeAcademicEdit() {
+    setAcademicEdit({
+      open: false,
+      localId: "",
+      previousSchoolType: "OTHER",
+      previousSchoolName: "",
+      campusCode: "",
+      level: "",
+      grade: "",
+      classroomId: "",
+      error: "",
+    });
+  }
+
+  function saveAcademicEdit() {
+    if (!academicEdit.previousSchoolType) {
+      setAcademicEdit((prev) => ({ ...prev, error: "Selecciona la procedencia del alumno." }));
+      return;
+    }
+    if (academicEdit.previousSchoolType === "OTHER" && !String(academicEdit.previousSchoolName || "").trim()) {
+      setAcademicEdit((prev) => ({ ...prev, error: "Especifica el nombre del colegio de procedencia." }));
+      return;
+    }
+    if (!academicEdit.campusCode || !academicEdit.level || !academicEdit.grade || !academicEdit.classroomId) {
+      setAcademicEdit((prev) => ({ ...prev, error: "Completa campus, nivel, grado y salón." }));
+      return;
+    }
+
+    const classroom = academicClassroomOptions.find((row) => (
+      String(row.classroomId || row.id || row._id) === String(academicEdit.classroomId)
+    ));
+
+    updateStudent(academicEdit.localId, {
+      previousSchoolType: academicEdit.previousSchoolType,
+      previousSchoolName: academicEdit.previousSchoolType === "OTHER" ? academicEdit.previousSchoolName : "",
+      campusCode: academicEdit.campusCode,
+      level: academicEdit.level,
+      grade: academicEdit.grade,
+      classroomId: academicEdit.classroomId,
+      classroomLabel: classroom?.label || classroom?.displayName || "",
+    });
+    closeAcademicEdit();
+  }
+
   async function addManualTutor() {
     setManualTutorErrors({});
 
@@ -675,23 +995,55 @@ export default function MatriculasV2Page() {
     }
 
     const normalizedDni = normalizeStudentDni(manualTutor.dni);
-    if (normalizedDni && tutorsDraft.some((tutor) => normalizeStudentDni(tutor.dni) === normalizedDni)) {
-      setStatusMessage("Ya existe un tutor con ese DNI en la matrícula.");
-      setToast({ type: "error", message: "El DNI del tutor ya se encuentra en uso en esta matrícula." });
-      setManualTutorErrors({ dni: "Este DNI ya fue agregado en la matrícula." });
+    if (manualTutor.dni && !isValidDni(manualTutor.dni)) {
+      setStatusMessage("El DNI del tutor debe tener 8 dígitos numéricos.");
+      setToast({ type: "error", message: "El DNI del tutor debe tener exactamente 8 números." });
+      setManualTutorErrors({ dni: "El DNI debe tener exactamente 8 números." });
+      manualTutorDniRef.current?.focus();
+      return;
+    }
+
+    const draftDniError = validateDraftTutorDni("", normalizedDni);
+    if (draftDniError) {
+      setStatusMessage(draftDniError);
+      setToast({ type: "error", message: draftDniError });
+      setManualTutorErrors({ dni: draftDniError });
+      manualTutorDniRef.current?.focus();
+      return;
+    }
+
+    if (normalizedDni && relatedTutorDniSet.has(normalizedDni)) {
+      setStatusMessage("Ya existe un tutor relacionado con ese DNI en los alumnos seleccionados.");
+      setToast({ type: "error", message: "El DNI del tutor ya está relacionado con un alumno de esta matrícula." });
+      setManualTutorErrors({ dni: "Este DNI ya pertenece a un tutor relacionado con los alumnos seleccionados." });
       manualTutorDniRef.current?.focus();
       return;
     }
 
     if (normalizedDni) {
       try {
-        const response = await searchTutorsForEnrollments({ q: normalizedDni, limit: 5 });
-        const items = Array.isArray(response?.items) ? response.items : [];
-        const duplicatedInDb = items.some((tutor) => normalizeStudentDni(tutor.dni) === normalizedDni);
-        if (duplicatedInDb) {
+        const [tutorResponse, studentResponse] = await Promise.all([
+          searchTutorsForEnrollments({ q: normalizedDni, limit: 5 }),
+          searchStudents({ q: normalizedDni, limit: 5 }),
+        ]);
+
+        const tutorItems = Array.isArray(tutorResponse?.items) ? tutorResponse.items : [];
+        const studentItems = Array.isArray(studentResponse?.items) ? studentResponse.items : [];
+
+        const duplicatedTutorInDb = tutorItems.some((tutor) => normalizeStudentDni(tutor.dni) === normalizedDni);
+        if (duplicatedTutorInDb) {
           setStatusMessage("Ya existe un tutor registrado con ese DNI.");
           setToast({ type: "error", message: "El DNI del tutor ya se encuentra registrado en la base de datos." });
           setManualTutorErrors({ dni: "Este DNI ya está registrado en la base de datos." });
+          manualTutorDniRef.current?.focus();
+          return;
+        }
+
+        const duplicatedStudentInDb = studentItems.some((student) => normalizeStudentDni(student.dni || student.personId?.dni) === normalizedDni);
+        if (duplicatedStudentInDb) {
+          setStatusMessage("Ese DNI ya pertenece a un alumno registrado.");
+          setToast({ type: "error", message: "El DNI ingresado ya pertenece a un alumno y no puede usarse como tutor." });
+          setManualTutorErrors({ dni: "Este DNI ya pertenece a un alumno registrado." });
           manualTutorDniRef.current?.focus();
           return;
         }
@@ -714,6 +1066,13 @@ export default function MatriculasV2Page() {
   function addExistingTutor(tutor) {
     if (!studentsDraft.length) {
       setStatusMessage("Primero agrega al menos un alumno.");
+      return;
+    }
+
+    const normalizedDni = normalizeStudentDni(tutor.dni);
+    if (normalizedDni && studentsDraft.some((student) => normalizeStudentDni(student.dni) === normalizedDni)) {
+      setStatusMessage("Ese DNI ya fue usado por un alumno en esta matrícula.");
+      setToast({ type: "error", message: "El DNI ingresado ya pertenece a un alumno de esta matrícula." });
       return;
     }
 
@@ -742,6 +1101,63 @@ export default function MatriculasV2Page() {
     setTutorSearch("");
     setTutorResults([]);
     setStatusMessage("");
+  }
+
+  function openTutorEdit(tutor) {
+    setTutorEdit({
+      open: true,
+      localId: tutor.localId,
+      names: tutor.names || "",
+      lastNames: tutor.lastNames || "",
+      dni: tutor.dni || "",
+      phone: tutor.phone || "",
+      relationship: tutor.relationship || "Apoderado",
+      error: "",
+    });
+  }
+
+  function closeTutorEdit() {
+    setTutorEdit({
+      open: false,
+      localId: "",
+      names: "",
+      lastNames: "",
+      dni: "",
+      phone: "",
+      relationship: "Apoderado",
+      error: "",
+    });
+  }
+
+  function saveTutorEdit() {
+    const names = String(tutorEdit.names || "").trim();
+    const lastNames = String(tutorEdit.lastNames || "").trim();
+    const dni = sanitizeDniInput(tutorEdit.dni);
+
+    if (!names || !lastNames) {
+      setTutorEdit((prev) => ({ ...prev, error: "Completa nombres y apellidos del tutor." }));
+      return;
+    }
+
+    if (dni && !isValidDni(dni)) {
+      setTutorEdit((prev) => ({ ...prev, error: "El DNI debe tener exactamente 8 números." }));
+      return;
+    }
+
+    const dniError = validateDraftTutorDni(tutorEdit.localId, dni);
+    if (dniError) {
+      setTutorEdit((prev) => ({ ...prev, error: dniError }));
+      return;
+    }
+
+    updateTutor(tutorEdit.localId, {
+      names,
+      lastNames,
+      dni,
+      phone: String(tutorEdit.phone || "").trim(),
+      relationship: tutorEdit.relationship || "Apoderado",
+    });
+    closeTutorEdit();
   }
 
   function updateTutor(localId, patch) {
@@ -783,9 +1199,16 @@ export default function MatriculasV2Page() {
     resetDraft();
   }
 
+  function openContractPreview(contractPayload) {
+    const contractKey = `enrollment-contract-preview-v2-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(contractKey, JSON.stringify(contractPayload));
+    window.open(`${ROUTES.dashboardEnrollmentContractPreview}?contractKey=${encodeURIComponent(contractKey)}`, "_blank", "noopener,noreferrer");
+    return contractKey;
+  }
+
   function handlePreviewContract() {
     if (!canPreview) {
-      setStatusMessage("Agrega alumnos y marca al menos un tutor para incluirlo en el contrato antes de ver el contrato.");
+      setStatusMessage("Agrega alumnos, marca al menos un tutor firmante y completa la dirección de contacto antes de ver el contrato.");
       return;
     }
 
@@ -795,19 +1218,22 @@ export default function MatriculasV2Page() {
       tutors: tutorsDraft,
       observations,
     });
-
-    const contractKey = `enrollment-contract-preview-v2-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    localStorage.setItem(contractKey, JSON.stringify(contractPayload));
-    window.open(`${ROUTES.dashboardEnrollmentContractPreview}?contractKey=${encodeURIComponent(contractKey)}`, "_blank", "noopener,noreferrer");
+    openContractPreview(contractPayload);
   }
 
   async function handleSubmit() {
     if (!canSubmit) {
-      setStatusMessage("Completa alumnos, salones y agrega al menos un tutor firmante antes de matricular.");
+      setStatusMessage("Completa alumnos, salones, al menos un tutor firmante y la dirección de contacto antes de matricular.");
       return;
     }
 
     const allStudentIds = studentsDraft.map((student) => student.localId);
+    const contractPayload = buildContractPayload({
+      activeCampus,
+      students: studentsDraft,
+      tutors: tutorsDraft,
+      observations,
+    });
 
     const payload = {
       activeCycleId: activeCycle?.id || activeCycle?._id || "",
@@ -825,7 +1251,24 @@ export default function MatriculasV2Page() {
 
     console.log("[MatriculasV2][Finalize][PAYLOAD]", payload);
 
-    await finalizeMutation.mutateAsync(payload);
+    const response = await finalizeMutation.mutateAsync(payload);
+    const contractKey = openContractPreview(contractPayload);
+
+    setCompletedEnrollment({
+      enrollmentId: response?.enrollmentId || "",
+      status: response?.status || "CONFIRMED",
+      studentCount: studentsDraft.length,
+      tutorCount: tutorsDraft.filter((tutor) => tutor.includeInContract).length,
+      students: studentsDraft.map((student) => ({
+        fullName: formatDraftStudentName(student),
+        classroomLabel: student.classroomLabel || "",
+        campusCode: student.campusCode || "",
+      })),
+      contactAddress: observations.address || "",
+      contractKey,
+      contractPayload,
+    });
+    setStatusMessage("Matrícula registrada correctamente.");
   }
 
   function handleNextStep() {
@@ -850,6 +1293,16 @@ export default function MatriculasV2Page() {
     setCurrentStep((prev) => Math.max(1, prev - 1));
   }
 
+  function handlePreviewCompletedContract() {
+    if (!completedEnrollment?.contractPayload) return;
+    openContractPreview(completedEnrollment.contractPayload);
+  }
+
+  function handleStartNewEnrollment() {
+    setCompletedEnrollment(null);
+    resetDraft();
+  }
+
   return (
     <div className="space-y-5">
       <BaseModal
@@ -872,12 +1325,295 @@ export default function MatriculasV2Page() {
         </div>
       </BaseModal>
 
+      <BaseModal
+        open={personalEdit.open}
+        onClose={closePersonalEdit}
+        title="Editar datos del alumno"
+        maxWidthClass="max-w-2xl"
+        footer={(
+          <div className="flex justify-end gap-2">
+            <SecondaryButton onClick={closePersonalEdit}>Cancelar</SecondaryButton>
+            <Button onClick={savePersonalEdit}>Guardar cambios</Button>
+          </div>
+        )}
+      >
+        <div className="grid gap-4 p-5 md:grid-cols-2">
+          <Input
+            label="Nombres"
+            value={personalEdit.names}
+            onChange={(event) => setPersonalEdit((prev) => ({ ...prev, names: event.target.value, error: "" }))}
+          />
+          <Input
+            label="Apellidos"
+            value={personalEdit.lastNames}
+            onChange={(event) => setPersonalEdit((prev) => ({ ...prev, lastNames: event.target.value, error: "" }))}
+          />
+          <div className="md:col-span-2">
+            <Input
+              label="DNI"
+              value={personalEdit.dni}
+              onChange={(event) => setPersonalEdit((prev) => ({ ...prev, dni: sanitizeDniInput(event.target.value), error: "" }))}
+              inputMode="numeric"
+              maxLength={8}
+              placeholder="8 dígitos"
+            />
+            <p className={`mt-1 text-xs ${personalEdit.error ? "text-red-600" : "text-slate-500"}`}>
+              {personalEdit.error || "Solo se admiten 8 números. Puedes corregir el DNI antes de guardar."}
+            </p>
+          </div>
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={academicEdit.open}
+        onClose={closeAcademicEdit}
+        title="Configurar ubicación académica"
+        maxWidthClass="max-w-3xl"
+        footer={(
+          <div className="flex justify-end gap-2">
+            <SecondaryButton onClick={closeAcademicEdit}>Cancelar</SecondaryButton>
+            <Button onClick={saveAcademicEdit}>Guardar cambios</Button>
+          </div>
+        )}
+      >
+        <div className="grid gap-4 p-5 md:grid-cols-2">
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Procedencia</label>
+            <select
+              className="rounded border px-3 py-2 text-sm"
+              value={academicEdit.previousSchoolType}
+              onChange={(event) => setAcademicEdit((prev) => ({
+                ...prev,
+                previousSchoolType: event.target.value,
+                previousSchoolName: event.target.value === "OTHER" ? prev.previousSchoolName : "",
+                error: "",
+              }))}
+            >
+              {PREVIOUS_SCHOOL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {academicEdit.previousSchoolType === "OTHER" ? (
+            <Input
+              label="Nombre del colegio de procedencia"
+              value={academicEdit.previousSchoolName}
+              onChange={(event) => setAcademicEdit((prev) => ({ ...prev, previousSchoolName: event.target.value, error: "" }))}
+              placeholder="Especifica el nombre del colegio"
+            />
+          ) : <div />}
+
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Campus</label>
+            <select
+              className="rounded border px-3 py-2 text-sm"
+              value={academicEdit.campusCode}
+              onChange={(event) => setAcademicEdit((prev) => ({
+                ...prev,
+                campusCode: event.target.value,
+                classroomId: "",
+                error: "",
+              }))}
+            >
+              <option value="">Selecciona</option>
+              {campuses.map((campus) => (
+                <option key={campus.id || campus.code} value={campus.code}>{campus.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Nivel</label>
+            <select
+              className="rounded border px-3 py-2 text-sm"
+              value={academicEdit.level}
+              onChange={(event) => setAcademicEdit((prev) => ({
+                ...prev,
+                level: event.target.value,
+                grade: "",
+                classroomId: "",
+                error: "",
+              }))}
+            >
+              <option value="">Selecciona</option>
+              {LEVEL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Grado</label>
+            <select
+              className="rounded border px-3 py-2 text-sm"
+              value={academicEdit.grade}
+              onChange={(event) => setAcademicEdit((prev) => ({
+                ...prev,
+                grade: event.target.value,
+                classroomId: "",
+                error: "",
+              }))}
+            >
+              <option value="">Selecciona</option>
+              {GRADE_OPTIONS
+                .filter((grade) => !(academicEdit.level === "INITIAL" && Number(grade) > 3))
+                .map((grade) => (
+                  <option key={grade} value={grade}>{grade}</option>
+                ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col space-y-1 md:col-span-2">
+            <label className="text-sm font-medium text-gray-700">Salón</label>
+            <select
+              className="rounded border px-3 py-2 text-sm"
+              value={academicEdit.classroomId}
+              onChange={(event) => setAcademicEdit((prev) => ({ ...prev, classroomId: event.target.value, error: "" }))}
+            >
+              <option value="">Selecciona</option>
+              {academicClassroomOptions.map((option) => {
+                const classroomId = option.classroomId || option.id || option._id;
+                const available = Number(option.availableCount ?? option.available ?? 0);
+                const isFull = available <= 0 && String(classroomId) !== String(academicEdit.classroomId);
+                return (
+                  <option key={classroomId} value={classroomId} disabled={isFull}>
+                    {(option.label || option.displayName || option.name || "Aula")} {isFull ? "· Sin vacantes" : `· ${available} vacantes`}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <p className={`text-xs ${academicEdit.error ? "text-red-600" : "text-slate-500"}`}>
+              {academicEdit.error || "Configura campus, nivel, grado y salón del alumno antes de continuar."}
+            </p>
+          </div>
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={tutorEdit.open}
+        onClose={closeTutorEdit}
+        title="Editar tutor"
+        maxWidthClass="max-w-2xl"
+        footer={(
+          <div className="flex justify-end gap-2">
+            <SecondaryButton onClick={closeTutorEdit}>Cancelar</SecondaryButton>
+            <Button onClick={saveTutorEdit}>Guardar cambios</Button>
+          </div>
+        )}
+      >
+        <div className="grid gap-4 p-5 md:grid-cols-2">
+          <Input
+            label="Nombres"
+            value={tutorEdit.names}
+            onChange={(event) => setTutorEdit((prev) => ({ ...prev, names: event.target.value, error: "" }))}
+          />
+          <Input
+            label="Apellidos"
+            value={tutorEdit.lastNames}
+            onChange={(event) => setTutorEdit((prev) => ({ ...prev, lastNames: event.target.value, error: "" }))}
+          />
+          <div className="md:col-span-2">
+            <Input
+              label="DNI"
+              value={tutorEdit.dni}
+              onChange={(event) => setTutorEdit((prev) => ({ ...prev, dni: sanitizeDniInput(event.target.value), error: "" }))}
+              inputMode="numeric"
+              maxLength={8}
+              placeholder="8 dígitos"
+            />
+          </div>
+          <Input
+            label="Teléfono"
+            value={tutorEdit.phone}
+            onChange={(event) => setTutorEdit((prev) => ({ ...prev, phone: event.target.value, error: "" }))}
+          />
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Parentesco</label>
+            <select
+              className="rounded border px-3 py-2 text-sm"
+              value={tutorEdit.relationship}
+              onChange={(event) => setTutorEdit((prev) => ({ ...prev, relationship: event.target.value, error: "" }))}
+            >
+              <option value="Padre">Padre</option>
+              <option value="Madre">Madre</option>
+              <option value="Apoderado">Apoderado</option>
+              <option value="Tutor">Tutor</option>
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <p className={`text-xs ${tutorEdit.error ? "text-red-600" : "text-slate-500"}`}>
+              {tutorEdit.error || "Puedes actualizar DNI, teléfono y parentesco antes de guardar."}
+            </p>
+          </div>
+        </div>
+      </BaseModal>
+
       {toast ? (
         <div className={`rounded-md border px-3 py-2 text-sm ${toast.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}>
           {toast.message}
         </div>
       ) : null}
 
+      {completedEnrollment ? (
+        <>
+          <Card className="border border-emerald-200 bg-emerald-50 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Matrícula completada</p>
+                <h2 className="mt-1 text-xl font-semibold text-emerald-950">La matrícula fue registrada correctamente</h2>
+                <p className="mt-2 text-sm text-emerald-800">
+                  Esta es la parte final del proceso. Desde aquí solo puedes revisar el resultado y abrir el contrato.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-emerald-300 bg-white px-4 py-3 text-sm text-slate-700">
+                <p><span className="font-semibold text-slate-900">Estado:</span> {completedEnrollment.status}</p>
+                <p><span className="font-semibold text-slate-900">Alumnos:</span> {completedEnrollment.studentCount}</p>
+                <p><span className="font-semibold text-slate-900">Tutores firmantes:</span> {completedEnrollment.tutorCount}</p>
+                {completedEnrollment.enrollmentId ? (
+                  <p><span className="font-semibold text-slate-900">Matrícula:</span> {completedEnrollment.enrollmentId}</p>
+                ) : null}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="border border-slate-200 shadow-sm">
+            <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Alumnos matriculados</p>
+                <div className="mt-3 space-y-3">
+                  {completedEnrollment.students.map((student, index) => (
+                    <div key={`completed-student-${index}`} className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-sm font-semibold text-slate-900">{student.fullName}</p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        {student.campusCode ? `Campus: ${student.campusCode}` : "Campus pendiente"} · {student.classroomLabel || "Salón pendiente"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">Resumen final</p>
+                <div className="mt-3 space-y-2 text-sm text-slate-700">
+                  <p><span className="font-medium text-slate-900">Dirección de contacto:</span> {completedEnrollment.contactAddress || "-"}</p>
+                  <p><span className="font-medium text-slate-900">Contrato:</span> disponible para revisión e impresión</p>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <SecondaryButton onClick={handlePreviewCompletedContract}>Ver contrato</SecondaryButton>
+                  <Button onClick={handleStartNewEnrollment}>Nueva matrícula</Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </>
+      ) : null}
+
+      {!completedEnrollment ? (
+        <>
       <Card className="border border-slate-200 shadow-sm">
         <div className="flex flex-col gap-5">
           <div className="hidden md:grid md:grid-cols-4 md:gap-4">
@@ -977,10 +1713,10 @@ export default function MatriculasV2Page() {
                     key={student.localId}
                     className={`rounded-2xl border p-4 transition-all ${
                       flashing
-                        ? "animate-pulse border-red-300 bg-red-50 ring-2 ring-red-200"
+                        ? "animate-pulse border-red-500 bg-red-100 ring-2 ring-red-300"
                         : ready
-                          ? "border-emerald-300 bg-emerald-50"
-                          : "border-slate-200 bg-slate-100"
+                          ? "border-emerald-500 bg-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]"
+                          : "border-slate-300 bg-slate-200"
                     }`}
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -992,8 +1728,8 @@ export default function MatriculasV2Page() {
                           <span
                             className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
                               ready
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-slate-200 text-slate-600"
+                                ? "bg-emerald-600 text-white"
+                                : "bg-red-600 text-white"
                             }`}
                           >
                             {ready ? "Completo" : "Pendiente"}
@@ -1008,74 +1744,118 @@ export default function MatriculasV2Page() {
                           </p>
                         ) : null}
                       </div>
-                      <SecondaryButton onClick={() => removeStudent(student.localId)}>Quitar</SecondaryButton>
+                      <div className="flex flex-wrap gap-2">
+                        {student.mode === "existing" ? (
+                          <>
+                            <SecondaryButton onClick={() => openPersonalEdit(student)}>Datos</SecondaryButton>
+                            <SecondaryButton onClick={() => openAcademicEdit(student)}>Ubicación</SecondaryButton>
+                          </>
+                        ) : null}
+                        <SecondaryButton onClick={() => removeStudent(student.localId)}>Quitar</SecondaryButton>
+                      </div>
                     </div>
 
-                    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                      <div className="flex flex-col space-y-1">
-                        <label className="text-sm font-medium text-gray-700">Procedencia</label>
-                        <select
-                          className="rounded border px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-                          value={student.previousSchoolType}
-                          onChange={(event) => updateStudent(student.localId, { previousSchoolType: event.target.value })}
-                          disabled={student.mode === "existing"}
-                        >
-                          {PREVIOUS_SCHOOL_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      {student.previousSchoolType === "OTHER" ? (
-                        <div className="flex flex-col space-y-1 md:col-span-2 xl:col-span-5">
-                          <label className="text-sm font-medium text-gray-700">Nombre del colegio de procedencia</label>
-                          <Input
-                            value={student.previousSchoolName}
-                            onChange={(event) => updateStudent(student.localId, { previousSchoolName: event.target.value })}
-                            placeholder="Especifica el nombre del colegio"
-                            disabled={student.mode === "existing"}
-                          />
+                    {student.mode === "existing" ? (
+                      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Datos personales</p>
+                          <div className="mt-3 space-y-2 text-sm text-slate-700">
+                            <p><span className="font-medium text-slate-900">Nombres:</span> {student.names || "-"}</p>
+                            <p><span className="font-medium text-slate-900">Apellidos:</span> {student.lastNames || "-"}</p>
+                            <p>
+                              <span className="font-medium text-slate-900">DNI:</span>{" "}
+                              {student.dni ? student.dni : <span className="font-semibold text-red-600">Pendiente</span>}
+                            </p>
+                          </div>
                         </div>
-                      ) : null}
-                      <div className="flex flex-col space-y-1">
-                        <label className="text-sm font-medium text-gray-700">Campus</label>
-                        <select className="rounded border px-3 py-2 text-sm" value={student.campusCode} onChange={(event) => updateStudent(student.localId, { campusCode: event.target.value, classroomId: "", classroomLabel: "" })}>
-                          <option value="">Selecciona</option>
-                          {campuses.map((campus) => (
-                            <option key={campus.id || campus.code} value={campus.code}>{campus.name}</option>
-                          ))}
-                        </select>
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Ubicación académica</p>
+                          <div className="mt-3 space-y-2 text-sm text-slate-700">
+                            <p><span className="font-medium text-slate-900">Procedencia:</span> {student.previousSchoolType === "OTHER" ? (student.previousSchoolName || "Otro colegio") : (student.previousSchoolType || "-")}</p>
+                            <p>
+                              <span className="font-medium text-slate-900">Campus:</span>{" "}
+                              {student.campusCode ? student.campusCode : <span className="font-semibold text-red-600">Pendiente</span>}
+                            </p>
+                            <p>
+                              <span className="font-medium text-slate-900">Nivel:</span>{" "}
+                              {LEVEL_OPTIONS.find((option) => option.value === student.level)?.label || <span className="font-semibold text-red-600">Pendiente</span>}
+                            </p>
+                            <p>
+                              <span className="font-medium text-slate-900">Grado:</span>{" "}
+                              {student.grade ? student.grade : <span className="font-semibold text-red-600">Pendiente</span>}
+                            </p>
+                            <p>
+                              <span className="font-medium text-slate-900">Salón:</span>{" "}
+                              {student.classroomLabel ? student.classroomLabel : <span className="font-semibold text-red-600">Pendiente</span>}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex flex-col space-y-1">
-                        <label className="text-sm font-medium text-gray-700">Nivel</label>
-                        <select className="rounded border px-3 py-2 text-sm" value={student.level} onChange={(event) => updateStudent(student.localId, { level: event.target.value, classroomId: "", classroomLabel: "" })}>
-                          <option value="">Selecciona</option>
-                          {LEVEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                        </select>
+                    ) : (
+                      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                        <div className="flex flex-col space-y-1">
+                          <label className="text-sm font-medium text-gray-700">Procedencia</label>
+                          <select
+                            className="rounded border px-3 py-2 text-sm"
+                            value={student.previousSchoolType}
+                            onChange={(event) => updateStudent(student.localId, { previousSchoolType: event.target.value })}
+                          >
+                            {PREVIOUS_SCHOOL_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {student.previousSchoolType === "OTHER" ? (
+                          <div className="flex flex-col space-y-1 md:col-span-2 xl:col-span-5">
+                            <label className="text-sm font-medium text-gray-700">Nombre del colegio de procedencia</label>
+                            <Input
+                              value={student.previousSchoolName}
+                              onChange={(event) => updateStudent(student.localId, { previousSchoolName: event.target.value })}
+                              placeholder="Especifica el nombre del colegio"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="flex flex-col space-y-1">
+                          <label className="text-sm font-medium text-gray-700">Campus</label>
+                          <select className="rounded border px-3 py-2 text-sm" value={student.campusCode} onChange={(event) => updateStudent(student.localId, { campusCode: event.target.value, classroomId: "", classroomLabel: "" })}>
+                            <option value="">Selecciona</option>
+                            {campuses.map((campus) => (
+                              <option key={campus.id || campus.code} value={campus.code}>{campus.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex flex-col space-y-1">
+                          <label className="text-sm font-medium text-gray-700">Nivel</label>
+                          <select className="rounded border px-3 py-2 text-sm" value={student.level} onChange={(event) => updateStudent(student.localId, { level: event.target.value, classroomId: "", classroomLabel: "" })}>
+                            <option value="">Selecciona</option>
+                            {LEVEL_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex flex-col space-y-1">
+                          <label className="text-sm font-medium text-gray-700">Grado</label>
+                          <select className="rounded border px-3 py-2 text-sm" value={student.grade} onChange={(event) => updateStudent(student.localId, { grade: event.target.value, classroomId: "", classroomLabel: "" })}>
+                            <option value="">Selecciona</option>
+                            {GRADE_OPTIONS.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex flex-col space-y-1 xl:col-span-2">
+                          <label className="text-sm font-medium text-gray-700">Salón</label>
+                          <select className="rounded border px-3 py-2 text-sm" value={student.classroomId} onChange={(event) => updateStudent(student.localId, { classroomId: event.target.value })}>
+                            <option value="">Selecciona</option>
+                            {classroomOptions.map((option) => {
+                              const classroomId = option.classroomId || option.id || option._id;
+                              const available = Number(option.availableCount ?? option.available ?? 0);
+                              const isFull = available <= 0;
+                              return (
+                                <option key={classroomId} value={classroomId} disabled={isFull}>
+                                  {(option.label || option.displayName || option.name || "Aula")} {isFull ? "· Sin vacantes" : `· ${available} vacantes`}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
                       </div>
-                      <div className="flex flex-col space-y-1">
-                        <label className="text-sm font-medium text-gray-700">Grado</label>
-                        <select className="rounded border px-3 py-2 text-sm" value={student.grade} onChange={(event) => updateStudent(student.localId, { grade: event.target.value, classroomId: "", classroomLabel: "" })}>
-                          <option value="">Selecciona</option>
-                          {GRADE_OPTIONS.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-                        </select>
-                      </div>
-                      <div className="flex flex-col space-y-1 xl:col-span-2">
-                        <label className="text-sm font-medium text-gray-700">Salón</label>
-                        <select className="rounded border px-3 py-2 text-sm" value={student.classroomId} onChange={(event) => updateStudent(student.localId, { classroomId: event.target.value })}>
-                          <option value="">Selecciona</option>
-                          {classroomOptions.map((option) => {
-                            const classroomId = option.classroomId || option.id || option._id;
-                            const available = Number(option.availableCount ?? option.available ?? 0);
-                            const isFull = available <= 0;
-                            return (
-                              <option key={classroomId} value={classroomId} disabled={isFull}>
-                                {(option.label || option.displayName || option.name || "Aula")} {isFull ? "· Sin vacantes" : `· ${available} vacantes`}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
@@ -1098,7 +1878,7 @@ export default function MatriculasV2Page() {
                   <p className="text-sm text-slate-500">No se encontraron alumnos.</p>
                 ) : null}
                 {studentResults.map((student) => {
-                  const isEnrolled = String(student.enrollmentStatus || "").toUpperCase() === "ENROLLED";
+                  const isEnrolled = isExistingStudentAlreadyEnrolled(student);
                   return (
                     <div key={student.id || student._id} className="rounded-xl border border-slate-200 px-3 py-3">
                       <div className="flex items-start justify-between gap-3">
@@ -1129,9 +1909,11 @@ export default function MatriculasV2Page() {
                   label="DNI"
                   value={manualStudent.dni}
                   onChange={(event) => {
-                    setManualStudent((prev) => ({ ...prev, dni: event.target.value }));
+                    setManualStudent((prev) => ({ ...prev, dni: sanitizeDniInput(event.target.value) }));
                     setManualStudentErrors((prev) => ({ ...prev, dni: undefined }));
                   }}
+                  inputMode="numeric"
+                  maxLength={8}
                   className={manualStudentErrors.dni ? "[&>input]:border-red-300 [&>input]:bg-red-50 [&>input]:focus:ring-red-200" : ""}
                 />
                 {manualStudentErrors.dni ? <p className="-mt-2 text-xs text-red-600">{manualStudentErrors.dni}</p> : null}
@@ -1168,14 +1950,20 @@ export default function MatriculasV2Page() {
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{[tutor.names, tutor.lastNames].filter(Boolean).join(" ") || "Tutor sin nombre"}</p>
-                      <p className="text-xs text-slate-500">
-                        {tutor.relationship || "Apoderado"} · {tutor.source === "student-summary" ? "Relacionado a alumno existente" : tutor.source === "existing-search" ? "Tutor existente" : "Agregado en draft"}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Responsable de {studentsDraft.length} alumno(s) en esta matrícula.
-                      </p>
+                      <div className="mt-2 grid gap-1 text-xs text-slate-600 md:grid-cols-2">
+                        <p>
+                          <span className="font-medium text-slate-900">DNI:</span>{" "}
+                          {tutor.dni ? tutor.dni : <span className="font-semibold text-red-600">Pendiente</span>}
+                        </p>
+                        <p>
+                          <span className="font-medium text-slate-900">Teléfono:</span>{" "}
+                          {tutor.phone ? tutor.phone : <span className="font-semibold text-red-600">Pendiente</span>}
+                        </p>
+                        <p><span className="font-medium text-slate-900">Parentesco:</span> {tutor.relationship || "Apoderado"}</p>
+                      </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
+                      <SecondaryButton onClick={() => openTutorEdit(tutor)}>Editar</SecondaryButton>
                       <label className="inline-flex items-center gap-2 text-sm text-slate-700">
                         <input type="checkbox" checked={tutor.includeInContract} onChange={(event) => updateTutor(tutor.localId, { includeInContract: event.target.checked })} />
                         Incluir en contrato
@@ -1242,9 +2030,11 @@ export default function MatriculasV2Page() {
                 label="DNI"
                 value={manualTutor.dni}
                 onChange={(event) => {
-                  setManualTutor((prev) => ({ ...prev, dni: event.target.value }));
+                  setManualTutor((prev) => ({ ...prev, dni: sanitizeDniInput(event.target.value) }));
                   setManualTutorErrors((prev) => ({ ...prev, dni: undefined }));
                 }}
+                inputMode="numeric"
+                maxLength={8}
                 className={manualTutorErrors.dni ? "[&>input]:border-red-300 [&>input]:bg-red-50 [&>input]:focus:ring-red-200" : ""}
               />
               {manualTutorErrors.dni ? <p className="-mt-2 text-xs text-red-600">{manualTutorErrors.dni}</p> : null}
@@ -1345,7 +2135,19 @@ export default function MatriculasV2Page() {
           <h2 className="text-lg font-semibold text-slate-900">Observaciones</h2>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
-          <Input label="Direccion de contrato" value={observations.address} onChange={(event) => setObservations((prev) => ({ ...prev, address: event.target.value }))} />
+          <div>
+            <Input
+              label="Dirección de contacto"
+              value={observations.address}
+              onChange={(event) => setObservations((prev) => ({ ...prev, address: event.target.value }))}
+              className={!hasContactAddress ? "[&>input]:border-red-300 [&>input]:bg-red-50 [&>input]:focus:ring-red-200" : ""}
+            />
+            <p className={`mt-1 text-xs ${hasContactAddress ? "text-slate-500" : "text-red-600"}`}>
+              {hasContactAddress
+                ? "Se usará como dirección de referencia para el contrato y comunicaciones."
+                : "La dirección de contacto es obligatoria."}
+            </p>
+          </div>
           <div className="flex flex-col space-y-1">
             <label className="text-sm font-medium text-gray-700">Observaciones generales</label>
             <textarea
@@ -1381,6 +2183,8 @@ export default function MatriculasV2Page() {
         </div>
         {statusMessage ? <p className="mt-3 rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-700">{statusMessage}</p> : null}
       </Card>
+        </>
+      ) : null}
     </div>
   );
 }

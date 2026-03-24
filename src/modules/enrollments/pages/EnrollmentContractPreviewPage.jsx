@@ -31,6 +31,24 @@ function getTutorLine(tutor) {
   };
 }
 
+function formatTutorIntro(tutor) {
+  const relationship = String(tutor?.relationship || "Apoderado").trim();
+  const relationshipLower = relationship.toLowerCase();
+  const isParent = relationshipLower === "padre" || relationshipLower === "madre";
+  const legalRole = isParent
+    ? `en calidad de ${relationshipLower} del(de la) estudiante`
+    : `en calidad de ${relationshipLower} y responsable legal del(de la) estudiante`;
+
+  return (
+    <>
+      Yo, <span className="border-b border-dotted border-black px-1 font-medium">{tutor?.fullName || "____________________________"}</span>,
+      identificado(a) con DNI <span className="border-b border-dotted border-black px-1">{tutor?.dni || "________"}</span>
+      {" "}y número de celular <span className="border-b border-dotted border-black px-1">{tutor?.phone || "________"}</span>,
+      {" "}{legalRole}
+    </>
+  );
+}
+
 function normalizeContractData(raw) {
   const items = Array.isArray(raw?.items) ? raw.items : [];
   const tutorContext = raw?.tutorContext || raw?.family || {};
@@ -57,7 +75,6 @@ function normalizeContractData(raw) {
       admissionFeeAmount: item?.admissionFee?.applies && !item?.admissionFee?.isExempt ? Number(item?.admissionFee?.amount || 0) : 0,
       enrollmentFeeAmount: !item?.enrollmentFee?.isExempt ? Number(item?.enrollmentFee?.amount || 0) : 0,
       pensionMonthlyAmounts,
-      pensionMonthlyReference: pensionMonthlyAmounts.length ? Math.max(...pensionMonthlyAmounts) : 0,
     };
   });
 
@@ -69,8 +86,6 @@ function normalizeContractData(raw) {
     });
     return acc;
   }, Array(10).fill(0));
-  const pensionMonthly = pensionByMonth.length ? Math.max(...pensionByMonth) : 0;
-
   return {
     enrollmentId: raw?.enrollmentId || "",
     campus: raw?.campus || "",
@@ -82,7 +97,6 @@ function normalizeContractData(raw) {
     rights,
     enrollment,
     pensionByMonth,
-    pensionMonthly,
     notes: raw?.payments?.notes || "",
   };
 }
@@ -125,6 +139,8 @@ export default function EnrollmentContractPreviewPage() {
     ? "________"
     : contractDate.toLocaleDateString("es-PE", { month: "long" });
   const year = Number.isNaN(contractDate.getTime()) ? "2026" : contractDate.getFullYear();
+  const totalSigners = contractData.tutors.length + 1;
+  const shouldCenterLastSigner = totalSigners % 2 === 1;
 
   return (
     <>
@@ -173,18 +189,13 @@ export default function EnrollmentContractPreviewPage() {
             <p className="font-semibold">Tutores firmantes</p>
             {contractData.tutors.length ? contractData.tutors.map((tutor, index) => (
               <p key={`tutor-line-${index}`}>
-                <span className="font-medium">{tutor.relationship || "Apoderado"}:</span>{" "}
-                <span className="border-b border-dotted border-black px-1 font-medium">
-                  {tutor.fullName || "____________________________"}
-                </span>
-                {" · "}DNI <span className="border-b border-dotted border-black px-1">{tutor.dni || "________"}</span>
-                {" · "}Cel. <span className="border-b border-dotted border-black px-1">{tutor.phone || "________"}</span>
+                {formatTutorIntro(tutor)}.
               </p>
             )) : (
               <p>_______________________________________________</p>
             )}
             <p>
-              Domiciliados en <span className="border-b border-dotted border-black px-1">{contractData.familyAddress || "_______________________________________________"}</span>.
+              Señalando como dirección de contacto <span className="border-b border-dotted border-black px-1">{contractData.familyAddress || "_______________________________________________"}</span>.
             </p>
           </section>
 
@@ -193,33 +204,6 @@ export default function EnrollmentContractPreviewPage() {
               Celebramos este contrato de servicio de enseñanza con la I.E.P. CIENCIAS, representado por su promotor/director,
               matriculando a nuestros estudiantes para el año académico vigente.
             </p>
-          </section>
-
-          <section className="mt-2">
-            <table className="w-full border-collapse text-[10px]">
-              <thead>
-                <tr>
-                  <th className="border border-black px-1 py-0.5 text-left">APELLIDO PATERNO</th>
-                  <th className="border border-black px-1 py-0.5 text-left">APELLIDO MATERNO</th>
-                  <th className="border border-black px-1 py-0.5 text-left">NOMBRES</th>
-                  <th className="border border-black px-1 py-0.5 text-center">GRADO</th>
-                  <th className="border border-black px-1 py-0.5 text-center">NIVEL</th>
-                  <th className="border border-black px-1 py-0.5 text-center">DNI</th>
-                </tr>
-              </thead>
-              <tbody>
-                {contractData.students.map((student, idx) => (
-                  <tr key={`student-row-${idx}`}>
-                    <td className="border border-black px-1 py-0.5">{student.paternalLastName || " "}</td>
-                    <td className="border border-black px-1 py-0.5">{student.maternalLastName || " "}</td>
-                    <td className="border border-black px-1 py-0.5">{student.names || " "}</td>
-                    <td className="border border-black px-1 py-0.5 text-center">{student.grade || " "}</td>
-                    <td className="border border-black px-1 py-0.5 text-center">{student.level || " "}</td>
-                    <td className="border border-black px-1 py-0.5 text-center">{student.dni || " "}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </section>
 
           <section className="mt-2 text-[10.2px]">
@@ -238,8 +222,7 @@ export default function EnrollmentContractPreviewPage() {
           <section className="mt-2 text-[10.2px]">
             <p>
               Cumpliremos con los siguientes pagos: Derecho de ingreso <span className="font-semibold">{formatMoney(contractData.rights)}</span> ·
-              Matrícula <span className="font-semibold">{formatMoney(contractData.enrollment)}</span> ·
-              Pensión mensual referencial <span className="font-semibold">{formatMoney(contractData.pensionMonthly)}</span>.
+              Matrícula <span className="font-semibold">{formatMoney(contractData.enrollment)}</span>.
             </p>
             <table className="mt-1 w-full border-collapse text-[10px]">
               <thead>
@@ -262,21 +245,24 @@ export default function EnrollmentContractPreviewPage() {
           <section className="mt-3 space-y-3 text-[10px]">
             <p className="font-semibold">Detalle económico por alumno</p>
             {contractData.students.map((student, studentIndex) => (
-              <div key={`student-payment-${studentIndex}`} className="break-inside-avoid rounded border border-black p-2">
+              <div
+                key={`student-payment-${studentIndex}`}
+                className={`break-inside-avoid p-2 ${studentIndex > 0 ? "border-t border-dashed border-black pt-3" : ""}`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold">{student.fullName || "Alumno"}</p>
-                    <p className="text-[9.5px]">
-                      {student.level || "-"} · {student.grade || "-"} · {student.classroomLabel || "Sin salón"} · {student.campusCode || "Sin campus"}
+                    <p className="font-semibold">
+                      {student.fullName || "Alumno"} {student.dni ? `· DNI: ${student.dni}` : ""}
                     </p>
-                    <p className="text-[9.5px]">
-                      Procedencia: {student.previousSchoolType === "OTHER" ? (student.previousSchoolName || "Otro colegio") : (student.previousSchoolType || "-")}
-                    </p>
+                    <div className="mt-1 space-y-0.5 text-[9.5px]">
+                      <p>
+                        {student.campusCode ? `Campus: ${student.campusCode}` : "Campus: Sin campus"} · Salón: {student.classroomLabel || "Sin salón"}
+                      </p>
+                    </div>
                   </div>
                   <div className="text-right text-[9.5px]">
                     <p>Derecho de ingreso: <span className="font-semibold">{formatMoney(student.admissionFeeAmount)}</span></p>
                     <p>Matrícula: <span className="font-semibold">{formatMoney(student.enrollmentFeeAmount)}</span></p>
-                    <p>Pensión referencial: <span className="font-semibold">{formatMoney(student.pensionMonthlyReference)}</span></p>
                   </div>
                 </div>
                 <table className="mt-2 w-full border-collapse text-[9.3px]">
@@ -325,14 +311,19 @@ export default function EnrollmentContractPreviewPage() {
 
           <footer className="mt-4 grid grid-cols-2 gap-4 text-center text-[10.2px]">
             {contractData.tutors.map((tutor, index) => (
-              <div key={`signature-tutor-${index}`}>
+              <div
+                key={`signature-tutor-${index}`}
+                className={shouldCenterLastSigner && totalSigners === contractData.tutors.length && index === contractData.tutors.length - 1 ? "col-span-2 mx-auto w-[48%]" : ""}
+              >
+                <div className="mx-auto h-16 w-[90%]" />
                 <p className="mx-auto w-[90%] border-t border-black pt-0.5">{tutor.fullName || " "}</p>
                 <p>DNI: {tutor.dni || "________"}</p>
                 <p>Cel.: {tutor.phone || "________"}</p>
                 <p className="font-semibold">{String(tutor.relationship || "Apoderado").toUpperCase()}</p>
               </div>
             ))}
-            <div>
+            <div className={shouldCenterLastSigner ? "col-span-2 mx-auto w-[48%]" : ""}>
+              <div className="mx-auto h-16 w-[90%]" />
               <p className="mx-auto w-[90%] border-t border-black pt-0.5">Mg. Juan Mesías Arizmendi Ortega</p>
               <p>DNI: 06811045</p>
               <p className="font-semibold">DIRECTOR</p>
