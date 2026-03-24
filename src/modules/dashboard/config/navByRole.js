@@ -6,6 +6,7 @@ import {
   Settings2,
   Code2,
   GraduationCap,
+  Users,
 } from "lucide-react";
 
 import { ROUTES } from "../../../config/routes";
