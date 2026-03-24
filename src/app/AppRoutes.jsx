@@ -16,6 +16,7 @@ import StudentPrintCardsPage from "../modules/students/pages/StudentPrintCardsPa
 import StudentPrintCardsPreviewPage from "../modules/students/pages/StudentPrintCardsPreviewPage";
 import EnrollmentsPage from "../modules/enrollments/pages/EnrollmentsPage";
 import MatriculasV2Page from "../modules/enrollments/pages/MatriculasV2Page";
+import EnrollmentDetailPage from "../modules/enrollments/pages/EnrollmentDetailPage";
 import EnrollmentContractPreviewPage from "../modules/enrollments/pages/EnrollmentContractPreviewPage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
 import PaymentStudentDetailPage from "../modules/payments/pages/PaymentStudentDetailPage";
@@ -105,6 +106,7 @@ export default function AppRoutes() {
             <Route element={<RoleRoute canAccess={canAccessEnrollments} />}>
               <Route path={ROUTES.dashboardEnrollments} element={<EnrollmentsPage />} />
               <Route path={ROUTES.dashboardEnrollmentNew} element={<MatriculasV2Page />} />
+              <Route path={ROUTES.dashboardEnrollmentDetail()} element={<EnrollmentDetailPage />} />
             </Route>
             <Route element={<RoleRoute canAccess={canAccessPayments} />}>
               <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />

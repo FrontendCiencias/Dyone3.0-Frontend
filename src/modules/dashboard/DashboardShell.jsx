@@ -19,6 +19,7 @@ const PAGE_META = {
   attendanceReports: { title: "Reportes de asistencia", description: "Consulta resumenes por alumno y salon." },
   students: { title: "Alumnos", description: "Busca, filtra y gestiona expedientes estudiantiles." },
   studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matricula, aula y finanzas." },
+  enrollmentDetail: { title: "Detalle de matrícula", description: "Revisa el estado, alumnos firmantes y contrato de la matrícula." },
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
   adminSettings: { title: "Configuracion", description: "Sedes, ciclos, aulas y conceptos." },
   adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades tecnicas." },
@@ -37,6 +38,7 @@ function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboardAttendanceReports) return "attendanceReports";
   if (pathname.startsWith(ROUTES.dashboardAttendance)) return "attendance";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
+  if (/^\/dashboard\/enrollments\/[^/]+$/.test(pathname) && pathname !== ROUTES.dashboardEnrollmentNew) return "enrollmentDetail";
   if (/^\/dashboard\/payments\/[^/]+$/.test(pathname)) return "paymentDetail";
   if (pathname.startsWith(ROUTES.dashboardStudents)) return "students";
   if (pathname.startsWith(ROUTES.dashboardAdminDev)) return "adminDev";
@@ -135,6 +137,14 @@ export default function DashboardShell() {
         { label: "Inicio", to: ROUTES.dashboard },
         { label: "Matriculas", to: ROUTES.dashboardEnrollments },
         { label: "Nueva Matricula" },
+      ];
+    }
+
+    if (pageKey === "enrollmentDetail") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Matriculas", to: ROUTES.dashboardEnrollments },
+        { label: "Detalle de matrícula" },
       ];
     }
 

@@ -81,6 +81,20 @@ export async function listEnrollments({
   return res.data;
 }
 
+export async function getEnrollmentDetail(enrollmentId) {
+  const endpoint = API_ROUTES.enrollmentDetail(enrollmentId);
+
+  logRequest(endpoint, "GET", {});
+  const res = await axiosInstance.get(endpoint);
+  logResponse(endpoint, res.status, {
+    id: res.data?.id || null,
+    status: res.data?.status || null,
+    students: Array.isArray(res.data?.students) ? res.data.students.length : 0,
+  });
+
+  return res.data;
+}
+
 export async function searchStudentsForEnrollments({ q, limit = 20 }) {
   const normalizedQuery = String(q || "").trim();
   if (normalizedQuery.length < 2) {

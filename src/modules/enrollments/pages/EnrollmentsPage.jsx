@@ -14,6 +14,7 @@ import { getStudentSummary } from "../../students/services/students.service";
 const STATUS_FILTERS = [
   { key: "ALL", label: "Todos" },
   { key: "ENROLLED", label: "Matriculados" },
+  { key: "ABSENT", label: "Ausentes" },
   { key: "TRANSFERRED", label: "Trasladados" },
 ];
 
@@ -30,19 +31,24 @@ function getErrorMessage(error, fallback = "No se pudo cargar matrículas") {
 }
 
 function statusLabel(status) {
+  if (status === "ABSENT") return "Ausente";
   if (status === "TRANSFERRED") return "Trasladado";
   return "Matriculado";
 }
 
 function statusClasses(status) {
+  if (status === "ABSENT") return "bg-slate-200 text-slate-700";
   if (status === "TRANSFERRED") return "bg-amber-100 text-amber-700";
   return "bg-emerald-100 text-emerald-700";
 }
 
 function normalizeStatus(raw) {
   const value = String(raw || "").toUpperCase();
+  if (!value) return "ABSENT";
+  if (value.includes("ABSENT") || value.includes("AUSENT")) return "ABSENT";
   if (value.includes("TRANSFER") || value.includes("TRASLAD")) return "TRANSFERRED";
-  return "ENROLLED";
+  if (value.includes("ENROLL") || value.includes("CONFIRM") || value.includes("MATRICUL")) return "ENROLLED";
+  return "ABSENT";
 }
 
 function isBackendPendingError(error) {
@@ -82,7 +88,7 @@ export default function EnrollmentsPage() {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ENROLLED");
   const [classroomFilter, setClassroomFilter] = useState("ALL");
   const [cycleFilter, setCycleFilter] = useState("");
   const [cursor, setCursor] = useState(null);
@@ -299,7 +305,9 @@ export default function EnrollmentsPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => row.studentId && navigate(ROUTES.dashboardStudentDetail(row.studentId))}>Abrir expediente</Button>
+                  <Button onClick={() => row.enrollmentId && navigate(ROUTES.dashboardEnrollmentDetail(row.enrollmentId))}>
+                    Abrir expediente
+                  </Button>
                 </div>
               </div>
             </Card>

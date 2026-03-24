@@ -1,8 +1,10 @@
 import React, { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import SchoolLogo from "../../../shared/ui/SchoolLogo";
+import { getEnrollmentDetail } from "../services/enrollments.service";
 
 const MONTHS = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -101,6 +103,61 @@ function normalizeContractData(raw) {
   };
 }
 
+function normalizeContractDataFromEnrollmentDetail(detail) {
+  const tutors = Array.isArray(detail?.tutors)
+    ? detail.tutors.map((tutor) => ({
+      fullName: tutor?.fullName || [tutor?.names, tutor?.lastNames].filter(Boolean).join(" ").trim(),
+      dni: tutor?.dni || "",
+      phone: tutor?.phone || "",
+      relationship: tutor?.relationship || "Apoderado",
+    }))
+    : [];
+
+  const students = Array.isArray(detail?.students)
+    ? detail.students.map((student) => ({
+      paternalLastName: "",
+      maternalLastName: "",
+      names: student?.names || "",
+      fullName: student?.fullName || [student?.lastNames, student?.names].filter(Boolean).join(", "),
+      grade: "",
+      level: "",
+      dni: student?.dni || "",
+      campusCode: detail?.campus?.code || detail?.campus?.name || "",
+      classroomLabel: student?.classroom?.displayName || "",
+      previousSchoolType: student?.previousSchoolType || "",
+      previousSchoolName: student?.previousSchoolName || "",
+      admissionFeeAmount: Number(student?.admissionFee?.amount || 0),
+      enrollmentFeeAmount: Number(student?.enrollmentFee?.amount || 0),
+      pensionMonthlyAmounts: Array.isArray(student?.pensionMonthlyAmounts)
+        ? student.pensionMonthlyAmounts.map((amount) => Number(amount || 0))
+        : Array(10).fill(0),
+    }))
+    : [];
+
+  const rights = students.reduce((acc, item) => acc + Number(item.admissionFeeAmount || 0), 0);
+  const enrollment = students.reduce((acc, item) => acc + Number(item.enrollmentFeeAmount || 0), 0);
+  const pensionByMonth = students.reduce((acc, item) => {
+    item.pensionMonthlyAmounts.forEach((amount, idx) => {
+      acc[idx] = Number(acc[idx] || 0) + Number(amount || 0);
+    });
+    return acc;
+  }, Array(10).fill(0));
+
+  return {
+    enrollmentId: detail?.id || "",
+    campus: detail?.campus?.name || detail?.campus?.code || "",
+    city: "Majes",
+    generatedAt: detail?.confirmedAt || detail?.createdAt || new Date().toISOString(),
+    familyAddress: detail?.contract?.address || "",
+    tutors,
+    students,
+    rights,
+    enrollment,
+    pensionByMonth,
+    notes: detail?.contract?.notes || "",
+  };
+}
+
 function resolveStoragePayload(contractKey) {
   if (!contractKey) return null;
 
@@ -116,11 +173,36 @@ function resolveStoragePayload(contractKey) {
 export default function EnrollmentContractPreviewPage() {
   const [params] = useSearchParams();
   const contractKey = params.get("contractKey") || "";
+  const enrollmentId = params.get("enrollmentId") || "";
+
+  const enrollmentDetailQuery = useQuery({
+    queryKey: ["enrollments", "detail", "contract-preview", enrollmentId],
+    queryFn: () => getEnrollmentDetail(enrollmentId),
+    enabled: Boolean(enrollmentId) && !contractKey,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
   const contractData = useMemo(() => {
-    const payload = resolveStoragePayload(contractKey);
-    return payload ? normalizeContractData(payload) : null;
-  }, [contractKey]);
+    if (contractKey) {
+      const payload = resolveStoragePayload(contractKey);
+      return payload ? normalizeContractData(payload) : null;
+    }
+
+    if (enrollmentDetailQuery.data) {
+      return normalizeContractDataFromEnrollmentDetail(enrollmentDetailQuery.data);
+    }
+
+    return null;
+  }, [contractKey, enrollmentDetailQuery.data]);
+
+  if (enrollmentDetailQuery.isLoading && !contractKey) {
+    return (
+      <div className="mx-auto mt-8 max-w-3xl rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500">
+        Cargando contrato...
+      </div>
+    );
+  }
 
   if (!contractData) {
     return (
