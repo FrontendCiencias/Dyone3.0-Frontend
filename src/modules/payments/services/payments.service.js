@@ -62,3 +62,34 @@ export async function getStudentAccountStatement(studentId) {
   });
   return res.data;
 }
+
+export async function getDailyPaymentSummary({ date, campus } = {}) {
+  const params = {};
+  if (date) params.date = date;
+  if (campus) params.campus = campus;
+
+  logRequest(API_ROUTES.paymentsDailySummary, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.paymentsDailySummary, { params });
+  logResponse(API_ROUTES.paymentsDailySummary, res.status, {
+    date: res.data?.date,
+    totalIncome: res.data?.totalIncome || 0,
+    paymentsCount: res.data?.paymentsCount || 0,
+  });
+  return res.data;
+}
+
+export async function getDailyPaymentTransactions({ date, campus, page = 1, limit = 20 } = {}) {
+  const params = { page, limit };
+  if (date) params.date = date;
+  if (campus) params.campus = campus;
+
+  logRequest(API_ROUTES.paymentsDailyTransactions, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.paymentsDailyTransactions, { params });
+  logResponse(API_ROUTES.paymentsDailyTransactions, res.status, {
+    date: res.data?.date,
+    count: Array.isArray(res.data?.items) ? res.data.items.length : 0,
+    page: res.data?.pageInfo?.page || 1,
+    hasNext: Boolean(res.data?.pageInfo?.hasNext),
+  });
+  return res.data;
+}

@@ -63,3 +63,55 @@ export async function upsertAttendancePolicy(payload) {
   const response = await axiosInstance.put(API_ROUTES.adminAttendancePolicy, payload);
   return response.data;
 }
+
+function parseDownloadFileName(contentDisposition) {
+  const header = String(contentDisposition || "");
+  const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const plainMatch = header.match(/filename="?([^"]+)"?/i);
+  return plainMatch?.[1] || "caja-arequipa.csv";
+}
+
+async function countCsvRows(blob) {
+  try {
+    const text = await blob.text();
+    const lines = text
+      .replace(/^\uFEFF/, "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length <= 1) return 0;
+    return Math.max(0, lines.length - 1);
+  } catch {
+    return 0;
+  }
+}
+
+export async function downloadCajaArequipaExport(params = {}) {
+  const response = await axiosInstance.get(API_ROUTES.adminExportCajaArequipa, {
+    params,
+    responseType: "blob",
+  });
+
+  const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+  const fileName = parseDownloadFileName(response.headers?.["content-disposition"]);
+  const headerRowCount = Number(response.headers?.["x-export-count"] || 0);
+  const rowCount = headerRowCount > 0 ? headerRowCount : await countCsvRows(blob);
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", fileName);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+
+  return {
+    fileName,
+    rowCount,
+  };
+}

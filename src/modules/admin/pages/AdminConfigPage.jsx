@@ -6,6 +6,7 @@ import ClassroomsSection from "../components/ClassroomsSection";
 import BillingConceptsSection from "../components/BillingConceptsSection";
 import BillingScheduleTable from "../components/BillingScheduleTable";
 import AttendancePolicySection from "../components/AttendancePolicySection";
+import CajaArequipaExportSection from "../components/CajaArequipaExportSection";
 import { roleCanManageAdminSettings } from "../utils/permissions";
 
 export default function AdminConfigPage() {
@@ -14,6 +15,7 @@ export default function AdminConfigPage() {
 
   return (
     <div className="space-y-4">
+      <CajaArequipaExportSection canAccess={canAccess} />
       <CampusesSection canAccess={canAccess} />
       <CyclesSection canAccess={canAccess} />
       <ClassroomsSection canAccess={canAccess} />

@@ -85,7 +85,7 @@ export default function StudentSummaryModal({ studentId, open, onClose }) {
                   <span className="font-medium">DNI:</span> {student.dni || "-"}
                 </p>
                 <p>
-                  <span className="font-medium">F. Nacimiento:</span> {student.birthDate || "?"}
+                  <span className="font-medium">Cod. Caja Arequipa:</span> {student.bankCode || "?"}
                 </p>
                 <p>
                   <span className="font-medium">Estado:</span> {student.activeStatus == "ACTIVE" ? "Activo" : student.activeStatus == "GRADUATED" ? "Egresado" :"Inactivo"}

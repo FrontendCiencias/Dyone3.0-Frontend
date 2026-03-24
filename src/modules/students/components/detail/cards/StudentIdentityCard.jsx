@@ -16,7 +16,7 @@ export default function StudentIdentityCard({ student, disabled, onEdit }) {
         <p><span className="font-medium">Apellidos:</span> {student.lastNames || "?"}</p>
         <p><span className="font-medium">DNI:</span> {student.dni || "?"}</p>
         <p><span className="font-medium">Código:</span> {student.internalCode || "?"}</p>
-        <p><span className="font-medium">F. nacimiento:</span> {student.birthDate || "?"}</p>
+        <p><span className="font-medium">Cod. Caja Arequipa:</span> {student.bankCode || "?"}</p>
         <p><span className="font-medium">Estado registro:</span> {student.activeStatus == "ACTIVE" ? "Activo" : student.activeStatus == "GRADUATED" ? "Egresado" :"Inactivo"}</p>
       </div>
     </Card>

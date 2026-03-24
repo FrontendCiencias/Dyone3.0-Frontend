@@ -6,6 +6,7 @@ import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
 import { usePaymentsDebtorsQuery } from "../hooks/usePaymentsDebtorsQuery";
+import DailyCashReviewSection from "../components/DailyCashReviewSection";
 
 function formatMoney(value) {
   const amount = Number(value || 0);
@@ -114,6 +115,13 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-4">
       <Card className="border border-gray-200 shadow-sm">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Cartera por alumno</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Consulta deuda resumida por alumno y abre el detalle para registrar pagos o revisar cargos.
+          </p>
+        </div>
+
         <div className="grid gap-3 md:grid-cols-12 md:items-end">
           <div className="md:col-span-6">
             <Input
@@ -224,6 +232,8 @@ export default function PaymentsPage() {
           ) : null}
         </Card>
       )}
+
+      <DailyCashReviewSection campus={campusFilter || undefined} />
     </div>
   );
 }
