@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
@@ -223,6 +224,7 @@ function isStudentSummaryAlreadyEnrolled(summary = {}) {
 }
 
 export default function MatriculasV2Page() {
+  const navigate = useNavigate();
   const { activeCampus } = useAuth();
   const cyclesQuery = useCyclesQuery();
   const campusesQuery = useCampusesQuery();
@@ -891,10 +893,11 @@ export default function MatriculasV2Page() {
     setPersonalEdit({ open: false, localId: "", names: "", lastNames: "", dni: "", error: "" });
   }
 
-  function savePersonalEdit() {
+  async function savePersonalEdit() {
     const names = String(personalEdit.names || "").trim();
     const lastNames = String(personalEdit.lastNames || "").trim();
     const dni = sanitizeDniInput(personalEdit.dni);
+    const currentStudent = studentsDraft.find((student) => student.localId === personalEdit.localId);
 
     if (!names || !lastNames) {
       setPersonalEdit((prev) => ({ ...prev, error: "Completa nombres y apellidos del alumno." }));
@@ -909,6 +912,39 @@ export default function MatriculasV2Page() {
     const dniError = validateDraftStudentDni(personalEdit.localId, dni);
     if (dniError) {
       setPersonalEdit((prev) => ({ ...prev, error: dniError }));
+      return;
+    }
+
+    try {
+      const [studentResponse, tutorResponse] = await Promise.all([
+        searchStudents({ q: dni, limit: 5 }),
+        searchTutorsForEnrollments({ q: dni, limit: 5 }),
+      ]);
+
+      const studentItems = Array.isArray(studentResponse?.items) ? studentResponse.items : [];
+      const tutorItems = Array.isArray(tutorResponse?.items) ? tutorResponse.items : [];
+
+      const duplicatedStudentInDb = studentItems.some((student) => {
+        const sameDni = normalizeStudentDni(student.dni || student.personId?.dni) === dni;
+        if (!sameDni) return false;
+        if (currentStudent?.mode === "existing" && currentStudent?.existingStudentId) {
+          return String(student.id || student._id) !== String(currentStudent.existingStudentId);
+        }
+        return true;
+      });
+
+      if (duplicatedStudentInDb) {
+        setPersonalEdit((prev) => ({ ...prev, error: "Ese DNI ya pertenece a otro alumno registrado." }));
+        return;
+      }
+
+      const duplicatedTutorInDb = tutorItems.some((tutor) => normalizeStudentDni(tutor.dni) === dni);
+      if (duplicatedTutorInDb) {
+        setPersonalEdit((prev) => ({ ...prev, error: "Ese DNI ya pertenece a un tutor registrado." }));
+        return;
+      }
+    } catch (error) {
+      setPersonalEdit((prev) => ({ ...prev, error: getErrorMessage(error, "No se pudo validar el DNI del alumno.") }));
       return;
     }
 
@@ -1129,10 +1165,11 @@ export default function MatriculasV2Page() {
     });
   }
 
-  function saveTutorEdit() {
+  async function saveTutorEdit() {
     const names = String(tutorEdit.names || "").trim();
     const lastNames = String(tutorEdit.lastNames || "").trim();
     const dni = sanitizeDniInput(tutorEdit.dni);
+    const currentTutor = tutorsDraft.find((tutor) => tutor.localId === tutorEdit.localId);
 
     if (!names || !lastNames) {
       setTutorEdit((prev) => ({ ...prev, error: "Completa nombres y apellidos del tutor." }));
@@ -1148,6 +1185,41 @@ export default function MatriculasV2Page() {
     if (dniError) {
       setTutorEdit((prev) => ({ ...prev, error: dniError }));
       return;
+    }
+
+    if (dni) {
+      try {
+        const [tutorResponse, studentResponse] = await Promise.all([
+          searchTutorsForEnrollments({ q: dni, limit: 5 }),
+          searchStudents({ q: dni, limit: 5 }),
+        ]);
+
+        const tutorItems = Array.isArray(tutorResponse?.items) ? tutorResponse.items : [];
+        const studentItems = Array.isArray(studentResponse?.items) ? studentResponse.items : [];
+
+        const duplicatedTutorInDb = tutorItems.some((tutor) => {
+          const sameDni = normalizeStudentDni(tutor.dni) === dni;
+          if (!sameDni) return false;
+          if (currentTutor?.existingTutorId) {
+            return String(tutor.personId || tutor.id) !== String(currentTutor.existingTutorId);
+          }
+          return true;
+        });
+
+        if (duplicatedTutorInDb) {
+          setTutorEdit((prev) => ({ ...prev, error: "Ese DNI ya pertenece a otro tutor registrado." }));
+          return;
+        }
+
+        const duplicatedStudentInDb = studentItems.some((student) => normalizeStudentDni(student.dni || student.personId?.dni) === dni);
+        if (duplicatedStudentInDb) {
+          setTutorEdit((prev) => ({ ...prev, error: "Ese DNI ya pertenece a un alumno registrado." }));
+          return;
+        }
+      } catch (error) {
+        setTutorEdit((prev) => ({ ...prev, error: getErrorMessage(error, "No se pudo validar el DNI del tutor.") }));
+        return;
+      }
     }
 
     updateTutor(tutorEdit.localId, {
@@ -1197,6 +1269,7 @@ export default function MatriculasV2Page() {
   function confirmCancelDraft() {
     setIsCancelModalOpen(false);
     resetDraft();
+    navigate(ROUTES.dashboardEnrollments);
   }
 
   function openContractPreview(contractPayload) {
@@ -1252,11 +1325,13 @@ export default function MatriculasV2Page() {
     console.log("[MatriculasV2][Finalize][PAYLOAD]", payload);
 
     const response = await finalizeMutation.mutateAsync(payload);
-    const contractKey = openContractPreview(contractPayload);
+    const contractKey = `enrollment-contract-preview-v2-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(contractKey, JSON.stringify(contractPayload));
 
     setCompletedEnrollment({
       enrollmentId: response?.enrollmentId || "",
-      status: response?.status || "CONFIRMED",
+      enrollmentIds: Array.isArray(response?.enrollmentIds) ? response.enrollmentIds : [],
+      status: response?.status || "ENROLLED",
       studentCount: studentsDraft.length,
       tutorCount: tutorsDraft.filter((tutor) => tutor.includeInContract).length,
       students: studentsDraft.map((student) => ({
@@ -1341,18 +1416,30 @@ export default function MatriculasV2Page() {
           <Input
             label="Nombres"
             value={personalEdit.names}
-            onChange={(event) => setPersonalEdit((prev) => ({ ...prev, names: event.target.value, error: "" }))}
+            onChange={(event) => {
+              setPersonalEdit((prev) => ({ ...prev, names: event.target.value, error: "" }));
+              setStatusMessage("");
+              setToast(null);
+            }}
           />
           <Input
             label="Apellidos"
             value={personalEdit.lastNames}
-            onChange={(event) => setPersonalEdit((prev) => ({ ...prev, lastNames: event.target.value, error: "" }))}
+            onChange={(event) => {
+              setPersonalEdit((prev) => ({ ...prev, lastNames: event.target.value, error: "" }));
+              setStatusMessage("");
+              setToast(null);
+            }}
           />
           <div className="md:col-span-2">
             <Input
               label="DNI"
               value={personalEdit.dni}
-              onChange={(event) => setPersonalEdit((prev) => ({ ...prev, dni: sanitizeDniInput(event.target.value), error: "" }))}
+              onChange={(event) => {
+                setPersonalEdit((prev) => ({ ...prev, dni: sanitizeDniInput(event.target.value), error: "" }));
+                setStatusMessage("");
+                setToast(null);
+              }}
               inputMode="numeric"
               maxLength={8}
               placeholder="8 dígitos"
@@ -1509,18 +1596,30 @@ export default function MatriculasV2Page() {
           <Input
             label="Nombres"
             value={tutorEdit.names}
-            onChange={(event) => setTutorEdit((prev) => ({ ...prev, names: event.target.value, error: "" }))}
+            onChange={(event) => {
+              setTutorEdit((prev) => ({ ...prev, names: event.target.value, error: "" }));
+              setStatusMessage("");
+              setToast(null);
+            }}
           />
           <Input
             label="Apellidos"
             value={tutorEdit.lastNames}
-            onChange={(event) => setTutorEdit((prev) => ({ ...prev, lastNames: event.target.value, error: "" }))}
+            onChange={(event) => {
+              setTutorEdit((prev) => ({ ...prev, lastNames: event.target.value, error: "" }));
+              setStatusMessage("");
+              setToast(null);
+            }}
           />
           <div className="md:col-span-2">
             <Input
               label="DNI"
               value={tutorEdit.dni}
-              onChange={(event) => setTutorEdit((prev) => ({ ...prev, dni: sanitizeDniInput(event.target.value), error: "" }))}
+              onChange={(event) => {
+                setTutorEdit((prev) => ({ ...prev, dni: sanitizeDniInput(event.target.value), error: "" }));
+                setStatusMessage("");
+                setToast(null);
+              }}
               inputMode="numeric"
               maxLength={8}
               placeholder="8 dígitos"
@@ -1529,14 +1628,22 @@ export default function MatriculasV2Page() {
           <Input
             label="Teléfono"
             value={tutorEdit.phone}
-            onChange={(event) => setTutorEdit((prev) => ({ ...prev, phone: event.target.value, error: "" }))}
+            onChange={(event) => {
+              setTutorEdit((prev) => ({ ...prev, phone: event.target.value, error: "" }));
+              setStatusMessage("");
+              setToast(null);
+            }}
           />
           <div className="flex flex-col space-y-1">
             <label className="text-sm font-medium text-gray-700">Parentesco</label>
             <select
               className="rounded border px-3 py-2 text-sm"
               value={tutorEdit.relationship}
-              onChange={(event) => setTutorEdit((prev) => ({ ...prev, relationship: event.target.value, error: "" }))}
+              onChange={(event) => {
+                setTutorEdit((prev) => ({ ...prev, relationship: event.target.value, error: "" }));
+                setStatusMessage("");
+                setToast(null);
+              }}
             >
               <option value="Padre">Padre</option>
               <option value="Madre">Madre</option>
