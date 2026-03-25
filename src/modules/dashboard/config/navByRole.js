@@ -1,4 +1,3 @@
-// src/modules/dashboard/config/navByRole.js
 import {
   LayoutDashboard,
   ClipboardList,
@@ -7,6 +6,7 @@ import {
   Code2,
   GraduationCap,
   Users,
+  School,
 } from "lucide-react";
 
 import { ROUTES } from "../../../config/routes";
@@ -35,12 +35,12 @@ export function getNavItemsByRole(activeRole) {
       {
         to: ROUTES.dashboardStudents,
         label: "Alumnos",
-        description: "Ventanilla y ficha rápida",
+        description: "Ventanilla y ficha rapida",
         icon: GraduationCap,
       },
       {
         to: ROUTES.dashboardEnrollments,
-        label: "Matrículas",
+        label: "Matriculas",
         description: "Registrar y gestionar",
         icon: ClipboardList,
       },
@@ -101,13 +101,13 @@ export function getNavItemsByRole(activeRole) {
       {
         to: ROUTES.dashboardStudents,
         label: "Alumnos",
-        description: "Búsqueda global",
+        description: "Busqueda global",
         icon: GraduationCap,
       },
       {
         to: ROUTES.dashboardPlaceholder,
         label: "Prospectos",
-        description: "Captación y pipeline",
+        description: "Captacion y pipeline",
         icon: ClipboardList,
       },
     ];
@@ -119,8 +119,14 @@ export function getNavItemsByRole(activeRole) {
       {
         to: ROUTES.dashboardStudents,
         label: "Alumnos",
-        description: "Búsqueda global",
+        description: "Busqueda global",
         icon: GraduationCap,
+      },
+      {
+        to: ROUTES.dashboardClassrooms,
+        label: "Salones",
+        description: "Mover por seccion",
+        icon: School,
       },
       {
         to: ROUTES.dashboardPayments,
@@ -130,8 +136,8 @@ export function getNavItemsByRole(activeRole) {
       },
       {
         to: ROUTES.dashboardAdminSettings,
-        label: "Admin · Configuración",
-        description: "Configuración sensible",
+        label: "Admin · Configuracion",
+        description: "Configuracion sensible",
         icon: Settings2,
       },
       {

@@ -12,6 +12,7 @@ export const ROUTES = {
   dashboardAttendanceJustifications: "/dashboard/attendance/justifications",
   dashboardAttendanceReports: "/dashboard/attendance/reports",
   dashboardStudents: "/dashboard/students",
+  dashboardClassrooms: "/dashboard/classrooms",
   dashboardStudentsPrintCards: "/dashboard/students/print-cards",
   dashboardStudentsPrintCardsPreview: "/dashboard/students/print-cards/preview",
   dashboardStudentDetail: (studentId = ":studentId") => `/dashboard/students/${studentId}`,

@@ -97,7 +97,9 @@ export default function PaymentStudentDetailPage() {
     [charges, selectedCharges],
   );
   const showDrawer = drawerOpen && selectedChargeRows.length > 0;
-  const canCorrectReceipt = String(activeRole || "").toUpperCase().startsWith("SECRETARY");
+  const normalizedRole = String(activeRole || "").toUpperCase();
+  const canCorrectReceipt = normalizedRole.startsWith("SECRETARY") || normalizedRole === "ADMIN";
+  const canReassignReceipt = normalizedRole === "ADMIN";
 
   useEffect(() => {
     if (!selectedChargeRows.length) {
@@ -197,6 +199,8 @@ export default function PaymentStudentDetailPage() {
         voucherNumber: String(formValues.voucherNumber || "").trim() || undefined,
         notes: String(formValues.notes || "").trim() || undefined,
         correctionReason: String(formValues.correctionReason || "").trim(),
+        reassignStudentId: String(formValues.reassignStudentId || "").trim() || undefined,
+        reassignAllocations: Array.isArray(formValues.reassignAllocations) ? formValues.reassignAllocations : undefined,
       },
     });
 
@@ -402,6 +406,8 @@ export default function PaymentStudentDetailPage() {
         isPending={updatePaymentReceiptMutation.isPending}
         isSuccess={updatePaymentReceiptMutation.isSuccess}
         error={updatePaymentReceiptMutation.error}
+        canReassign={canReassignReceipt}
+        currentStudentId={studentId}
       />
 
       <CreateChargeModal

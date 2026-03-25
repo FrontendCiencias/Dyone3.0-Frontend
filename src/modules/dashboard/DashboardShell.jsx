@@ -18,6 +18,7 @@ const PAGE_META = {
   attendanceJustifications: { title: "Justificaciones", description: "Gestiona tardanzas y faltas justificadas." },
   attendanceReports: { title: "Reportes de asistencia", description: "Consulta resumenes por alumno y salon." },
   students: { title: "Alumnos", description: "Busca, filtra y gestiona expedientes estudiantiles." },
+  classrooms: { title: "Salones", description: "Reubica alumnos por grado y seccion." },
   studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matricula, aula y finanzas." },
   enrollmentDetail: { title: "Detalle de matrícula", description: "Revisa el estado, alumnos firmantes y contrato de la matrícula." },
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
@@ -37,6 +38,7 @@ function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboardAttendanceJustifications) return "attendanceJustifications";
   if (pathname === ROUTES.dashboardAttendanceReports) return "attendanceReports";
   if (pathname.startsWith(ROUTES.dashboardAttendance)) return "attendance";
+  if (pathname === ROUTES.dashboardClassrooms) return "classrooms";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
   if (/^\/dashboard\/enrollments\/[^/]+$/.test(pathname) && pathname !== ROUTES.dashboardEnrollmentNew) return "enrollmentDetail";
   if (/^\/dashboard\/payments\/[^/]+$/.test(pathname)) return "paymentDetail";
@@ -94,10 +96,14 @@ export default function DashboardShell() {
     const match = (location.pathname || "").match(/^\/dashboard\/(?:students|payments)\/([^/]+)$/);
     return match?.[1] || null;
   }, [location.pathname]);
+  const deletedStudentId = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return window.sessionStorage.getItem("dyone.deletedStudentId");
+  }, [location.pathname]);
 
   const studentSummaryQuery = useStudentSummaryQuery(
     studentId,
-    pageKey === "studentDetail" || pageKey === "paymentDetail",
+    (pageKey === "studentDetail" || pageKey === "paymentDetail") && studentId !== deletedStudentId,
   );
 
   const pageMeta = useMemo(() => {

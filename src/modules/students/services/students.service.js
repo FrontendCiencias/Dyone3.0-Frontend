@@ -91,13 +91,28 @@ export async function getStudentDetail(studentId) {
 
 export async function getClassroomOptions({ level, grade, campus, includeCapacity = true }) {
   const endpoint = API_ROUTES.classroomOptions;
-  const params = { level, includeCapacity };
+  const params = { includeCapacity };
+  if (level) params.level = level;
   if (grade) params.grade = grade;
   if (campus) params.campus = campus;
 
   logRequest(endpoint, "GET", params);
   const res = await axiosInstance.get(endpoint, { params });
   logResponse(endpoint, res.status, { count: Array.isArray(res.data?.items) ? res.data.items.length : 0 });
+
+  return res.data;
+}
+
+export async function getClassroomBoard({ campus, level, grade }) {
+  const endpoint = API_ROUTES.classroomBoard;
+  const params = { campus, level, grade };
+
+  logRequest(endpoint, "GET", params);
+  const res = await axiosInstance.get(endpoint, { params });
+  logResponse(endpoint, res.status, {
+    columns: Array.isArray(res.data?.columns) ? res.data.columns.length : 0,
+    students: res.data?.totals?.students || 0,
+  });
 
   return res.data;
 }
@@ -158,6 +173,16 @@ export async function deleteStudentCharge(chargeId) {
   return res.data;
 }
 
+export async function getStudentCharges(studentId) {
+  const endpoint = API_ROUTES.studentCharges(studentId);
+  logRequest(endpoint, "GET", {});
+  const res = await axiosInstance.get(endpoint);
+  logResponse(endpoint, res.status, {
+    count: Array.isArray(res.data) ? res.data.length : 0,
+  });
+  return res.data;
+}
+
 export async function updateStudentIdentity(studentId, payload) {
   const endpoint = API_ROUTES.studentIdentity(studentId);
   logRequest(endpoint, "PATCH", payload);
@@ -171,5 +196,60 @@ export async function updateStudentInternalNotes(studentId, payload) {
   logRequest(endpoint, "PATCH", payload);
   const res = await axiosInstance.patch(endpoint, payload);
   logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function getStudentDeletionPreview(studentId) {
+  const endpoint = API_ROUTES.studentDeletionPreview(studentId);
+  logRequest(endpoint, "GET", {});
+  const res = await axiosInstance.get(endpoint);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function deleteStudent(studentId) {
+  const endpoint = API_ROUTES.deleteStudent(studentId);
+  logRequest(endpoint, "DELETE", {});
+  const res = await axiosInstance.delete(endpoint);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function updateTutor(tutorId, payload) {
+  const endpoint = API_ROUTES.tutorById(tutorId);
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function deleteTutor(tutorId) {
+  const endpoint = API_ROUTES.tutorById(tutorId);
+  logRequest(endpoint, "DELETE", {});
+  const res = await axiosInstance.delete(endpoint);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function createTutor(payload) {
+  const endpoint = API_ROUTES.createTutor;
+  logRequest(endpoint, "POST", payload);
+  const res = await axiosInstance.post(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function searchTutors({ q, limit = 8 }) {
+  const normalizedQuery = String(q || "").trim();
+  if (normalizedQuery.length < 2) {
+    return { items: [], nextCursor: null };
+  }
+
+  const params = { q: normalizedQuery, limit };
+  logRequest(API_ROUTES.tutorsSearch, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.tutorsSearch, { params });
+  logResponse(API_ROUTES.tutorsSearch, res.status, {
+    count: Array.isArray(res.data?.items) ? res.data.items.length : 0,
+  });
   return res.data;
 }

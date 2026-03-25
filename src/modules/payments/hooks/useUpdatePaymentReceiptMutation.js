@@ -6,12 +6,16 @@ export function useUpdatePaymentReceiptMutation(studentId) {
 
   return useMutation({
     mutationFn: ({ paymentId, payload }) => updatePaymentReceipt(paymentId, payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["payments"] });
-      if (studentId) {
-        queryClient.invalidateQueries({ queryKey: ["payments", "accountStatement", studentId] });
-        queryClient.invalidateQueries({ queryKey: ["students", "summary", studentId] });
-        queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] });
+      const affectedStudentIds = Array.isArray(data?.affectedStudentIds) && data.affectedStudentIds.length
+        ? data.affectedStudentIds
+        : (studentId ? [studentId] : []);
+
+      for (const affectedStudentId of affectedStudentIds) {
+        queryClient.invalidateQueries({ queryKey: ["payments", "accountStatement", affectedStudentId] });
+        queryClient.invalidateQueries({ queryKey: ["students", "summary", affectedStudentId] });
+        queryClient.invalidateQueries({ queryKey: ["students", "detail", affectedStudentId] });
       }
     },
   });

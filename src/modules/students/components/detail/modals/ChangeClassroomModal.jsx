@@ -35,6 +35,12 @@ export default function ChangeClassroomModal({
     return String(selectedClassroomId) === String(currentClassroomId || "");
   }, [mutationPending, mutationSuccess, selectedClassroomId, currentClassroomId]);
 
+  const classroomListMaxHeight = useMemo(() => {
+    if (classrooms.length > 6) return 280;
+    if (classrooms.length > 3) return 188;
+    return null;
+  }, [classrooms.length]);
+
   const handleSave = () => {
     if (!reason.trim()) {
       setReasonError("El motivo es obligatorio.");
@@ -91,7 +97,10 @@ export default function ChangeClassroomModal({
         {isError ? <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">No se pudieron cargar las secciones disponibles.</p> : null}
 
         {!isLoading && !isError ? (
-          <div className="grid gap-2">
+          <div
+            className={`grid gap-2 ${classroomListMaxHeight ? "overflow-y-auto pr-1" : ""}`}
+            style={classroomListMaxHeight ? { maxHeight: `${classroomListMaxHeight}px` } : undefined}
+          >
             {classrooms.map((classroom) => {
               const classroomId = classroom?.classroomId;
               const isCurrent = String(currentClassroomId || "") === String(classroomId || "");
@@ -111,7 +120,7 @@ export default function ChangeClassroomModal({
         ) : null}
 
         {!isLoading && !isError && !classrooms.length ? (
-          <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">No existen secciones configuradas para este grado y nivel.</p>
+          <p className="rounded-md bg-gray-50 p-2 text-xs text-gray-500">No existen salones configurados para este campus.</p>
         ) : null}
 
         {mutationErrorMessage ? <p className="rounded-md bg-red-50 p-2 text-xs text-red-700">{mutationErrorMessage}</p> : null}

@@ -17,7 +17,7 @@ export default function IdentityEditModal({
     names: "",
     lastNames: "",
     dni: "",
-    birthDate: "",
+    bankCode: "",
     gender: "",
     phone: "",
   });
@@ -29,7 +29,7 @@ export default function IdentityEditModal({
       names: student?.names || "",
       lastNames: student?.lastNames || "",
       dni: student?.dni || "",
-      birthDate: student?.birthDate ? String(student.birthDate).slice(0, 10) : "",
+      bankCode: student?.bankCode || "",
       gender: student?.gender || "",
       phone: student?.phone || "",
     });
@@ -85,10 +85,9 @@ export default function IdentityEditModal({
           />
 
           <Input
-            label="Fecha de nacimiento"
-            type="date"
-            value={form.birthDate}
-            onChange={(e) => setForm((p) => ({ ...p, birthDate: e.target.value }))}
+            label="Cod. Caja Arequipa"
+            value={form.bankCode}
+            onChange={(e) => setForm((p) => ({ ...p, bankCode: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
           />
         </div>
 

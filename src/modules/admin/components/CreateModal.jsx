@@ -1,7 +1,15 @@
 import React from "react";
 import Button from "../../../components/ui/Button";
 
-export default function CreateModal({ title, isOpen, onClose, children, onSubmit, isSubmitting }) {
+export default function CreateModal({
+  title,
+  isOpen,
+  onClose,
+  children,
+  onSubmit,
+  isSubmitting,
+  submitLabel = "Crear",
+}) {
   if (!isOpen) return null;
 
   return (
@@ -32,7 +40,7 @@ export default function CreateModal({ title, isOpen, onClose, children, onSubmit
               Cancelar
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Guardando..." : "Crear"}
+              {isSubmitting ? "Guardando..." : submitLabel}
             </Button>
           </div>
         </form>

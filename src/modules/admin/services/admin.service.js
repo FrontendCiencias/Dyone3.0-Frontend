@@ -31,6 +31,11 @@ export async function createClassroom(payload) {
   return res.data;
 }
 
+export async function updateClassroom(classroomId, payload) {
+  const res = await axiosInstance.patch(`${API_ROUTES.adminClassrooms}/${classroomId}`, payload);
+  return res.data;
+}
+
 export async function getBillingConcepts() {
   const res = await axiosInstance.get(API_ROUTES.adminBillingConcepts);
   return res.data;

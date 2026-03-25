@@ -20,6 +20,7 @@ import EnrollmentDetailPage from "../modules/enrollments/pages/EnrollmentDetailP
 import EnrollmentContractPreviewPage from "../modules/enrollments/pages/EnrollmentContractPreviewPage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
 import PaymentStudentDetailPage from "../modules/payments/pages/PaymentStudentDetailPage";
+import ClassroomsBoardPage from "../modules/admin/pages/ClassroomsBoardPage";
 import AttendanceIntakePage from "../modules/attendance/pages/AttendanceIntakePage";
 import AttendanceTakePage from "../modules/attendance/pages/AttendanceTakePage";
 import AttendanceJustificationsPage from "../modules/attendance/pages/AttendanceJustificationsPage";
@@ -32,6 +33,7 @@ import { ThemeProvider } from "../config/theme";
 import {
   canAccessAdmin,
   canAccessAttendance,
+  canAccessClassroomBoard,
   canAccessEnrollments,
   canAccessFamilies,
   canAccessPayments,
@@ -100,6 +102,9 @@ export default function AppRoutes() {
             </Route>
             <Route element={<RoleRoute canAccess={canAccessStudents} />}>
               <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
+              <Route element={<RoleRoute canAccess={canAccessClassroomBoard} />}>
+                <Route path={ROUTES.dashboardClassrooms} element={<ClassroomsBoardPage />} />
+              </Route>
               <Route path={ROUTES.dashboardStudentsPrintCards} element={<StudentPrintCardsPage />} />
               <Route path={ROUTES.dashboardStudentDetail()} element={<StudentDetailPage />} />
             </Route>

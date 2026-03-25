@@ -46,3 +46,7 @@ export function canAccessAttendance(role) {
 export function canAccessAdmin(role) {
   return isAdminRole(role) || isSecretaryRole(role) || isDirectorRole(role) || isPromoterRole(role);
 }
+
+export function canAccessClassroomBoard(role) {
+  return isAdminRole(role);
+}

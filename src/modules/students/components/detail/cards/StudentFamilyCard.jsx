@@ -1,11 +1,17 @@
 import React from "react";
 import Card from "../../../../../components/ui/Card";
+import SecondaryButton from "../../../../../shared/ui/SecondaryButton";
 
-export default function StudentFamilyCard({ tutors }) {
+export default function StudentFamilyCard({ tutors, canManage = false, onManage }) {
   return (
     <Card className="border border-gray-200 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">Tutores relacionados</h3>
+        {canManage ? (
+          <SecondaryButton onClick={onManage}>
+            Gestionar
+          </SecondaryButton>
+        ) : null}
       </div>
       <div className="text-sm text-gray-700">
         {tutors.length ? (
