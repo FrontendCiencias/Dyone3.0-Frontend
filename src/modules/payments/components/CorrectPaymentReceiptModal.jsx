@@ -18,6 +18,14 @@ function formatMoney(value) {
   return `S/ ${Number.isNaN(amount) ? "0.00" : amount.toFixed(2)}`;
 }
 
+function formatDateTimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (input) => String(input).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function getErrorMessage(error) {
   const message = error?.response?.data?.message || error?.message;
   if (Array.isArray(message)) return message.join(". ");
@@ -50,11 +58,15 @@ export default function CorrectPaymentReceiptModal({
   isPending,
   isSuccess,
   error,
+  canEditAmount = false,
+  canEditPaidAt = false,
   canReassign = false,
   currentStudentId = null,
 }) {
   const [form, setForm] = useState({
     method: payment?.method || "CASH",
+    amount: payment?.amount ? String(Number(payment.amount).toFixed(2)) : "",
+    paidAt: formatDateTimeLocal(payment?.paidAt || payment?.date),
     receiptNumber: payment?.receiptNumber || "",
     voucherNumber: payment?.voucherNumber || "",
     notes: payment?.note || "",
@@ -78,6 +90,8 @@ export default function CorrectPaymentReceiptModal({
     if (!open) return;
     setForm({
       method: payment?.method || "CASH",
+      amount: payment?.amount ? String(Number(payment.amount).toFixed(2)) : "",
+      paidAt: formatDateTimeLocal(payment?.paidAt || payment?.date),
       receiptNumber: payment?.receiptNumber || "",
       voucherNumber: payment?.voucherNumber || "",
       notes: payment?.note || "",
@@ -150,21 +164,24 @@ export default function CorrectPaymentReceiptModal({
   }, [form.method, payment?.method]);
 
   const paymentAmount = Number(payment?.amount || 0);
+  const editedAmount = Number(form.amount || 0);
+  const effectivePaymentAmount = canEditAmount && editedAmount > 0 ? editedAmount : paymentAmount;
   const allocationTotal = useMemo(
     () => Object.values(allocationAmounts).reduce((acc, value) => acc + Number(value || 0), 0),
     [allocationAmounts],
   );
   const allocationDifference = useMemo(
-    () => Math.round(((paymentAmount - allocationTotal) + Number.EPSILON) * 100) / 100,
-    [allocationTotal, paymentAmount],
+    () => Math.round(((effectivePaymentAmount - allocationTotal) + Number.EPSILON) * 100) / 100,
+    [allocationTotal, effectivePaymentAmount],
   );
 
   const canSave = useMemo(() => {
     if (!form.method || String(form.correctionReason || "").trim().length < 5) return false;
+    if (canEditAmount && !(editedAmount > 0)) return false;
     if (!form.reassignEnabled) return true;
     if (!form.targetStudentId) return false;
     return Math.abs(allocationDifference) < 0.001;
-  }, [allocationDifference, form.correctionReason, form.method, form.reassignEnabled, form.targetStudentId]);
+  }, [allocationDifference, canEditAmount, editedAmount, form.correctionReason, form.method, form.reassignEnabled, form.targetStudentId]);
 
   const handleToggleCharge = (charge) => {
     setAllocationAmounts((prev) => {
@@ -189,6 +206,8 @@ export default function CorrectPaymentReceiptModal({
   const handleSubmit = () => {
     const payload = {
       method: form.method,
+      amount: canEditAmount ? Number(form.amount || 0) || undefined : undefined,
+      paidAt: canEditPaidAt ? String(form.paidAt || "").trim() || undefined : undefined,
       receiptNumber: String(form.receiptNumber || "").trim() || undefined,
       voucherNumber: String(form.voucherNumber || "").trim() || undefined,
       notes: String(form.notes || "").trim() || undefined,
@@ -248,6 +267,27 @@ export default function CorrectPaymentReceiptModal({
             <option value="TRANSFER">Transferencia</option>
           </select>
         </div>
+
+        {canEditAmount ? (
+          <Input
+            label="Monto del recibo"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={form.amount}
+            onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
+            placeholder="0.00"
+          />
+        ) : null}
+
+        {canEditPaidAt ? (
+          <Input
+            label="Fecha del pago"
+            type="datetime-local"
+            value={form.paidAt}
+            onChange={(e) => setForm((prev) => ({ ...prev, paidAt: e.target.value }))}
+          />
+        ) : null}
 
         <div className="grid gap-3 md:grid-cols-2">
           <Input
@@ -344,7 +384,7 @@ export default function CorrectPaymentReceiptModal({
 
                 {form.targetStudentId ? (
                   <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                    El total asignado a los cargos destino debe ser exactamente {formatMoney(paymentAmount)}.
+                    El total asignado a los cargos destino debe ser exactamente {formatMoney(effectivePaymentAmount)}.
                   </div>
                 ) : null}
 
@@ -415,7 +455,7 @@ export default function CorrectPaymentReceiptModal({
                 }`}>
                   <div className="flex items-center justify-between gap-3">
                     <span>Total del recibo</span>
-                    <strong>{formatMoney(paymentAmount)}</strong>
+                    <strong>{formatMoney(effectivePaymentAmount)}</strong>
                   </div>
                   <div className="mt-1 flex items-center justify-between gap-3">
                     <span>Total asignado</span>

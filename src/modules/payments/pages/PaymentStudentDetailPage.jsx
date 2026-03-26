@@ -123,6 +123,8 @@ export default function PaymentStudentDetailPage() {
   );
   const showDrawer = drawerOpen && selectedChargeRows.length > 0;
   const canCorrectReceipt = hasCapability(activeRole, CAPABILITIES.paymentsCorrectReceipt);
+  const canEditReceiptAmount = hasCapability(activeRole, CAPABILITIES.paymentsEditReceiptAmount);
+  const canEditReceiptPaidAt = hasCapability(activeRole, CAPABILITIES.paymentsEditReceiptPaidAt);
   const canReassignReceipt = hasCapability(activeRole, CAPABILITIES.paymentsReassignReceipt);
 
   const topSummaryBlock = (
@@ -268,6 +270,8 @@ export default function PaymentStudentDetailPage() {
       paymentId: selectedPayment.id,
       payload: {
         method: formValues.method,
+        amount: canEditReceiptAmount ? Number(formValues.amount || 0) || undefined : undefined,
+        paidAt: canEditReceiptPaidAt ? String(formValues.paidAt || "").trim() || undefined : undefined,
         receiptNumber: String(formValues.receiptNumber || "").trim() || undefined,
         voucherNumber: String(formValues.voucherNumber || "").trim() || undefined,
         notes: String(formValues.notes || "").trim() || undefined,
@@ -280,6 +284,9 @@ export default function PaymentStudentDetailPage() {
     setSelectedPayment((prev) => ({
       ...(prev || {}),
       method: updated?.method || formValues.method,
+      amount: Number(updated?.amount ?? updated?.totalAmount ?? (canEditReceiptAmount ? Number(formValues.amount || 0) || prev?.amount : prev?.amount)) || prev?.amount,
+      paidAt: updated?.paidAt ?? (canEditReceiptPaidAt ? String(formValues.paidAt || "").trim() || prev?.paidAt : prev?.paidAt),
+      date: updated?.paidAt ?? updated?.date ?? (canEditReceiptPaidAt ? String(formValues.paidAt || "").trim() || prev?.date : prev?.date),
       receiptNumber: updated?.receiptNumber ?? (String(formValues.receiptNumber || "").trim() || null),
       voucherNumber: updated?.voucherNumber ?? (String(formValues.voucherNumber || "").trim() || null),
       note: updated?.notes ?? (String(formValues.notes || "").trim() || null),
@@ -461,6 +468,8 @@ export default function PaymentStudentDetailPage() {
         isPending={updatePaymentReceiptMutation.isPending}
         isSuccess={updatePaymentReceiptMutation.isSuccess}
         error={updatePaymentReceiptMutation.error}
+        canEditAmount={canEditReceiptAmount}
+        canEditPaidAt={canEditReceiptPaidAt}
         canReassign={canReassignReceipt}
         currentStudentId={studentId}
       />

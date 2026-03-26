@@ -15,6 +15,8 @@ export const CAPABILITIES = {
   paymentsCreateCharge: "payments.create_charge",
   paymentsEditCharge: "payments.edit_charge",
   paymentsCorrectReceipt: "payments.correct_receipt",
+  paymentsEditReceiptAmount: "payments.edit_receipt_amount",
+  paymentsEditReceiptPaidAt: "payments.edit_receipt_paid_at",
   paymentsReassignReceipt: "payments.reassign_receipt",
   attendanceView: "attendance.view",
   adminView: "admin.view",
