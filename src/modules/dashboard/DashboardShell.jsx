@@ -11,7 +11,7 @@ import { ROUTES } from "../../config/routes";
 import { useStudentSummaryQuery } from "../students/hooks/useStudentSummaryQuery";
 
 const PAGE_META = {
-  dashboard: { title: "Inicio", description: "Resumen operativo y alertas clave del dia." },
+  dashboard: { title: "Inicio Operativo", description: "Resumen operativo y alertas clave del dia." },
   attendance: { title: "Preparar sesion", description: "Configura la jornada de hoy o continua con una ya preparada." },
   attendanceIntake: { title: "Preparar sesion", description: "Configura la jornada de hoy o continua con una ya preparada." },
   attendanceTake: { title: "Toma operativa", description: "Registra codigos en ingreso y monitorea ultimos marcados." },
@@ -57,6 +57,16 @@ function getStudentBreadcrumbLabel(summary) {
   const full = [student?.lastNames, student?.names].filter(Boolean).join(", ").trim();
   if (full) return full;
   return student?.internalCode || student?.code || "Alumno...";
+}
+
+function getDashboardRoleLabel(activeRole) {
+  const normalized = String(activeRole || "").trim().toUpperCase();
+  if (normalized === "ADMIN") return "ADMIN";
+  if (normalized === "SECRETARY") return "SECRETARÍA";
+  if (normalized === "AUXILIAR") return "AUXILIAR";
+  if (normalized === "DIRECTOR") return "DIRECTOR";
+  if (normalized === "PROMOTER") return "PROMOTER";
+  return "INICIO";
 }
 
 export default function DashboardShell() {
@@ -122,9 +132,15 @@ export default function DashboardShell() {
   }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
 
   const breadcrumbItems = useMemo(() => {
+    const rootCrumb = { label: getDashboardRoleLabel(activeRole), to: ROUTES.dashboard };
+
+    if (pageKey === "dashboard") {
+      return [{ label: getDashboardRoleLabel(activeRole) }];
+    }
+
     if (pageKey === "adminSettings") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Admin", to: ROUTES.dashboardAdminSettings },
         { label: "Configuracion" },
       ];
@@ -132,7 +148,7 @@ export default function DashboardShell() {
 
     if (pageKey === "adminDev") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Admin", to: ROUTES.dashboardAdminSettings },
         { label: "Desarrollo" },
       ];
@@ -140,7 +156,7 @@ export default function DashboardShell() {
 
     if (pageKey === "enrollmentNew") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Matriculas", to: ROUTES.dashboardEnrollments },
         { label: "Nueva Matricula" },
       ];
@@ -148,7 +164,7 @@ export default function DashboardShell() {
 
     if (pageKey === "enrollmentDetail") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Matriculas", to: ROUTES.dashboardEnrollments },
         { label: "Detalle de matrícula" },
       ];
@@ -156,7 +172,7 @@ export default function DashboardShell() {
 
     if (pageKey === "attendanceIntake") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Asistencia", to: ROUTES.dashboardAttendance },
         { label: "Preparar sesion" },
       ];
@@ -164,7 +180,7 @@ export default function DashboardShell() {
 
     if (pageKey === "attendanceTake") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Asistencia", to: ROUTES.dashboardAttendance },
         { label: "Preparar sesion", to: ROUTES.dashboardAttendanceIntake },
         { label: "Toma operativa" },
@@ -173,7 +189,7 @@ export default function DashboardShell() {
 
     if (pageKey === "attendanceJustifications") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Asistencia", to: ROUTES.dashboardAttendance },
         { label: "Justificaciones" },
       ];
@@ -181,7 +197,7 @@ export default function DashboardShell() {
 
     if (pageKey === "attendanceReports") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Asistencia", to: ROUTES.dashboardAttendance },
         { label: "Reportes" },
       ];
@@ -195,18 +211,18 @@ export default function DashboardShell() {
 
     if (pageKey === "paymentDetail") {
       return [
-        { label: "Inicio", to: ROUTES.dashboard },
+        rootCrumb,
         { label: "Pagos", to: ROUTES.dashboardPayments },
         { label: "Detalle de Pagos" },
       ];
     }
 
     return [
-      { label: "Inicio", to: ROUTES.dashboard },
+      rootCrumb,
       { label: "Alumnos", to: ROUTES.dashboardStudents },
       { label },
     ];
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, activeRole]);
 
   const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
 

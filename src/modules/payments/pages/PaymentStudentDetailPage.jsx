@@ -41,12 +41,28 @@ function formatMethod(value) {
 }
 
 function formatChargeStatus(value) {
-  if (value === "PAID") return "Completo";
-  if (value === "PARTIAL") return "Parcial";
-  if (value === "PENDING") return "Pendiente";
-  if (value === "OVERDUE") return "Vencido";
-  if (value === "CANCELLED") return "Cancelado";
+  if (value === "PAID") return "COMPLETO";
+  if (value === "PARTIAL") return "PARCIAL";
+  if (value === "PENDING") return "PENDIENTE";
+  if (value === "OVERDUE") return "VENCIDO";
+  if (value === "CANCELLED") return "CANCELADO";
   return value || "-";
+}
+
+function chargeRowClassName(status, isSelected) {
+  if (isSelected) return "bg-blue-50";
+  if (status === "OVERDUE") return "bg-rose-50/80";
+  return "";
+}
+
+function chargeStatusClassName(status) {
+  const base = "text-[11px] font-medium uppercase tracking-[0.18em]";
+  if (status === "OVERDUE") return `${base} text-rose-700`;
+  if (status === "PAID") return `${base} text-emerald-700`;
+  if (status === "PENDING") return `${base} text-slate-600`;
+  if (status === "PARTIAL") return `${base} text-amber-700`;
+  if (status === "CANCELLED") return `${base} text-slate-400`;
+  return `${base} text-slate-600`;
 }
 
 function formatContextValue(value) {
@@ -143,7 +159,7 @@ export default function PaymentStudentDetailPage() {
         <button
           type="button"
           onClick={() => setCreateChargeOpen(true)}
-          className="flex h-full min-h-[78px] flex-col items-start justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50 px-3 py-1.5 text-left shadow-sm transition hover:border-blue-400 hover:bg-blue-100 xl:col-span-1"
+          className="flex h-full min-h-[9vh] flex-col items-start justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50 px-3 py-1.5 text-left shadow-sm transition hover:border-blue-400 hover:bg-blue-100 xl:col-span-1"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-800">Crear cargo</p>
           <span className="mt-1 text-[2.2rem] font-light leading-none text-blue-700">+</span>
@@ -296,7 +312,7 @@ export default function PaymentStudentDetailPage() {
               </Card>
             ) : null}
 
-            <Card className="border border-gray-200 px-3 pb-3 pt-1.5 shadow-sm">
+            <Card className="flex h-[27vh] flex-col border border-gray-200 px-3 pb-3 pt-1.5 shadow-sm">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Cargos</h2>
@@ -308,7 +324,7 @@ export default function PaymentStudentDetailPage() {
                 ) : null}
               </div>
 
-              <div className="max-h-[10.75rem] overflow-auto">
+              <div className="h-[20vh] overflow-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="sticky top-0 z-10 bg-gray-50">
                     <tr>
@@ -324,7 +340,7 @@ export default function PaymentStudentDetailPage() {
                     {charges.map((charge) => (
                       <tr
                         key={charge.id}
-                        className={`cursor-pointer transition hover:bg-gray-50 ${selectedCharges[charge.id] !== undefined ? "bg-blue-50" : ""}`}
+                        className={`cursor-pointer transition hover:bg-gray-50 ${chargeRowClassName(charge.status, selectedCharges[charge.id] !== undefined)}`}
                         onClick={() => setEditingCharge(charge)}
                       >
                         <td className="px-4 py-3 text-gray-700">
@@ -340,7 +356,11 @@ export default function PaymentStudentDetailPage() {
                         <td className="px-4 py-3 text-gray-700">{formatMoney(charge.amount)}</td>
                         <td className="px-4 py-3 text-gray-700">{formatMoney(charge.outstandingAmount)}</td>
                         <td className="px-4 py-3 text-gray-700">{formatDate(charge.dueDate)}</td>
-                        <td className="px-4 py-3 text-gray-700">{formatChargeStatus(charge.status)}</td>
+                        <td className="px-4 py-3">
+                          <span className={chargeStatusClassName(charge.status)}>
+                            {formatChargeStatus(charge.status)}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -349,9 +369,9 @@ export default function PaymentStudentDetailPage() {
               {!charges.length ? <p className="mt-3 text-sm text-gray-500">No hay cargos registrados.</p> : null}
             </Card>
 
-            <Card className="border border-gray-200 px-3 pb-3 pt-1.5 shadow-sm">
+            <Card className="flex h-[20vh] flex-col border border-gray-200 px-3 pb-3 pt-1.5 shadow-sm">
               <h2 className="mb-2 text-lg font-semibold text-gray-900">Pagos registrados</h2>
-              <div className="max-h-[13.5rem] overflow-auto">
+              <div className="h-[14vh] overflow-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="sticky top-0 z-10 bg-gray-50">
                     <tr>

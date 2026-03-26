@@ -68,14 +68,30 @@ export default function BreadcrumbHeader({
         <nav className="mb-2 flex flex-wrap items-center gap-1 text-sm text-white/80" aria-label="Breadcrumb">
           {crumbs.map((item, idx) => {
             const isLast = idx === crumbs.length - 1;
+            const isFirst = idx === 0;
 
             return (
               <React.Fragment key={`${item.to || item.label}-${idx}`}>
                 {idx > 0 && <ChevronRight className="h-4 w-4 flex-shrink-0 opacity-70" />}
                 {isLast || !item.to ? (
-                  <span className="truncate font-semibold text-white">{item.label}</span>
+                  <span
+                    className={
+                      isFirst
+                        ? "truncate text-[11px] font-medium uppercase tracking-[0.18em] text-white/90"
+                        : "truncate font-semibold text-white"
+                    }
+                  >
+                    {item.label}
+                  </span>
                 ) : (
-                  <Link to={item.to} className="underline-offset-2 transition-colors hover:text-white hover:underline">
+                  <Link
+                    to={item.to}
+                    className={
+                      isFirst
+                        ? "text-[11px] font-medium uppercase tracking-[0.18em] text-white/90 transition-colors hover:text-white"
+                        : "underline-offset-2 transition-colors hover:text-white hover:underline"
+                    }
+                  >
                     {item.label}
                   </Link>
                 )}
