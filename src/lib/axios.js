@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_ROUTES } from '../config/apiRoutes';
-import { getToken } from './authStorage';
+import { getActiveRole, getToken } from './authStorage';
 
 // Configurar instancia de axios
 const instance = axios.create({
@@ -11,8 +11,12 @@ const instance = axios.create({
 instance.interceptors.request.use(
   (config) => {
     const token = getToken();
+    const activeRole = getActiveRole();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (activeRole) {
+      config.headers['X-Active-Role'] = activeRole;
     }
     return config;
   },

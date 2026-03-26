@@ -21,6 +21,8 @@ import EnrollmentContractPreviewPage from "../modules/enrollments/pages/Enrollme
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
 import PaymentsDailyCashPage from "../modules/payments/pages/PaymentsDailyCashPage";
 import PaymentStudentDetailPage from "../modules/payments/pages/PaymentStudentDetailPage";
+import ActivitiesPage from "../modules/activities/pages/ActivitiesPage";
+import ActivityDetailPage from "../modules/activities/pages/ActivityDetailPage";
 import ClassroomsBoardPage from "../modules/admin/pages/ClassroomsBoardPage";
 import AttendanceIntakePage from "../modules/attendance/pages/AttendanceIntakePage";
 import AttendanceTakePage from "../modules/attendance/pages/AttendanceTakePage";
@@ -124,6 +126,11 @@ export default function AppRoutes() {
               <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />
               <Route path={ROUTES.dashboardPaymentsDailyCash} element={<PaymentsDailyCashPage />} />
               <Route path={ROUTES.dashboardPaymentDetail()} element={<PaymentStudentDetailPage />} />
+            </Route>
+
+            <Route element={<CapabilityRoute capability={CAPABILITIES.activitiesView} />}>
+              <Route path={ROUTES.dashboardActivities} element={<ActivitiesPage />} />
+              <Route path={ROUTES.dashboardActivityDetail()} element={<ActivityDetailPage />} />
             </Route>
 
             <Route element={<CapabilityRoute capability={CAPABILITIES.adminView} />}>

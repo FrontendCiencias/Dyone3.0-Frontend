@@ -23,6 +23,8 @@ export const ROUTES = {
   dashboardPayments: "/dashboard/payments",
   dashboardPaymentsDailyCash: "/dashboard/payments/daily-cash",
   dashboardPaymentDetail: (studentId = ":studentId") => `/dashboard/payments/${studentId}`,
+  dashboardActivities: "/dashboard/activities",
+  dashboardActivityDetail: (activityId = ":activityId") => `/dashboard/activities/${activityId}`,
   dashboardAdmin: "/dashboard/admin",
   dashboardAdminSettings: "/dashboard/admin/settings",
   dashboardAdminDev: "/dashboard/admin/dev",

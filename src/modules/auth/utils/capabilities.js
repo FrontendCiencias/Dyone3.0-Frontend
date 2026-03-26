@@ -18,6 +18,10 @@ export const CAPABILITIES = {
   paymentsEditReceiptAmount: "payments.edit_receipt_amount",
   paymentsEditReceiptPaidAt: "payments.edit_receipt_paid_at",
   paymentsReassignReceipt: "payments.reassign_receipt",
+  activitiesView: "activities.view",
+  activitiesManage: "activities.manage",
+  activitiesCollect: "activities.collect",
+  activitiesReport: "activities.report",
   attendanceView: "attendance.view",
   adminView: "admin.view",
   adminSettingsEdit: "admin.settings.edit",
@@ -48,6 +52,8 @@ const ROLE_CAPABILITIES = {
     CAPABILITIES.paymentsCreateCharge,
     CAPABILITIES.paymentsEditCharge,
     CAPABILITIES.paymentsCorrectReceipt,
+    CAPABILITIES.activitiesView,
+    CAPABILITIES.activitiesCollect,
   ],
   SECRETARY_VIEWER: [
     CAPABILITIES.dashboardView,
@@ -55,6 +61,8 @@ const ROLE_CAPABILITIES = {
   ],
   AUXILIAR: [
     CAPABILITIES.dashboardView,
+    CAPABILITIES.activitiesView,
+    CAPABILITIES.activitiesCollect,
     CAPABILITIES.attendanceView,
   ],
   DIRECTOR: [

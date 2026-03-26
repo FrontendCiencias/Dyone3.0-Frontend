@@ -23,6 +23,8 @@ const PAGE_META = {
   enrollmentDetail: { title: "Detalle de matrícula", description: "Revisa el estado, alumnos firmantes y contrato de la matrícula." },
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
   paymentsDailyCash: { title: "Caja del día", description: "Consulta ingresos del día y revisa movimientos recientes por fecha." },
+  activities: { title: "Activities", description: "Concursos, eventos y recaudaciones especiales fuera de caja diaria." },
+  activityDetail: { title: "Detalle de activity", description: "Participantes, cobros y control operativo por cobrador." },
   adminSettings: { title: "Configuracion", description: "Sedes, ciclos, aulas y conceptos." },
   adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades tecnicas." },
   enrollments: { title: "Matriculas", description: "Monitorea y registra el flujo de matriculas." },
@@ -41,6 +43,8 @@ function resolvePageKey(pathname) {
   if (pathname.startsWith(ROUTES.dashboardAttendance)) return "attendance";
   if (pathname === ROUTES.dashboardClassrooms) return "classrooms";
   if (pathname === ROUTES.dashboardPaymentsDailyCash) return "paymentsDailyCash";
+  if (pathname === ROUTES.dashboardActivities) return "activities";
+  if (/^\/dashboard\/activities\/[^/]+$/.test(pathname)) return "activityDetail";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
   if (/^\/dashboard\/enrollments\/[^/]+$/.test(pathname) && pathname !== ROUTES.dashboardEnrollmentNew) return "enrollmentDetail";
   if (/^\/dashboard\/payments\/[^/]+$/.test(pathname)) return "paymentDetail";
@@ -213,6 +217,21 @@ export default function DashboardShell() {
       ];
     }
 
+    if (pageKey === "activities") {
+      return [
+        rootCrumb,
+        { label: "Activities" },
+      ];
+    }
+
+    if (pageKey === "activityDetail") {
+      return [
+        rootCrumb,
+        { label: "Activities", to: ROUTES.dashboardActivities },
+        { label: "Detalle de activity" },
+      ];
+    }
+
     if (pageKey !== "studentDetail" && pageKey !== "paymentDetail") return null;
 
     const label = studentSummaryQuery.isLoading
@@ -258,6 +277,7 @@ export default function DashboardShell() {
           queryClient.invalidateQueries({ queryKey: ["families"] });
           queryClient.invalidateQueries({ queryKey: ["enrollments"] });
           queryClient.invalidateQueries({ queryKey: ["payments"] });
+          queryClient.invalidateQueries({ queryKey: ["activities"] });
           queryClient.invalidateQueries({ queryKey: ["dashboard"] });
           queryClient.invalidateQueries({ queryKey: ["attendance"] });
         }}

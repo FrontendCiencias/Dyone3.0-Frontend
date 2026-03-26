@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   ClipboardList,
   CreditCard,
+  Sparkles,
   Settings2,
   Code2,
   GraduationCap,
@@ -47,6 +48,13 @@ const NAV_ITEMS = [
     description: "Cobros y pensiones",
     icon: CreditCard,
     capability: CAPABILITIES.paymentsView,
+  },
+  {
+    to: ROUTES.dashboardActivities,
+    label: "Activities",
+    description: "Concursos y recaudaciones especiales",
+    icon: Sparkles,
+    capability: CAPABILITIES.activitiesView,
   },
   {
     to: ROUTES.dashboardAttendance,
