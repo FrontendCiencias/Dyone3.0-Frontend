@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { AlertCircle, Clock3, Filter, Users, Wallet2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import OperationalBlockState from "../../../shared/ui/OperationalBlockState";
+import OperationalContextBar from "../../../shared/ui/OperationalContextBar";
+import OperationalSearchBar from "../../../shared/ui/OperationalSearchBar";
+import OperationalSummaryCard from "../../../shared/ui/OperationalSummaryCard";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
 import { usePaymentsDebtorsQuery } from "../hooks/usePaymentsDebtorsQuery";
-import DailyCashReviewSection from "../components/DailyCashReviewSection";
 
 function formatMoney(value) {
   const amount = Number(value || 0);
@@ -32,7 +35,7 @@ function getErrorMessage(error) {
   const msg = error?.response?.data?.message || error?.message;
   if (Array.isArray(msg)) return msg.join(". ");
   if (typeof msg === "string") return msg;
-  return "No se pudo cargar la caja.";
+  return "No se pudo cargar la cartera.";
 }
 
 function isSecretaryRole(activeRole) {
@@ -112,16 +115,70 @@ export default function PaymentsPage() {
   const canGoPrev = page > 1;
   const canGoNext = isSearchMode ? page < searchTotalPages : Boolean(pageInfo.hasNext);
 
-  return (
-    <div className="space-y-4">
-      <Card className="border border-gray-200 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Cartera por alumno</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Consulta deuda resumida por alumno y abre el detalle para registrar pagos o revisar cargos.
-          </p>
-        </div>
+  const visibleStudents = visibleRows.length;
+  const totalPending = useMemo(
+    () => visibleRows.reduce((acc, row) => acc + Number(row.totalPending || 0), 0),
+    [visibleRows],
+  );
+  const totalOverdue = useMemo(
+    () => visibleRows.reduce((acc, row) => acc + Number(row.totalOverdue || 0), 0),
+    [visibleRows],
+  );
+  const filterModeLabel = onlyOverdue ? "Solo vencidos" : "Toda la cartera";
+  const currentCampusLabel = campusFilter || (activeCampus === "ALL" ? "Todos" : activeCampus) || "Todos";
 
+  return (
+    <div className="flex min-h-0 flex-col gap-4">
+      <OperationalContextBar
+        items={[
+          { key: "Campus", value: currentCampusLabel },
+          { key: "Vista", value: "Cartera por alumno" },
+          { key: "Visibles", value: `${visibleStudents} alumnos`, icon: Users },
+          { key: "Filtro", value: filterModeLabel, icon: Filter, grow: true },
+        ]}
+      />
+
+      {activeQuery.isError ? (
+        <OperationalBlockState mode="error" minHeight="120px" message={getErrorMessage(activeQuery.error)} />
+      ) : (
+        <div className={`grid gap-3 md:grid-cols-2 xl:grid-cols-4 ${activeQuery.isFetching ? "opacity-75" : ""}`}>
+          <OperationalSummaryCard
+            label="Alumnos"
+            value={String(visibleStudents)}
+            hint={isSearchMode ? "Resultados de búsqueda" : "Registros visibles en cartera"}
+            icon={Users}
+            variant="neutral"
+            loading={activeQuery.isLoading}
+          />
+          <OperationalSummaryCard
+            label="Pendiente"
+            value={formatMoney(totalPending)}
+            hint="Suma de deuda visible"
+            icon={Clock3}
+            variant="neutral"
+            loading={activeQuery.isLoading}
+          />
+          <OperationalSummaryCard
+            label="Vencido"
+            value={formatMoney(totalOverdue)}
+            hint="Deuda vencida visible"
+            icon={AlertCircle}
+            variant="amber"
+            loading={activeQuery.isLoading}
+          />
+          <OperationalSummaryCard
+            label="Caja del día"
+            value="Abrir vista"
+            hint="Resumen operativo e historico por fecha"
+            actionLabel="Ir a caja"
+            icon={Wallet2}
+            variant="blue"
+            onAction={() => navigate(ROUTES.dashboardPaymentsDailyCash)}
+          />
+        </div>
+      )}
+
+      <OperationalSearchBar>
         <div className="grid gap-3 md:grid-cols-12 md:items-end">
           <div className="md:col-span-6">
             <Input
@@ -148,25 +205,46 @@ export default function PaymentsPage() {
           )}
 
           <div className="md:col-span-3">
-            <label className="mb-1 block text-sm font-medium text-gray-700">Solo vencidos</label>
-            <input
-              type="checkbox"
-              className="h-5 w-5"
-              checked={onlyOverdue}
-              onChange={(e) => setOnlyOverdue(e.target.checked)}
+            <label className="mb-1 block text-sm font-medium text-gray-700">Filtro rapido</label>
+            <button
+              type="button"
+              className={[
+                "inline-flex h-[42px] w-full items-center justify-center rounded-xl border px-4 text-sm font-semibold transition",
+                onlyOverdue
+                  ? "border-amber-300 bg-amber-50 text-amber-800"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50",
+              ].join(" ")}
+              onClick={() => setOnlyOverdue((prev) => !prev)}
               disabled={isSearchMode}
-            />
+            >
+              {onlyOverdue ? "Solo vencidos" : "Mostrar todos"}
+            </button>
           </div>
         </div>
-      </Card>
+      </OperationalSearchBar>
 
-      {activeQuery.isError ? (
-        <Card className="border border-red-100 text-sm text-red-700">{getErrorMessage(activeQuery.error)}</Card>
-      ) : activeQuery.isLoading || activeQuery.isFetching ? (
-        <Card className="border border-gray-200 text-sm text-gray-500">Cargando cartera...</Card>
+      {activeQuery.isLoading ? (
+        <OperationalBlockState message="Cargando cartera..." minHeight="420px" />
+      ) : activeQuery.isError ? (
+        <OperationalBlockState mode="error" message={getErrorMessage(activeQuery.error)} minHeight="420px" />
       ) : (
-        <Card className="overflow-hidden border border-gray-200 shadow-sm">
-          <div className="h-[320px] overflow-auto">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-200 px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Cartera por alumno</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Consulta deuda resumida por alumno y abre el detalle para registrar pagos o revisar cargos.
+                </p>
+              </div>
+              <div className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 md:flex">
+                <Wallet2 className="h-4 w-4" />
+                <span>{formatMoney(totalPending)} pendientes visibles</span>
+              </div>
+            </div>
+          </div>
+
+          <div className={`h-[34vh] overflow-auto ${activeQuery.isFetching ? "bg-gray-50/40" : ""}`}>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="sticky top-0 z-10 bg-gray-50">
@@ -211,7 +289,7 @@ export default function PaymentsPage() {
           </div>
 
           {!rows.length ? (
-            <div className="px-4 py-6 text-sm text-gray-500">
+            <div className="border-t border-gray-200 px-4 py-6 text-sm text-gray-500">
               {isSearchMode ? "No se encontraron alumnos para esa busqueda." : "No hay deudores para los filtros seleccionados."}
             </div>
           ) : null}
@@ -230,10 +308,8 @@ export default function PaymentsPage() {
               </SecondaryButton>
             </div>
           ) : null}
-        </Card>
+        </div>
       )}
-
-      <DailyCashReviewSection campus={campusFilter || undefined} />
     </div>
   );
 }

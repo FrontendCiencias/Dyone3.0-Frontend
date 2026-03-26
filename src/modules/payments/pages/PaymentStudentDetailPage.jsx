@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle, Clock3, Plus } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
+import OperationalContextBar from "../../../shared/ui/OperationalContextBar";
+import OperationalSummaryCard from "../../../shared/ui/OperationalSummaryCard";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { useAuth } from "../../../lib/auth";
 import { CAPABILITIES, hasCapability } from "../../auth/utils/capabilities";
@@ -124,46 +127,49 @@ export default function PaymentStudentDetailPage() {
 
   const topSummaryBlock = (
     <div className="space-y-3">
-      <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-slate-50 px-4 py-2.5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-2 text-sm">
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
-            <span className="font-medium text-slate-500">Cod. interno:</span>{" "}
-            {formatContextValue(student?.internalCode || student?.code)}
-          </span>
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
-            <span className="font-medium text-slate-500">Cod. Caja:</span> {formatContextValue(student?.bankCode)}
-          </span>
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
-            <span className="font-medium text-slate-500">Grado actual:</span>{" "}
-            {formatContextValue(student?.gradeDisplayName || student?.classroomDisplayName)}
-          </span>
-        </div>
-        <div className="flex justify-start lg:justify-end lg:self-start">
-          <SecondaryButton onClick={() => navigate(ROUTES.dashboardPayments)}>Volver a pagos</SecondaryButton>
-        </div>
-      </div>
+      <OperationalContextBar
+        items={[
+          { key: "Cod. interno", value: formatContextValue(student?.internalCode || student?.code) },
+          { key: "Cod. Caja", value: formatContextValue(student?.bankCode) },
+          {
+            key: "Grado actual",
+            value: formatContextValue(student?.gradeDisplayName || student?.classroomDisplayName),
+            grow: true,
+          },
+        ]}
+        onBack={() => navigate(ROUTES.dashboardPayments)}
+        backLabel="Volver a pagos"
+      />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-        <div className="rounded-xl border border-gray-200 px-4 py-1.5 shadow-sm xl:col-span-2">
-          <p className="text-sm text-gray-500">Pendiente</p>
-          <p className="mt-0.5 text-2xl font-semibold text-gray-900">{formatMoney(account?.totals?.pending)}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 px-4 py-1.5 shadow-sm xl:col-span-2">
-          <p className="text-sm text-amber-700">Vencido</p>
-          <p className="mt-0.5 text-2xl font-semibold text-amber-800">{formatMoney(account?.totals?.overdue)}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 px-4 py-1.5 shadow-sm xl:col-span-2">
-          <p className="text-sm text-emerald-700">Pagado</p>
-          <p className="mt-0.5 text-2xl font-semibold text-emerald-800">{formatMoney(account?.totals?.paid)}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setCreateChargeOpen(true)}
-          className="flex h-full min-h-[9vh] flex-col items-start justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50 px-3 py-1.5 text-left shadow-sm transition hover:border-blue-400 hover:bg-blue-100 xl:col-span-1"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-800">Crear cargo</p>
-          <span className="mt-1 text-[2.2rem] font-light leading-none text-blue-700">+</span>
-        </button>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <OperationalSummaryCard
+          label="Pendiente"
+          value={formatMoney(account?.totals?.pending)}
+          icon={Clock3}
+          variant="neutral"
+        />
+        <OperationalSummaryCard
+          label="Vencido"
+          value={formatMoney(account?.totals?.overdue)}
+          icon={AlertCircle}
+          variant="amber"
+        />
+        <OperationalSummaryCard
+          label="Pagado"
+          value={formatMoney(account?.totals?.paid)}
+          icon={CheckCircle}
+          variant="green"
+        />
+        <OperationalSummaryCard
+          label="Crear cargo"
+          value="Nuevo cargo"
+          hint="Registrar concepto de cobro"
+          icon={Plus}
+          variant="blue"
+          actionLabel="Agregar"
+          onAction={() => setCreateChargeOpen(true)}
+          className="min-h-[9vh]"
+        />
       </div>
     </div>
   );

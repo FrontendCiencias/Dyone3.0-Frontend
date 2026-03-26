@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Banknote, CreditCard, Smartphone, TrendingUp, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import OperationalSummaryCard from "../../../shared/ui/OperationalSummaryCard";
 import { ROUTES } from "../../../config/routes";
 import { useDailyPaymentSummaryQuery } from "../hooks/useDailyPaymentSummaryQuery";
 import { useDailyPaymentTransactionsQuery } from "../hooks/useDailyPaymentTransactionsQuery";
@@ -62,27 +64,27 @@ function getErrorMessage(error) {
   return "No se pudo cargar la caja diaria.";
 }
 
-function SummaryCard({ label, value, hint, className = "" }) {
-  return (
-    <div className={`rounded-2xl border px-4 py-3 ${className}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">{label}</p>
-      <p className="mt-2 text-xl font-semibold tracking-tight text-gray-950 lg:text-2xl">{value}</p>
-      <p className="mt-1 text-xs text-gray-500">{hint}</p>
-    </div>
-  );
-}
-
-function methodAccent(method) {
+function methodVariant(method) {
   const normalized = String(method || "").toUpperCase();
-  if (normalized === "TOTAL") return "border-slate-200 bg-slate-50";
-  if (normalized === "PAYMENTS") return "border-violet-200 bg-violet-50";
-  if (normalized === "CASH") return "border-emerald-200 bg-emerald-50";
-  if (normalized === "YAPE") return "border-sky-200 bg-sky-50";
-  if (normalized === "TRANSFER") return "border-amber-200 bg-amber-50";
-  return "border-gray-100 bg-gray-50/70";
+  if (normalized === "TOTAL") return "green";
+  if (normalized === "PAYMENTS") return "neutral";
+  if (normalized === "CASH") return "neutral";
+  if (normalized === "YAPE") return "blue";
+  if (normalized === "TRANSFER") return "amber";
+  return "neutral";
 }
 
-export default function DailyCashReviewSection({ campus }) {
+function methodIcon(method) {
+  const normalized = String(method || "").toUpperCase();
+  if (normalized === "TOTAL") return TrendingUp;
+  if (normalized === "PAYMENTS") return CreditCard;
+  if (normalized === "CASH") return Banknote;
+  if (normalized === "YAPE") return Smartphone;
+  if (normalized === "TRANSFER") return Wallet;
+  return CreditCard;
+}
+
+export default function DailyCashReviewSection({ campus, showHeader = true }) {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(getLimaTodayString);
   const [selectedPayment, setSelectedPayment] = useState(null);
@@ -217,27 +219,29 @@ export default function DailyCashReviewSection({ campus }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Caja diaria</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Revisa cuentas del dia y consulta movimientos de fechas anteriores sin salir del modulo de pagos.
-            </p>
-          </div>
+      {showHeader ? (
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Caja diaria</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Revisa cuentas del dia y consulta movimientos de fechas anteriores sin salir del modulo de pagos.
+              </p>
+            </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <Input
-              label="Fecha"
-              type="date"
-              value={selectedDate}
-              onChange={(event) => {
-                setSelectedDate(event.target.value);
-              }}
-            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Input
+                label="Fecha"
+                type="date"
+                value={selectedDate}
+                onChange={(event) => {
+                  setSelectedDate(event.target.value);
+                }}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {summaryQuery.isError ? (
         <div className="rounded-2xl border border-red-100 bg-white p-4 text-sm text-red-700">
@@ -245,25 +249,29 @@ export default function DailyCashReviewSection({ campus }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4 xl:grid-cols-5">
-          <SummaryCard
+          <OperationalSummaryCard
             label="Ingreso total"
             value={formatMoney(summaryQuery.data?.totalIncome)}
             hint="Suma de pagos del dia seleccionado"
-            className={`md:col-span-4 xl:col-span-1 ${methodAccent("TOTAL")}`}
+            icon={methodIcon("TOTAL")}
+            variant={methodVariant("TOTAL")}
+            className="md:col-span-4 xl:col-span-1"
           />
-          <SummaryCard
+          <OperationalSummaryCard
             label="Pagos"
             value={String(summaryQuery.data?.paymentsCount || 0)}
             hint="Operaciones registradas"
-            className={methodAccent("PAYMENTS")}
+            icon={methodIcon("PAYMENTS")}
+            variant={methodVariant("PAYMENTS")}
           />
           {totalsByMethod.map((row) => (
-            <SummaryCard
+            <OperationalSummaryCard
               key={row.method}
               label={row.label}
               value={formatMoney(row.totalAmount)}
               hint={`${row.paymentsCount} pago(s)`}
-              className={methodAccent(row.method)}
+              icon={methodIcon(row.method)}
+              variant={methodVariant(row.method)}
             />
           ))}
         </div>
@@ -271,24 +279,36 @@ export default function DailyCashReviewSection({ campus }) {
 
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-200 px-4 py-4">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-base font-semibold text-gray-900">Movimientos del dia</h3>
-            <p className="text-sm text-gray-600">
-              Pagos registrados para la fecha seleccionada, con acceso a reimpresion y al detalle del alumno.
-            </p>
-            <p className="text-xs text-gray-500">
-              Los pagos mixtos se reparten por concepto. Un mismo ticket puede aparecer en mas de una categoria.
-            </p>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Movimientos del dia</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Pagos registrados para la fecha seleccionada, con acceso a reimpresion y al detalle del alumno.
+              </p>
+            </div>
+            {!showHeader ? (
+              <div className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 md:flex">
+                <span>Fecha</span>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => {
+                    setSelectedDate(event.target.value);
+                  }}
+                  className="min-w-[150px]"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
 
         {transactionsQuery.isError ? (
-          <div className="px-4 py-5 text-sm text-red-700">{getErrorMessage(transactionsQuery.error)}</div>
+          <div className="h-[38vh] px-4 py-5 text-sm text-red-700">{getErrorMessage(transactionsQuery.error)}</div>
         ) : transactionsQuery.isLoading || transactionsQuery.isFetching ? (
-          <div className="px-4 py-5 text-sm text-gray-500">Cargando movimientos...</div>
+          <div className="h-[38vh] px-4 py-5 text-sm text-gray-500">Cargando movimientos...</div>
         ) : (
           <>
-            <div className="max-h-[420px] space-y-4 overflow-auto px-4 py-4">
+            <div className="h-[38vh] space-y-4 overflow-auto px-4 py-4">
               {groupedTransactions.map((group) => (
                 <section key={group.categoryLabel} className="overflow-hidden rounded-2xl border border-gray-200">
                   <button

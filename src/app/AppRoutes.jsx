@@ -19,6 +19,7 @@ import MatriculasV2Page from "../modules/enrollments/pages/MatriculasV2Page";
 import EnrollmentDetailPage from "../modules/enrollments/pages/EnrollmentDetailPage";
 import EnrollmentContractPreviewPage from "../modules/enrollments/pages/EnrollmentContractPreviewPage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
+import PaymentsDailyCashPage from "../modules/payments/pages/PaymentsDailyCashPage";
 import PaymentStudentDetailPage from "../modules/payments/pages/PaymentStudentDetailPage";
 import ClassroomsBoardPage from "../modules/admin/pages/ClassroomsBoardPage";
 import AttendanceIntakePage from "../modules/attendance/pages/AttendanceIntakePage";
@@ -121,6 +122,7 @@ export default function AppRoutes() {
 
             <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsView} />}>
               <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />
+              <Route path={ROUTES.dashboardPaymentsDailyCash} element={<PaymentsDailyCashPage />} />
               <Route path={ROUTES.dashboardPaymentDetail()} element={<PaymentStudentDetailPage />} />
             </Route>
 

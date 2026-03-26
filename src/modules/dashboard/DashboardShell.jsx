@@ -22,6 +22,7 @@ const PAGE_META = {
   studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matricula, aula y finanzas." },
   enrollmentDetail: { title: "Detalle de matrícula", description: "Revisa el estado, alumnos firmantes y contrato de la matrícula." },
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
+  paymentsDailyCash: { title: "Caja del día", description: "Consulta ingresos del día y revisa movimientos recientes por fecha." },
   adminSettings: { title: "Configuracion", description: "Sedes, ciclos, aulas y conceptos." },
   adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades tecnicas." },
   enrollments: { title: "Matriculas", description: "Monitorea y registra el flujo de matriculas." },
@@ -39,6 +40,7 @@ function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboardAttendanceReports) return "attendanceReports";
   if (pathname.startsWith(ROUTES.dashboardAttendance)) return "attendance";
   if (pathname === ROUTES.dashboardClassrooms) return "classrooms";
+  if (pathname === ROUTES.dashboardPaymentsDailyCash) return "paymentsDailyCash";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
   if (/^\/dashboard\/enrollments\/[^/]+$/.test(pathname) && pathname !== ROUTES.dashboardEnrollmentNew) return "enrollmentDetail";
   if (/^\/dashboard\/payments\/[^/]+$/.test(pathname)) return "paymentDetail";
@@ -200,6 +202,14 @@ export default function DashboardShell() {
         rootCrumb,
         { label: "Asistencia", to: ROUTES.dashboardAttendance },
         { label: "Reportes" },
+      ];
+    }
+
+    if (pageKey === "paymentsDailyCash") {
+      return [
+        rootCrumb,
+        { label: "Pagos", to: ROUTES.dashboardPayments },
+        { label: "Caja del día" },
       ];
     }
 
