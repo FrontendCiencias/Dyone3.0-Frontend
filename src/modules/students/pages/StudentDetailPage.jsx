@@ -4,6 +4,7 @@ import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { useAuth } from "../../../lib/auth";
 import { ROUTES } from "../../../config/routes";
+import { CAPABILITIES, hasCapability } from "../../auth/utils/capabilities";
 import { useStudentDetailQuery } from "../hooks/useStudentDetailQuery";
 import { useClassroomOptionsQuery } from "../hooks/useClassroomOptionsQuery";
 import { useUpdateEnrollmentStatusMutation } from "../hooks/useUpdateEnrollmentStatusMutation";
@@ -95,8 +96,13 @@ export default function StudentDetailPage() {
   const tutorLink = detail.tutorLink || detail.familyLink || {};
   const enrollmentStatus = detail.currentEnrollment || detail.enrollmentStatus || {};
   const debtsSummary = detail.debtsSummary || {};
-  const isAdminOrSecretary = ["ADMIN", "SECRETARY"].includes(safeUpper(activeRole));
-  const isAdmin = safeUpper(activeRole) === "ADMIN";
+  const canEditStudentIdentity = hasCapability(activeRole, CAPABILITIES.studentsEditIdentity);
+  const canEditStudentNotes = hasCapability(activeRole, CAPABILITIES.studentsEditNotes);
+  const canManageTutors = hasCapability(activeRole, CAPABILITIES.studentsManageTutors);
+  const canDeleteStudent = hasCapability(activeRole, CAPABILITIES.studentsDelete);
+  const canChangeClassroom = hasCapability(activeRole, CAPABILITIES.studentsChangeClassroom);
+  const canManagePayments = hasCapability(activeRole, CAPABILITIES.paymentsRegister);
+  const canCreateCharge = hasCapability(activeRole, CAPABILITIES.paymentsCreateCharge);
 
   const status = safeUpper(enrollmentStatus?.status || "?");
   const internalNotes = detail.internalNotes || student.internalNotes || "";
@@ -116,8 +122,8 @@ export default function StudentDetailPage() {
   const classroomGrade = enrollmentStatus?.classroom?.grade || student?.grade;
   const classroomCampus = enrollmentStatus?.campus?.code || student?.campusCode || null;
   const classroomOptionsQuery = useClassroomOptionsQuery({
-    level: isAdmin ? undefined : classroomLevel,
-    grade: isAdmin ? undefined : classroomGrade,
+    level: canDeleteStudent ? undefined : classroomLevel,
+    grade: canDeleteStudent ? undefined : classroomGrade,
     campus: classroomCampus,
   });
 
@@ -369,43 +375,23 @@ export default function StudentDetailPage() {
         <div className="space-y-4 lg:col-span-8">
           <StudentIdentityCard
             student={student}
-            disabled={lockEdition && activeEditor !== "identity"}
-            onEdit={() => openEditor("identity")}
+            disabled={!canEditStudentIdentity || (lockEdition && activeEditor !== "identity")}
+            onEdit={() => canEditStudentIdentity && openEditor("identity")}
           />
 
           <StudentFamilyCard
             tutors={tutors}
-            canManage={isAdminOrSecretary}
+            canManage={canManageTutors}
             onManage={() => setManageTutorsOpen(true)}
           />
 
           <Card className="border border-gray-200 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Matrícula</h3>
-            </div>
-            <div className="space-y-2 text-sm text-gray-700">
-              <p>Estado del ciclo: <span className="font-medium">{status}</span></p>
-              <p>Aula actual: {enrollmentStatus.classroom?.displayName || "-"}</p>
-              <p>Ciclo actual: {enrollmentStatus.cycleName || "-"}</p>
-              <p>Enrollment ID: {enrollmentStatus?.id || "Sin enrollment"}</p>
-            </div>
-
-            {!enrollmentStatus?.id ? (
-              <p className="mt-3 text-sm text-gray-600">Sin matrícula confirmada.</p>
-            ) : (
-              <div className="mt-3 space-y-2 text-sm text-gray-700">
-                <p>Pensión mensual: {formatMoney(detail?.financial?.monthlyFee)}</p>
-                <p>Observaciones: {enrollmentStatus?.notes || "-"}</p>
-                <p>Fecha confirmación: {enrollmentStatus?.confirmedAt?.slice?.(0, 10) || "-"}</p>
-                <p>Fecha traslado: {enrollmentStatus?.transferredAt?.slice?.(0, 10) || "-"}</p>
-              </div>
-            )}
-          </Card>
-
-          <Card className="border border-gray-200 shadow-sm">
-            <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Notas internas</h3>
-              <SecondaryButton disabled={lockEdition && activeEditor !== "notes"} onClick={() => openEditor("notes")}>
+              <SecondaryButton
+                disabled={!canEditStudentNotes || (lockEdition && activeEditor !== "notes")}
+                onClick={() => canEditStudentNotes && openEditor("notes")}
+              >
                 Editar
               </SecondaryButton>
             </div>
@@ -421,18 +407,22 @@ export default function StudentDetailPage() {
           <StudentAcademicCard
             enrollmentStatus={enrollmentStatus}
             status={status}
-            canChangeClassroom={isAdminOrSecretary}
+            canChangeClassroom={canChangeClassroom}
             onChangeClassroom={() => setChangeClassroomOpen(true)}
+            canViewEnrollment={Boolean(enrollmentStatus?.id)}
+            onViewEnrollment={() => navigate(ROUTES.dashboardEnrollmentDetail(enrollmentStatus.id))}
+            cycleName={enrollmentStatus.cycleName}
+            confirmedAt={enrollmentStatus.confirmedAt}
           />
 
           <StudentFinanceCard
             debtsSummary={debtsSummary}
             upcomingCharges={upcomingCharges}
             disableAccountStatement={lockEdition && activeEditor !== "accountStatement"}
-            canManagePayments={isAdminOrSecretary}
+            canManagePayments={canManagePayments}
             onOpenAccountStatement={() => openEditor("accountStatement")}
             onRegisterPayment={() => setPaymentModalOpen(true)}
-            onCreateCharge={() => setCreateChargeOpen(true)}
+            onCreateCharge={() => canCreateCharge && setCreateChargeOpen(true)}
           />
 
           <Card className="border border-gray-200 shadow-sm">
@@ -441,11 +431,11 @@ export default function StudentDetailPage() {
               <SecondaryButton
                 className="w-full border-red-200 text-red-700 hover:bg-red-50"
                 onClick={() => setTransferOpen(true)}
-                disabled={!isAdminOrSecretary || status === "TRANSFERRED"}
+                disabled={!canChangeClassroom || status === "TRANSFERRED"}
               >
                 Marcar como trasladado
               </SecondaryButton>
-              {isAdmin ? (
+              {canDeleteStudent ? (
                 <SecondaryButton
                   className="w-full border-red-300 text-red-700 hover:bg-red-50"
                   onClick={() => setDeleteStudentOpen(true)}
@@ -583,8 +573,8 @@ export default function StudentDetailPage() {
           setManageTutorsOpen(false);
         }}
         tutors={tutors}
-        canDelete={isAdmin}
-        canCreate={isAdmin}
+        canDelete={canDeleteStudent}
+        canCreate={canDeleteStudent}
         onSaveTutor={handleSaveTutor}
         onDeleteTutor={handleDeleteTutor}
         onCreateTutor={handleCreateTutor}

@@ -10,144 +10,100 @@ import {
 } from "lucide-react";
 
 import { ROUTES } from "../../../config/routes";
+import { CAPABILITIES, hasCapability } from "../../auth/utils/capabilities";
 
-const isAdmin = (r) => String(r || "").toUpperCase() === "ADMIN";
-const isSecretary = (r) => ["SECRETARY", "SECRETARY_VIEWER"].includes(String(r || "").toUpperCase());
-const isAuxiliar = (r) => String(r || "").toUpperCase() === "AUXILIAR";
-const isDirector = (r) => String(r || "").toUpperCase() === "DIRECTOR";
-const isPromoter = (r) => String(r || "").toUpperCase() === "PROMOTER";
+const NAV_ITEMS = [
+  {
+    to: ROUTES.dashboard,
+    label: "Inicio",
+    description: "Resumen general",
+    icon: LayoutDashboard,
+    capability: CAPABILITIES.dashboardView,
+  },
+  {
+    to: ROUTES.dashboardStudents,
+    label: "Alumnos",
+    description: "Consulta y gestion de alumnos",
+    descriptionByRole: {
+      ADMIN: "Busqueda global",
+      SECRETARY: "Ventanilla y ficha rapida",
+      SECRETARY_VIEWER: "Consulta y expediente",
+      DIRECTOR: "Consulta por campus",
+      PROMOTER: "Busqueda global",
+    },
+    icon: GraduationCap,
+    capability: CAPABILITIES.studentsView,
+  },
+  {
+    to: ROUTES.dashboardEnrollments,
+    label: "Matriculas",
+    description: "Registrar y gestionar",
+    icon: ClipboardList,
+    capability: CAPABILITIES.enrollmentsView,
+  },
+  {
+    to: ROUTES.dashboardPayments,
+    label: "Pagos",
+    description: "Cobros y pensiones",
+    icon: CreditCard,
+    capability: CAPABILITIES.paymentsView,
+  },
+  {
+    to: ROUTES.dashboardAttendance,
+    label: "Asistencia",
+    description: "Preparar y tomar asistencia",
+    icon: ClipboardList,
+    capability: CAPABILITIES.attendanceView,
+  },
+  {
+    to: ROUTES.dashboardAttendanceJustifications,
+    label: "Justificaciones",
+    description: "Tardanzas y faltas",
+    icon: Users,
+    capability: CAPABILITIES.attendanceView,
+    roles: ["ADMIN", "AUXILIAR"],
+  },
+  {
+    to: ROUTES.dashboardAttendanceReports,
+    label: "Reportes",
+    description: "Consulta y seguimiento",
+    icon: GraduationCap,
+    capability: CAPABILITIES.attendanceView,
+    roles: ["ADMIN", "AUXILIAR"],
+  },
+  {
+    to: ROUTES.dashboardClassrooms,
+    label: "Salones",
+    description: "Mover por seccion",
+    icon: School,
+    capability: CAPABILITIES.classroomsBoardView,
+  },
+  {
+    to: ROUTES.dashboardAdminSettings,
+    label: "Admin · Configuracion",
+    description: "Configuracion sensible",
+    icon: Settings2,
+    capability: CAPABILITIES.adminView,
+  },
+  {
+    to: ROUTES.dashboardAdminDev,
+    label: "Admin · Desarrollo",
+    description: "Endpoints y modelos",
+    icon: Code2,
+    capability: CAPABILITIES.adminDevView,
+  },
+];
 
 export function getNavItemsByRole(activeRole) {
   const role = String(activeRole || "").toUpperCase();
 
-  const base = [
-    {
-      to: ROUTES.dashboard,
-      label: "Inicio",
-      description: "Resumen general",
-      icon: LayoutDashboard,
-    },
-  ];
-
-  if (isSecretary(role)) {
-    return [
-      ...base,
-      {
-        to: ROUTES.dashboardStudents,
-        label: "Alumnos",
-        description: "Ventanilla y ficha rapida",
-        icon: GraduationCap,
-      },
-      {
-        to: ROUTES.dashboardEnrollments,
-        label: "Matriculas",
-        description: "Registrar y gestionar",
-        icon: ClipboardList,
-      },
-      {
-        to: ROUTES.dashboardPayments,
-        label: "Pagos",
-        description: "Cobros y pensiones",
-        icon: CreditCard,
-      },
-    ];
-  }
-
-  if (isAuxiliar(role)) {
-    return [
-      ...base,
-      {
-        to: ROUTES.dashboardAttendance,
-        label: "Asistencia",
-        description: "Preparar y tomar asistencia",
-        icon: ClipboardList,
-      },
-      {
-        to: ROUTES.dashboardAttendanceJustifications,
-        label: "Justificaciones",
-        description: "Tardanzas y faltas",
-        icon: Users,
-      },
-      {
-        to: ROUTES.dashboardAttendanceReports,
-        label: "Reportes",
-        description: "Consulta y seguimiento",
-        icon: GraduationCap,
-      },
-    ];
-  }
-
-  if (isDirector(role)) {
-    return [
-      ...base,
-      {
-        to: ROUTES.dashboardStudents,
-        label: "Alumnos",
-        description: "Consulta por campus",
-        icon: GraduationCap,
-      },
-      {
-        to: ROUTES.dashboardPlaceholder,
-        label: "Reportes",
-        description: "Indicadores y seguimiento",
-        icon: ClipboardList,
-      },
-    ];
-  }
-
-  if (isPromoter(role)) {
-    return [
-      ...base,
-      {
-        to: ROUTES.dashboardStudents,
-        label: "Alumnos",
-        description: "Busqueda global",
-        icon: GraduationCap,
-      },
-      {
-        to: ROUTES.dashboardPlaceholder,
-        label: "Prospectos",
-        description: "Captacion y pipeline",
-        icon: ClipboardList,
-      },
-    ];
-  }
-
-  if (isAdmin(role)) {
-    return [
-      ...base,
-      {
-        to: ROUTES.dashboardStudents,
-        label: "Alumnos",
-        description: "Busqueda global",
-        icon: GraduationCap,
-      },
-      {
-        to: ROUTES.dashboardClassrooms,
-        label: "Salones",
-        description: "Mover por seccion",
-        icon: School,
-      },
-      {
-        to: ROUTES.dashboardPayments,
-        label: "Pagos",
-        description: "Cobros y pensiones",
-        icon: CreditCard,
-      },
-      {
-        to: ROUTES.dashboardAdminSettings,
-        label: "Admin · Configuracion",
-        description: "Configuracion sensible",
-        icon: Settings2,
-      },
-      {
-        to: ROUTES.dashboardAdminDev,
-        label: "Admin · Desarrollo",
-        description: "Endpoints y modelos",
-        icon: Code2,
-      },
-    ];
-  }
-
-  return base;
+  return NAV_ITEMS
+    .filter((item) => hasCapability(role, item.capability))
+    .filter((item) => !item.roles || item.roles.includes(role))
+    .map((item) => ({
+      to: item.to,
+      label: item.label,
+      icon: item.icon,
+      description: item.descriptionByRole?.[role] || item.description,
+    }));
 }

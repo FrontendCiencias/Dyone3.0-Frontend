@@ -88,7 +88,7 @@ export default function EnrollmentsPage() {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ENROLLED");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [classroomFilter, setClassroomFilter] = useState("ALL");
   const [cycleFilter, setCycleFilter] = useState("");
   const [cursor, setCursor] = useState(null);
@@ -306,7 +306,7 @@ export default function EnrollmentsPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button onClick={() => row.enrollmentId && navigate(ROUTES.dashboardEnrollmentDetail(row.enrollmentId))}>
-                    Abrir expediente
+                    Ver matrícula
                   </Button>
                 </div>
               </div>

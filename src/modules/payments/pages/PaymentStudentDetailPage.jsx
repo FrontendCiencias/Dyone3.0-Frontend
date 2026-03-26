@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { useAuth } from "../../../lib/auth";
+import { CAPABILITIES, hasCapability } from "../../auth/utils/capabilities";
 import { useBillingConceptsQuery } from "../../admin/hooks/useBillingConceptsQuery";
 import CreateChargeModal from "../../students/components/detail/modals/CreateChargeModal";
 import { useCreateStudentChargeMutation } from "../../students/hooks/useCreateStudentChargeMutation";
@@ -46,6 +47,11 @@ function formatChargeStatus(value) {
   if (value === "OVERDUE") return "Vencido";
   if (value === "CANCELLED") return "Cancelado";
   return value || "-";
+}
+
+function formatContextValue(value) {
+  const normalized = String(value || "").trim();
+  return normalized || "-";
 }
 
 function isObjectId(value) {
@@ -97,9 +103,54 @@ export default function PaymentStudentDetailPage() {
     [charges, selectedCharges],
   );
   const showDrawer = drawerOpen && selectedChargeRows.length > 0;
-  const normalizedRole = String(activeRole || "").toUpperCase();
-  const canCorrectReceipt = normalizedRole.startsWith("SECRETARY") || normalizedRole === "ADMIN";
-  const canReassignReceipt = normalizedRole === "ADMIN";
+  const canCorrectReceipt = hasCapability(activeRole, CAPABILITIES.paymentsCorrectReceipt);
+  const canReassignReceipt = hasCapability(activeRole, CAPABILITIES.paymentsReassignReceipt);
+
+  const topSummaryBlock = (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-slate-50 px-4 py-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-2 text-sm">
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
+            <span className="font-medium text-slate-500">Cod. interno:</span>{" "}
+            {formatContextValue(student?.internalCode || student?.code)}
+          </span>
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
+            <span className="font-medium text-slate-500">Cod. Caja:</span> {formatContextValue(student?.bankCode)}
+          </span>
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-slate-700">
+            <span className="font-medium text-slate-500">Grado actual:</span>{" "}
+            {formatContextValue(student?.gradeDisplayName || student?.classroomDisplayName)}
+          </span>
+        </div>
+        <div className="flex justify-start lg:justify-end lg:self-start">
+          <SecondaryButton onClick={() => navigate(ROUTES.dashboardPayments)}>Volver a pagos</SecondaryButton>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
+        <div className="rounded-xl border border-gray-200 px-4 py-1.5 shadow-sm xl:col-span-2">
+          <p className="text-sm text-gray-500">Pendiente</p>
+          <p className="mt-0.5 text-2xl font-semibold text-gray-900">{formatMoney(account?.totals?.pending)}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 px-4 py-1.5 shadow-sm xl:col-span-2">
+          <p className="text-sm text-amber-700">Vencido</p>
+          <p className="mt-0.5 text-2xl font-semibold text-amber-800">{formatMoney(account?.totals?.overdue)}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 px-4 py-1.5 shadow-sm xl:col-span-2">
+          <p className="text-sm text-emerald-700">Pagado</p>
+          <p className="mt-0.5 text-2xl font-semibold text-emerald-800">{formatMoney(account?.totals?.paid)}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCreateChargeOpen(true)}
+          className="flex h-full min-h-[78px] flex-col items-start justify-center rounded-xl border border-dashed border-blue-300 bg-blue-50 px-3 py-1.5 text-left shadow-sm transition hover:border-blue-400 hover:bg-blue-100 xl:col-span-1"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-800">Crear cargo</p>
+          <span className="mt-1 text-[2.2rem] font-light leading-none text-blue-700">+</span>
+        </button>
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     if (!selectedChargeRows.length) {
@@ -216,35 +267,18 @@ export default function PaymentStudentDetailPage() {
 
   return (
     <div className="space-y-4">
-      <Card className="border border-gray-200 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-stretch">
-          <div className="rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
-            <p className="text-sm text-gray-500">Pendiente</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">{formatMoney(account?.totals?.pending)}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
-            <p className="text-sm text-amber-700">Vencido</p>
-            <p className="mt-1 text-2xl font-semibold text-amber-800">{formatMoney(account?.totals?.overdue)}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 px-4 py-3 shadow-sm">
-            <p className="text-sm text-emerald-700">Pagado</p>
-            <p className="mt-1 text-2xl font-semibold text-emerald-800">{formatMoney(account?.totals?.paid)}</p>
-          </div>
-          <div className="flex items-center justify-end">
-            <div className="flex flex-col items-end gap-2">
-              <SecondaryButton onClick={() => navigate(ROUTES.dashboardPayments)}>Volver a pagos</SecondaryButton>
-              <SecondaryButton onClick={() => setCreateChargeOpen(true)}>Crear cargo</SecondaryButton>
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {accountQuery.isLoading ? (
-        <Card className="border border-gray-200 text-sm text-gray-500">Cargando estado de cuenta...</Card>
+        <>
+          {topSummaryBlock}
+          <Card className="border border-gray-200 text-sm text-gray-500">Cargando estado de cuenta...</Card>
+        </>
       ) : accountQuery.isError ? (
-        <Card className="border border-red-200 text-sm text-red-700">
-          No se pudo cargar el estado de cuenta del alumno.
-        </Card>
+        <>
+          {topSummaryBlock}
+          <Card className="border border-red-200 text-sm text-red-700">
+            No se pudo cargar el estado de cuenta del alumno.
+          </Card>
+        </>
       ) : (
         <div
           className={
@@ -254,19 +288,18 @@ export default function PaymentStudentDetailPage() {
           }
         >
           <div className="space-y-4">
+            {topSummaryBlock}
+
             {accountQuery.isFetching ? (
               <Card className="border border-blue-100 bg-blue-50 text-sm text-blue-700 shadow-sm">
                 Actualizando estado de cuenta...
               </Card>
             ) : null}
 
-            <Card className="border border-gray-200 shadow-sm">
-              <div className="mb-3 flex items-center justify-between gap-3">
+            <Card className="border border-gray-200 px-3 pb-3 pt-1.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Cargos</h2>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Selecciona uno o varios cargos para preparar el pago.
-                  </p>
                 </div>
                 {selectedChargeRows.length ? (
                   <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
@@ -275,9 +308,9 @@ export default function PaymentStudentDetailPage() {
                 ) : null}
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="max-h-[10.75rem] overflow-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="sticky top-0 z-10 bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left font-medium text-gray-700">Sel.</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-700">Concepto</th>
@@ -316,11 +349,11 @@ export default function PaymentStudentDetailPage() {
               {!charges.length ? <p className="mt-3 text-sm text-gray-500">No hay cargos registrados.</p> : null}
             </Card>
 
-            <Card className="border border-gray-200 shadow-sm">
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">Pagos registrados</h2>
-              <div className="overflow-x-auto">
+            <Card className="border border-gray-200 px-3 pb-3 pt-1.5 shadow-sm">
+              <h2 className="mb-2 text-lg font-semibold text-gray-900">Pagos registrados</h2>
+              <div className="max-h-[13.5rem] overflow-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="sticky top-0 z-10 bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left font-medium text-gray-700">Codigo interno</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-700">Recibo fisico</th>
@@ -350,11 +383,7 @@ export default function PaymentStudentDetailPage() {
               </div>
               {!payments.length ? (
                 <p className="mt-3 text-sm text-gray-500">No hay pagos registrados.</p>
-              ) : (
-                <p className="mt-3 text-xs text-gray-500">
-                  Haz click en un pago para ver el detalle e imprimir el recibo nuevamente.
-                </p>
-              )}
+              ) : null}
             </Card>
           </div>
 

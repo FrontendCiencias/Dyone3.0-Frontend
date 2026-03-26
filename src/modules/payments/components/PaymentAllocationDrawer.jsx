@@ -145,7 +145,8 @@ export default function PaymentAllocationDrawer({
 
   return (
     <Card className="border border-gray-200 shadow-sm xl:sticky xl:top-4">
-      <div className="flex items-start justify-between gap-3 border-b border-gray-200 pb-4">
+      <div className="flex h-[63vh] max-h-[calc(100vh-2.5rem)] flex-col">
+        <div className="shrink-0 flex items-start justify-between gap-3 border-b border-gray-200 pb-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
             {createdReceipt ? "Pago registrado" : "Pago seleccionado"}
@@ -155,10 +156,11 @@ export default function PaymentAllocationDrawer({
           </p>
         </div>
         <SecondaryButton onClick={() => onClose?.(Boolean(createdReceipt))}>Cerrar</SecondaryButton>
-      </div>
+        </div>
 
-      <div className="mt-4 space-y-4">
-        <div className="space-y-3">
+        <div className="mt-3 min-h-0 flex-1 overflow-hidden">
+          <div className="h-full space-y-4 overflow-y-auto pr-1">
+          <div className="space-y-3">
           {charges.map((charge) => {
             const pending = Number(charge.outstandingAmount || 0);
             const amount = selectedAmounts[charge.id] ?? pending;
@@ -199,88 +201,93 @@ export default function PaymentAllocationDrawer({
               </div>
             );
           })}
-        </div>
+          </div>
 
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <p className="text-sm text-gray-500">Subtotal</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{formatMoney(subtotal)}</p>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Metodo</label>
-          <select
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-            value={method}
-            disabled={Boolean(createdReceipt)}
-            onChange={(e) => setMethod(e.target.value)}
-          >
-            <option value="CASH">Efectivo</option>
-            <option value="YAPE">Yape</option>
-            <option value="TRANSFER">Transferencia</option>
-          </select>
-        </div>
-
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-          <input
-            type="checkbox"
-            checked={useHistoricalReceipt}
-            disabled={Boolean(createdReceipt)}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setUseHistoricalReceipt(checked);
-              if (!checked) {
-                setReceiptNumber("");
-                setPaymentDate(todayDate());
-              }
-            }}
-          />
-          Recibo fisico anterior
-        </label>
-
-        {useHistoricalReceipt ? (
-          <div className="space-y-3">
-            <Input
-              label="Numero de recibo"
-              value={receiptNumber}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Metodo</label>
+            <select
+              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+              value={method}
               disabled={Boolean(createdReceipt)}
-              onChange={(e) => setReceiptNumber(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="Ej: 003268"
+              onChange={(e) => setMethod(e.target.value)}
+            >
+              <option value="CASH">Efectivo</option>
+              <option value="YAPE">Yape</option>
+              <option value="TRANSFER">Transferencia</option>
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={useHistoricalReceipt}
+              disabled={Boolean(createdReceipt)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setUseHistoricalReceipt(checked);
+                if (!checked) {
+                  setReceiptNumber("");
+                  setPaymentDate(todayDate());
+                }
+              }}
             />
-            <p className="-mt-2 text-xs text-gray-500">Si ingresas 3268 se guardara como 003268.</p>
-            <Input
-              label="Fecha del pago"
-              type="date"
-              value={paymentDate}
+            Recibo fisico anterior
+          </label>
+
+          {useHistoricalReceipt ? (
+            <div className="space-y-3">
+              <Input
+                label="Numero de recibo"
+                value={receiptNumber}
+                disabled={Boolean(createdReceipt)}
+                onChange={(e) => setReceiptNumber(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Ej: 003268"
+              />
+              <p className="-mt-2 text-xs text-gray-500">Si ingresas 3268 se guardara como 003268.</p>
+              <Input
+                label="Fecha del pago"
+                type="date"
+                value={paymentDate}
+                disabled={Boolean(createdReceipt)}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
+            </div>
+          ) : null}
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Observaciones</label>
+            <textarea
+              rows={2}
+              className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2"
+              value={notes}
               disabled={Boolean(createdReceipt)}
-              onChange={(e) => setPaymentDate(e.target.value)}
+              onChange={(e) => setNotes(e.target.value)}
             />
           </div>
-        ) : null}
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Observaciones</label>
-          <textarea
-            className="min-h-[100px] w-full rounded-lg border border-gray-300 px-3 py-2"
-            value={notes}
-            disabled={Boolean(createdReceipt)}
-            onChange={(e) => setNotes(e.target.value)}
-          />
+          {formError ? <p className="text-sm text-red-600">{formError}</p> : null}
+          {createPaymentMutation.isError ? (
+            <p className="text-sm text-red-600">
+              {createPaymentMutation.error?.response?.data?.message || "No se pudo registrar el pago."}
+            </p>
+          ) : null}
+          {createdReceipt ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+              Pago registrado. Codigo interno: <strong>{createdReceipt.internalCode}</strong>
+            </div>
+          ) : null}
+          </div>
         </div>
 
-        {formError ? <p className="text-sm text-red-600">{formError}</p> : null}
-        {createPaymentMutation.isError ? (
-          <p className="text-sm text-red-600">
-            {createPaymentMutation.error?.response?.data?.message || "No se pudo registrar el pago."}
-          </p>
-        ) : null}
-        {createdReceipt ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-            Pago registrado. Codigo interno: <strong>{createdReceipt.internalCode}</strong>
+        <div className="mt-4 shrink-0 border-t border-gray-200 pt-3">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="flex items-end justify-between gap-3">
+              <p className="text-sm text-gray-500">Subtotal</p>
+              <p className="text-right text-2xl font-semibold leading-none text-gray-900">{formatMoney(subtotal)}</p>
+            </div>
           </div>
-        ) : null}
-      </div>
 
-      <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-gray-200 pt-4">
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
         {!createdReceipt ? (
           <>
             <SecondaryButton onClick={() => onClose?.(false)} disabled={createPaymentMutation.isPending}>
@@ -296,6 +303,8 @@ export default function PaymentAllocationDrawer({
             <Button onClick={handlePrint}>Imprimir recibo</Button>
           </>
         )}
+          </div>
+        </div>
       </div>
     </Card>
   );

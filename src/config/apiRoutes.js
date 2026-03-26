@@ -11,6 +11,7 @@ export const API_ROUTES = {
   adminExportCajaArequipa: "/api/admin/exports/caja-arequipa",
   adminEndpoints: "/api/admin/endpoints",
   adminModels: "/api/admin/models",
+  dashboardAdminOverview: "/api/dashboard/admin/overview",
   dashboardSecretaryOverview: "/api/dashboard/secretary/overview",
   classroomOptions: "/api/classrooms/options",
   classroomBoard: "/api/classrooms/board",

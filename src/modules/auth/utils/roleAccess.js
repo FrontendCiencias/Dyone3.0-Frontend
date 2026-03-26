@@ -1,5 +1,7 @@
+import { CAPABILITIES, hasCapability, normalizeCapabilityRole } from "./capabilities";
+
 function normalizeRole(role) {
-  return String(role || "").toUpperCase().trim();
+  return normalizeCapabilityRole(role);
 }
 
 export function isAdminRole(role) {
@@ -24,29 +26,25 @@ export function isPromoterRole(role) {
 }
 
 export function canAccessStudents(role) {
-  return isAdminRole(role) || isSecretaryRole(role) || isDirectorRole(role) || isPromoterRole(role);
-}
-
-export function canAccessFamilies(role) {
-  return isAdminRole(role) || isSecretaryRole(role);
+  return hasCapability(role, CAPABILITIES.studentsView);
 }
 
 export function canAccessEnrollments(role) {
-  return isAdminRole(role) || isSecretaryRole(role);
+  return hasCapability(role, CAPABILITIES.enrollmentsView);
 }
 
 export function canAccessPayments(role) {
-  return isAdminRole(role) || isSecretaryRole(role);
+  return hasCapability(role, CAPABILITIES.paymentsView);
 }
 
 export function canAccessAttendance(role) {
-  return isAdminRole(role) || isAuxiliarRole(role);
+  return hasCapability(role, CAPABILITIES.attendanceView);
 }
 
 export function canAccessAdmin(role) {
-  return isAdminRole(role) || isSecretaryRole(role) || isDirectorRole(role) || isPromoterRole(role);
+  return hasCapability(role, CAPABILITIES.adminView);
 }
 
 export function canAccessClassroomBoard(role) {
-  return isAdminRole(role);
+  return hasCapability(role, CAPABILITIES.classroomsBoardView);
 }

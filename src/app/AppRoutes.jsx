@@ -30,15 +30,7 @@ import { ROUTES } from "../config/routes";
 import { useAuth } from "../lib/auth";
 import DashboardNotFound from "../modules/dashboard/pages/DashboardNotFound";
 import { ThemeProvider } from "../config/theme";
-import {
-  canAccessAdmin,
-  canAccessAttendance,
-  canAccessClassroomBoard,
-  canAccessEnrollments,
-  canAccessFamilies,
-  canAccessPayments,
-  canAccessStudents,
-} from "../modules/auth/utils/roleAccess";
+import { CAPABILITIES, hasCapability } from "../modules/auth/utils/capabilities";
 
 function pickDefaultPrivateRoute(roles = []) {
   const list = Array.isArray(roles) ? roles : [];
@@ -64,11 +56,11 @@ function PublicRoute() {
   return <Outlet />;
 }
 
-function RoleRoute({ canAccess }) {
+function CapabilityRoute({ capability }) {
   const { activeRole, roles } = useAuth();
   const role = activeRole || roles?.[0] || "";
 
-  if (!canAccess(role)) {
+  if (!hasCapability(role, capability)) {
     return <Navigate to={ROUTES.dashboard} replace />;
   }
 
@@ -89,39 +81,57 @@ export default function AppRoutes() {
         </Route>
 
         <Route element={<PrivateRoute />}>
-          <Route path={ROUTES.dashboardEnrollmentContractPreview} element={<EnrollmentContractPreviewPage />} />
-          <Route path={ROUTES.dashboardStudentsPrintCardsPreview} element={<StudentPrintCardsPreviewPage />} />
+          <Route element={<CapabilityRoute capability={CAPABILITIES.enrollmentsDetailView} />}>
+            <Route path={ROUTES.dashboardEnrollmentContractPreview} element={<EnrollmentContractPreviewPage />} />
+          </Route>
+          <Route element={<CapabilityRoute capability={CAPABILITIES.studentsPrintCards} />}>
+            <Route path={ROUTES.dashboardStudentsPrintCardsPreview} element={<StudentPrintCardsPreviewPage />} />
+          </Route>
           <Route element={<DashboardLayout />}>
             <Route path={ROUTES.dashboard} element={<DashboardHome />} />
-            <Route element={<RoleRoute canAccess={canAccessAttendance} />}>
+
+            <Route element={<CapabilityRoute capability={CAPABILITIES.attendanceView} />}>
               <Route path={ROUTES.dashboardAttendance} element={<AttendanceIntakePage />} />
               <Route path={ROUTES.dashboardAttendanceIntake} element={<Navigate to={ROUTES.dashboardAttendance} replace />} />
               <Route path={ROUTES.dashboardAttendanceTake()} element={<AttendanceTakePage />} />
               <Route path={ROUTES.dashboardAttendanceJustifications} element={<AttendanceJustificationsPage />} />
               <Route path={ROUTES.dashboardAttendanceReports} element={<AttendanceReportsPage />} />
             </Route>
-            <Route element={<RoleRoute canAccess={canAccessStudents} />}>
+
+            <Route element={<CapabilityRoute capability={CAPABILITIES.studentsView} />}>
               <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
-              <Route element={<RoleRoute canAccess={canAccessClassroomBoard} />}>
+              <Route element={<CapabilityRoute capability={CAPABILITIES.classroomsBoardView} />}>
                 <Route path={ROUTES.dashboardClassrooms} element={<ClassroomsBoardPage />} />
               </Route>
-              <Route path={ROUTES.dashboardStudentsPrintCards} element={<StudentPrintCardsPage />} />
+              <Route element={<CapabilityRoute capability={CAPABILITIES.studentsPrintCards} />}>
+                <Route path={ROUTES.dashboardStudentsPrintCards} element={<StudentPrintCardsPage />} />
+              </Route>
               <Route path={ROUTES.dashboardStudentDetail()} element={<StudentDetailPage />} />
             </Route>
-            <Route element={<RoleRoute canAccess={canAccessEnrollments} />}>
+
+            <Route element={<CapabilityRoute capability={CAPABILITIES.enrollmentsView} />}>
               <Route path={ROUTES.dashboardEnrollments} element={<EnrollmentsPage />} />
-              <Route path={ROUTES.dashboardEnrollmentNew} element={<MatriculasV2Page />} />
-              <Route path={ROUTES.dashboardEnrollmentDetail()} element={<EnrollmentDetailPage />} />
+              <Route element={<CapabilityRoute capability={CAPABILITIES.enrollmentsCreate} />}>
+                <Route path={ROUTES.dashboardEnrollmentNew} element={<MatriculasV2Page />} />
+              </Route>
+              <Route element={<CapabilityRoute capability={CAPABILITIES.enrollmentsDetailView} />}>
+                <Route path={ROUTES.dashboardEnrollmentDetail()} element={<EnrollmentDetailPage />} />
+              </Route>
             </Route>
-            <Route element={<RoleRoute canAccess={canAccessPayments} />}>
+
+            <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsView} />}>
               <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />
               <Route path={ROUTES.dashboardPaymentDetail()} element={<PaymentStudentDetailPage />} />
             </Route>
-            <Route element={<RoleRoute canAccess={canAccessAdmin} />}>
+
+            <Route element={<CapabilityRoute capability={CAPABILITIES.adminView} />}>
               <Route path={ROUTES.dashboardAdmin} element={<AdminLegacyRedirectPage />} />
               <Route path={ROUTES.dashboardAdminSettings} element={<AdminConfigPage />} />
-              <Route path={ROUTES.dashboardAdminDev} element={<AdminDevPage />} />
+              <Route element={<CapabilityRoute capability={CAPABILITIES.adminDevView} />}>
+                <Route path={ROUTES.dashboardAdminDev} element={<AdminDevPage />} />
+              </Route>
             </Route>
+
             <Route path="/dashboard/*" element={<DashboardNotFound />} />
           </Route>
         </Route>

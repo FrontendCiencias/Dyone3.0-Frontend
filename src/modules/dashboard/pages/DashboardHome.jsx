@@ -1,5 +1,6 @@
 import React from "react";
 import { useAuth } from "../../../lib/auth";
+import AdminHome from "../../overwiew/admin/pages/AdminHome";
 import AuxiliarHome from "../../overwiew/auxiliar/pages/AuxiliarHome";
 import SecretaryHome from "../../overwiew/secretary/pages/SecretaryHome";
 
@@ -32,7 +33,7 @@ export default function DashboardHome() {
   if (group === "SECRETARY") return <SecretaryHome />;
   if (group === "AUXILIAR") return <AuxiliarHome />;
 
-  if (group === "ADMIN") return <Placeholder title="Panel de Admin" />;
+  if (group === "ADMIN") return <AdminHome />;
   if (group === "DIRECTOR") return <Placeholder title="Panel de Dirección" />;
   if (group === "PROMOTER") return <Placeholder title="Panel de Promotor" />;
 

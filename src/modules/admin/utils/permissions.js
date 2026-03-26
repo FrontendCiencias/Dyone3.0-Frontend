@@ -1,4 +1,5 @@
+import { CAPABILITIES, hasCapability } from "../../auth/utils/capabilities";
+
 export function roleCanManageAdminSettings(role) {
-  const safeRole = String(role || "").toUpperCase();
-  return ["ADMIN", "SECRETARY", "DIRECTOR", "PROMOTER"].includes(safeRole);
+  return hasCapability(role, CAPABILITIES.adminSettingsEdit);
 }
