@@ -32,7 +32,7 @@ function buildReceiptHtml({ activity, student, collection }) {
     <html lang="es">
       <head>
         <meta charset="utf-8" />
-        <title>${escapeHtml(collection?.receiptInternalCode || "Recibo Activity")}</title>
+        <title>${escapeHtml(collection?.receiptInternalCode || "Recibo de actividad")}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 0; background: #f3f4f6; color: #111; }
           .page { max-width: 360px; margin: 24px auto; background: #fff; padding: 24px; box-shadow: 0 12px 28px rgba(0,0,0,.14); }
@@ -57,8 +57,8 @@ function buildReceiptHtml({ activity, student, collection }) {
           <button class="button primary" onclick="window.print()">Imprimir</button>
         </div>
         <article class="page">
-          <p class="title">Recibo de Activity</p>
-          <p class="sub">${escapeHtml(activity?.name || "Activity")} · ${escapeHtml(activity?.campus?.name || activity?.campus?.code || "-")}</p>
+          <p class="title">Recibo de actividad</p>
+          <p class="sub">${escapeHtml(activity?.name || "Actividad")} · ${escapeHtml(activity?.campus?.name || activity?.campus?.code || "-")}</p>
           <div class="rule"></div>
           <div class="meta"><div class="label">Recibo</div><div class="value">${escapeHtml(collection?.receiptInternalCode || "-")}</div></div>
           <div class="meta"><div class="label">Fecha</div><div class="value">${escapeHtml(formatDateTime(collection?.collectedAt))}</div></div>

@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import Topbar, { DASHBOARD_TOPBAR_HEIGHT } from "./components/Topbar";
-import Sidebar, { SIDEBAR_WIDTHS } from "./components/Sidebar";
+import Sidebar, { MobileSidebarOverlay, SIDEBAR_WIDTHS } from "./components/Sidebar";
 import BreadcrumbHeader from "./components/BreadcrumbHeader";
 import PoweredBy from "./components/PoweredBy";
 import { getNavItemsByRole } from "./config/navByRole";
 import { useAuth } from "../../lib/auth";
 import { ROUTES } from "../../config/routes";
 import { useStudentSummaryQuery } from "../students/hooks/useStudentSummaryQuery";
+import { useActivityDetailQuery } from "../activities/hooks/useActivityDetailQuery";
 
 const PAGE_META = {
   dashboard: { title: "Inicio Operativo", description: "Resumen operativo y alertas clave del dia." },
@@ -23,8 +24,8 @@ const PAGE_META = {
   enrollmentDetail: { title: "Detalle de matrícula", description: "Revisa el estado, alumnos firmantes y contrato de la matrícula." },
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
   paymentsDailyCash: { title: "Caja del día", description: "Consulta ingresos del día y revisa movimientos recientes por fecha." },
-  activities: { title: "Activities", description: "Concursos, eventos y recaudaciones especiales fuera de caja diaria." },
-  activityDetail: { title: "Detalle de activity", description: "Participantes, cobros y control operativo por cobrador." },
+  activities: { title: "Actividades", description: "Concursos, eventos y recaudaciones especiales fuera de caja diaria." },
+  activityDetail: { title: "Detalle de actividad", description: "Participantes, cobros y control operativo por cobrador." },
   adminSettings: { title: "Configuracion", description: "Sedes, ciclos, aulas y conceptos." },
   adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades tecnicas." },
   enrollments: { title: "Matriculas", description: "Monitorea y registra el flujo de matriculas." },
@@ -88,6 +89,25 @@ export default function DashboardShell() {
   }, [isAuthenticated, navigate]);
 
   const [expanded, setExpanded] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.matchMedia("(min-width: 768px)").matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const updateDesktop = (event) => {
+      setIsDesktop(event.matches);
+      if (event.matches) setMobileNavOpen(false);
+    };
+
+    setIsDesktop(mediaQuery.matches);
+    mediaQuery.addEventListener("change", updateDesktop);
+    return () => mediaQuery.removeEventListener("change", updateDesktop);
+  }, []);
 
   const navItems = useMemo(() => getNavItemsByRole(activeRole), [activeRole]);
 
@@ -112,6 +132,10 @@ export default function DashboardShell() {
     const match = (location.pathname || "").match(/^\/dashboard\/(?:students|payments)\/([^/]+)$/);
     return match?.[1] || null;
   }, [location.pathname]);
+  const activityDetailId = useMemo(() => {
+    const match = (location.pathname || "").match(/^\/dashboard\/activities\/([^/]+)$/);
+    return match?.[1] || null;
+  }, [location.pathname]);
   const deletedStudentId = useMemo(() => {
     if (typeof window === "undefined") return null;
     return window.sessionStorage.getItem("dyone.deletedStudentId");
@@ -121,10 +145,22 @@ export default function DashboardShell() {
     studentId,
     (pageKey === "studentDetail" || pageKey === "paymentDetail") && studentId !== deletedStudentId,
   );
+  const activityDetailQuery = useActivityDetailQuery(activityDetailId, pageKey === "activityDetail");
 
   const pageMeta = useMemo(() => {
-    if (pageKey !== "studentDetail" && pageKey !== "paymentDetail") {
+    if (pageKey !== "studentDetail" && pageKey !== "paymentDetail" && pageKey !== "activityDetail") {
       return PAGE_META[pageKey] || PAGE_META.dashboard;
+    }
+
+    if (pageKey === "activityDetail") {
+      const activityName = activityDetailQuery.isLoading
+        ? "Cargando..."
+        : activityDetailQuery.data?.activity?.name || "Actividad";
+
+      return {
+        title: `Actividad: ${activityName}`,
+        description: PAGE_META.activityDetail.description,
+      };
     }
 
     const label = studentSummaryQuery.isLoading
@@ -135,7 +171,7 @@ export default function DashboardShell() {
       title: pageKey === "paymentDetail" ? `Detalle de pagos: ${label}` : `Expediente: ${label}`,
       description: pageKey === "paymentDetail" ? PAGE_META.paymentDetail.description : PAGE_META.studentDetail.description,
     };
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, activityDetailQuery.isLoading, activityDetailQuery.data]);
 
   const breadcrumbItems = useMemo(() => {
     const rootCrumb = { label: getDashboardRoleLabel(activeRole), to: ROUTES.dashboard };
@@ -220,15 +256,15 @@ export default function DashboardShell() {
     if (pageKey === "activities") {
       return [
         rootCrumb,
-        { label: "Activities" },
+        { label: "Actividades" },
       ];
     }
 
     if (pageKey === "activityDetail") {
       return [
         rootCrumb,
-        { label: "Activities", to: ROUTES.dashboardActivities },
-        { label: "Detalle de activity" },
+        { label: "Actividades", to: ROUTES.dashboardActivities },
+        { label: "Detalle de actividad" },
       ];
     }
 
@@ -253,12 +289,24 @@ export default function DashboardShell() {
     ];
   }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, activeRole]);
 
-  const leftPad = expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed;
+  const leftPad = isDesktop ? (expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed) : 0;
 
   const activeAccount = useMemo(() => ({ role: activeRole, campus: activeCampus }), [activeRole, activeCampus]);
 
+  const handleAccountChange = (account) => {
+    setActiveAccount?.(account);
+    navigate(ROUTES.dashboard, { replace: true });
+    queryClient.invalidateQueries({ queryKey: ["students"] });
+    queryClient.invalidateQueries({ queryKey: ["families"] });
+    queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+    queryClient.invalidateQueries({ queryKey: ["payments"] });
+    queryClient.invalidateQueries({ queryKey: ["activities"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["attendance"] });
+  };
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-gray-50 md:h-screen md:overflow-hidden">
       <Sidebar
         navItems={navItems}
         activeItemTo={activeItemTo}
@@ -267,29 +315,32 @@ export default function DashboardShell() {
         onExpandChange={setExpanded}
       />
 
+      <MobileSidebarOverlay
+        open={mobileNavOpen}
+        navItems={navItems}
+        activeItemTo={activeItemTo}
+        activeCampus={activeCampus}
+        accountOptions={accountOptions}
+        activeAccount={activeAccount}
+        onAccountChange={handleAccountChange}
+        onLogout={logout}
+        onClose={() => setMobileNavOpen(false)}
+      />
+
       <Topbar
         accountOptions={accountOptions}
         activeAccount={activeAccount}
-        onAccountChange={(account) => {
-          setActiveAccount?.(account);
-          navigate(ROUTES.dashboard, { replace: true });
-          queryClient.invalidateQueries({ queryKey: ["students"] });
-          queryClient.invalidateQueries({ queryKey: ["families"] });
-          queryClient.invalidateQueries({ queryKey: ["enrollments"] });
-          queryClient.invalidateQueries({ queryKey: ["payments"] });
-          queryClient.invalidateQueries({ queryKey: ["activities"] });
-          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-          queryClient.invalidateQueries({ queryKey: ["attendance"] });
-        }}
+        onAccountChange={handleAccountChange}
         offsetLeft={leftPad}
+        onOpenMobileNav={() => setMobileNavOpen(true)}
       />
 
       <main
-        className="flex h-full min-h-0 flex-1 flex-col overflow-hidden transition-[padding-left] duration-300 ease-out"
+        className="flex min-h-0 flex-1 flex-col overflow-visible transition-[padding-left] duration-300 ease-out md:h-full md:overflow-hidden"
         style={{ paddingLeft: leftPad }}
       >
         <div
-          className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 pb-1 pt-0 md:px-6"
+          className="flex min-h-0 flex-col gap-4 overflow-visible px-4 pb-4 pt-0 md:h-full md:overflow-hidden md:px-6 md:pb-1"
           style={{ paddingTop: DASHBOARD_TOPBAR_HEIGHT + 8 }}
         >
           <BreadcrumbHeader
@@ -299,8 +350,8 @@ export default function DashboardShell() {
             breadcrumbItems={breadcrumbItems}
           />
 
-          <section className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-            <div className="h-full min-h-0 overflow-y-auto p-4 md:p-5">
+          <section className="flex flex-1 min-h-0 flex-col overflow-visible rounded-2xl border border-gray-100 bg-white shadow-sm md:overflow-hidden">
+            <div className="min-h-0 p-4 md:h-full md:overflow-y-auto md:p-5">
               <Outlet />
             </div>
           </section>

@@ -51,7 +51,7 @@ const NAV_ITEMS = [
   },
   {
     to: ROUTES.dashboardActivities,
-    label: "Activities",
+    label: "Actividades",
     description: "Concursos y recaudaciones especiales",
     icon: Sparkles,
     capability: CAPABILITIES.activitiesView,

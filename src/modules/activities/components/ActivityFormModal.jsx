@@ -68,7 +68,7 @@ export default function ActivityFormModal({
     setError("");
   }, [open, initialActivity, defaultCampus]);
 
-  const title = initialActivity ? "Editar activity" : "Nueva activity";
+  const title = initialActivity ? "Editar actividad" : "Nueva actividad";
   const isEdit = Boolean(initialActivity);
   const classroomOptionsQuery = useClassroomOptionsQuery({
     campus: form.campusCode || undefined,
@@ -78,7 +78,7 @@ export default function ActivityFormModal({
 
   const statusOverlay = useMemo(() => (
     submitting
-      ? { state: "loading", title: isEdit ? "Guardando cambios..." : "Creando activity..." }
+      ? { state: "loading", title: isEdit ? "Guardando cambios..." : "Creando actividad..." }
       : null
   ), [isEdit, submitting]);
 
@@ -124,7 +124,7 @@ export default function ActivityFormModal({
     try {
       await onSubmit?.(payload);
     } catch (submitError) {
-      const message = submitError?.response?.data?.message || submitError?.message || "No se pudo guardar la activity.";
+      const message = submitError?.response?.data?.message || submitError?.message || "No se pudo guardar la actividad.";
       setError(Array.isArray(message) ? message.join(". ") : message);
     }
   };
@@ -139,7 +139,7 @@ export default function ActivityFormModal({
       footer={(
         <div className="flex items-center justify-end gap-2">
           <SecondaryButton onClick={onClose} disabled={submitting}>Cancelar</SecondaryButton>
-          <Button type="submit" form="activity-form" disabled={submitting}>{isEdit ? "Guardar" : "Crear activity"}</Button>
+          <Button type="submit" form="activity-form" disabled={submitting}>{isEdit ? "Guardar" : "Crear actividad"}</Button>
         </div>
       )}
     >

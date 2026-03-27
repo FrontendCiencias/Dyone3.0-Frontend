@@ -23,7 +23,7 @@ function getErrorMessage(error) {
   const msg = error?.response?.data?.message || error?.message;
   if (Array.isArray(msg)) return msg.join(". ");
   if (typeof msg === "string") return msg;
-  return "No se pudo cargar Activities.";
+  return "No se pudo cargar las actividades.";
 }
 
 export default function ActivitiesPage() {
@@ -68,15 +68,15 @@ export default function ActivitiesPage() {
       <OperationalContextBar
         items={[
           { key: "Campus", value: campusFilter || (activeCampus === "ALL" ? "Todos" : activeCampus) || "Todos" },
-          { key: "Vista", value: "Activities" },
-          { key: "Visibles", value: `${visibleCount} activities`, icon: Sparkles },
+          { key: "Vista", value: "Actividades" },
+          { key: "Visibles", value: `${visibleCount} actividades`, icon: Sparkles },
           { key: "Estado", value: statusFilter || "Todas", icon: Filter, grow: true },
         ]}
       />
 
       <div className={`grid gap-3 md:grid-cols-2 ${canManage ? "xl:grid-cols-5" : "xl:grid-cols-4"} ${listQuery.isFetching ? "opacity-75" : ""}`}>
         <OperationalSummaryCard
-          label="Activities"
+          label="Actividades"
           value={String(visibleCount)}
           hint="Resultados visibles"
           icon={Sparkles}
@@ -101,14 +101,14 @@ export default function ActivitiesPage() {
         <OperationalSummaryCard
           label="Recaudado"
           value={formatMoney(totalCollected)}
-          hint="Suma visible en Activities"
+          hint="Suma visible en actividades"
           icon={Coins}
           variant="blue"
           loading={listQuery.isLoading}
         />
         {canManage ? (
           <OperationalSummaryCard
-            label="Nueva activity"
+            label="Nueva actividad"
             value="Crear"
             hint="Concurso, evento o campaña"
             icon={Sparkles}
@@ -122,7 +122,7 @@ export default function ActivitiesPage() {
         <div className="grid gap-3 md:grid-cols-12 md:items-end">
           <div className="md:col-span-5">
             <Input
-              label="Buscar activity"
+              label="Buscar actividad"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Nombre o campaña"
@@ -149,7 +149,7 @@ export default function ActivitiesPage() {
 
           <div className="md:col-span-2">
             {canManage ? (
-              <Button className="h-[42px] w-full" onClick={() => setOpenForm(true)}>Nueva activity</Button>
+              <Button className="h-[42px] w-full" onClick={() => setOpenForm(true)}>Nueva actividad</Button>
             ) : (
               <div className="h-[42px]" />
             )}
@@ -158,7 +158,7 @@ export default function ActivitiesPage() {
       </OperationalSearchBar>
 
       {listQuery.isLoading ? (
-        <OperationalBlockState message="Cargando Activities..." minHeight="420px" />
+        <OperationalBlockState message="Cargando actividades..." minHeight="420px" />
       ) : listQuery.isError ? (
         <OperationalBlockState mode="error" message={getErrorMessage(listQuery.error)} minHeight="420px" />
       ) : (
@@ -166,7 +166,7 @@ export default function ActivitiesPage() {
           <div className="border-b border-gray-200 px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-gray-900">Activities</h2>
+                <h2 className="text-base font-semibold text-gray-900">Actividades</h2>
                 <p className="mt-1 text-sm text-gray-600">
                   Gestiona concursos, eventos y recaudaciones especiales separadas de la caja diaria ordinaria.
                 </p>
@@ -220,7 +220,7 @@ export default function ActivitiesPage() {
 
           {!items.length ? (
             <div className="border-t border-gray-200 px-4 py-6 text-sm text-gray-500">
-              No se encontraron Activities con esos filtros.
+              No se encontraron actividades con esos filtros.
             </div>
           ) : null}
         </div>
