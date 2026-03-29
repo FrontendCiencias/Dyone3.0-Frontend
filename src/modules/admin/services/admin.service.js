@@ -11,6 +11,41 @@ export async function createCampus(payload) {
   return res.data;
 }
 
+export async function getPrograms() {
+  const res = await axiosInstance.get(API_ROUTES.adminPrograms);
+  return res.data;
+}
+
+export async function createProgram(payload) {
+  const res = await axiosInstance.post(API_ROUTES.adminPrograms, payload);
+  return res.data;
+}
+
+export async function getProgramDetail(programId) {
+  const res = await axiosInstance.get(API_ROUTES.adminProgramDetail(programId));
+  return res.data;
+}
+
+export async function getProgramSessionDetail(programId, sessionId) {
+  const res = await axiosInstance.get(API_ROUTES.adminProgramSessionDetail(programId, sessionId));
+  return res.data;
+}
+
+export async function addProgramStudent(programId, payload) {
+  const res = await axiosInstance.post(API_ROUTES.adminProgramStudents(programId), payload);
+  return res.data;
+}
+
+export async function createProgramSession(programId, payload) {
+  const res = await axiosInstance.post(API_ROUTES.adminProgramSessions(programId), payload);
+  return res.data;
+}
+
+export async function saveProgramSessionEntry(programId, sessionId, payload) {
+  const res = await axiosInstance.put(API_ROUTES.adminProgramSessionEntry(programId, sessionId), payload);
+  return res.data;
+}
+
 export async function getCycles() {
   const res = await axiosInstance.get(API_ROUTES.adminCycles);
   return res.data;

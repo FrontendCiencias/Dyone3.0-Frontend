@@ -77,7 +77,9 @@ function mapEnrollmentItem(item) {
         code: campus?.code || null,
         name: campus?.name || campus?.code || null,
       },
+    classroomId: item?.classroom?.id || item?.classroomId || null,
     classroom: item?.classroom?.displayName || item?.classroomName || item?.classroomLabel || "-",
+    cycleId: item?.cycle?.id || item?.cycleId || null,
     cycle: item?.cycle?.name || item?.cycleName || "-",
     confirmedAt: item?.confirmedAt || item?.enrollment?.confirmedAt || null,
     debtTotal: Number(item?.debtTotal),
@@ -108,12 +110,17 @@ export default function EnrollmentsPage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
+  useEffect(() => {
+    setCursor(null);
+    setBoardRows([]);
+  }, [debouncedSearch, statusFilter, classroomFilter, cycleFilter]);
+
   const filters = useMemo(
     () => ({
       q: debouncedSearch.trim(),
       status: statusFilter,
-      classroomId: classroomFilter,
-      cycleId: cycleFilter.trim() || undefined,
+      classroomId: classroomFilter !== "ALL" ? classroomFilter : undefined,
+      cycleId: cycleFilter || undefined,
       limit: 20,
       cursor,
     }),
@@ -189,7 +196,9 @@ export default function EnrollmentsPage() {
         student,
         status,
         campus: enrollmentStatus?.campus || null,
+        classroomId: enrollmentStatus?.classroom?.id || null,
         classroom: enrollmentStatus?.classroomName || enrollmentStatus?.classroom?.displayName || student?.classroomLabel || "-",
+        cycleId: enrollmentStatus?.cycle?.id || null,
         cycle: enrollmentStatus?.cycleName || enrollmentStatus?.cycle?.name || student?.cycle || "-",
         confirmedAt: enrollment?.confirmedAt || null,
         debtTotal: Number(summary?.debtsSummary?.pendingTotal),
@@ -200,20 +209,34 @@ export default function EnrollmentsPage() {
   const rows = fallbackMode ? fallbackRows : boardRows;
 
   const classroomOptions = useMemo(() => {
-    const values = new Set(rows.map((row) => row.classroom).filter((item) => item && item !== "-"));
-    return Array.from(values).sort((a, b) => a.localeCompare(b, "es"));
+    const values = new Map();
+    rows.forEach((row) => {
+      if (row.classroomId && row.classroom && row.classroom !== "-") {
+        values.set(row.classroomId, row.classroom);
+      }
+    });
+    return Array.from(values.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
   }, [rows]);
 
   const cycleOptions = useMemo(() => {
-    const values = new Set(rows.map((row) => row.cycle).filter((item) => item && item !== "-"));
-    return Array.from(values).sort((a, b) => a.localeCompare(b, "es"));
+    const values = new Map();
+    rows.forEach((row) => {
+      if (row.cycleId && row.cycle && row.cycle !== "-") {
+        values.set(row.cycleId, row.cycle);
+      }
+    });
+    return Array.from(values.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
   }, [rows]);
 
   const filteredRows = useMemo(
     () => rows.filter((row) => {
       const byStatus = statusFilter === "ALL" ? true : row.status === statusFilter;
-      const byClassroom = classroomFilter === "ALL" ? true : row.classroom === classroomFilter;
-      const byCycle = !cycleFilter ? true : row.cycle === cycleFilter;
+      const byClassroom = classroomFilter === "ALL" ? true : row.classroomId === classroomFilter;
+      const byCycle = !cycleFilter ? true : row.cycleId === cycleFilter;
       return byStatus && byClassroom && byCycle;
     }),
     [rows, statusFilter, classroomFilter, cycleFilter]
@@ -255,18 +278,18 @@ export default function EnrollmentsPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700">Salón</label>
             <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" value={classroomFilter} onChange={(e) => setClassroomFilter(e.target.value)}>
               <option value="ALL">Todos</option>
-              {classroomOptions.map((classroom) => <option key={classroom} value={classroom}>{classroom}</option>)}
+              {classroomOptions.map((classroom) => <option key={classroom.id} value={classroom.id}>{classroom.label}</option>)}
             </select>
           </div>
           <div className="md:col-span-2">
             <label className="mb-1 block text-sm font-medium text-gray-700">Ciclo</label>
             <select className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" value={cycleFilter} onChange={(e) => setCycleFilter(e.target.value)}>
               <option value="">Todos</option>
-              {cycleOptions.map((cycle) => <option key={cycle} value={cycle}>{cycle}</option>)}
+              {cycleOptions.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.label}</option>)}
             </select>
           </div>
           <div className="md:col-span-1">
-            <SecondaryButton className="w-full" onClick={() => { setSearchInput(""); setStatusFilter("ALL"); setClassroomFilter("ALL"); setCycleFilter(""); }}>
+            <SecondaryButton className="w-full" onClick={() => { setSearchInput(""); setStatusFilter("ENROLLED"); setClassroomFilter("ALL"); setCycleFilter(""); setCursor(null); }}>
               Limpiar
             </SecondaryButton>
           </div>

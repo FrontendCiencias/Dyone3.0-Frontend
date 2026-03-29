@@ -1,11 +1,13 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import BaseModal from "../../../shared/ui/BaseModal";
 import { ROUTES } from "../../../config/routes";
-import { getEnrollmentDetail } from "../services/enrollments.service";
+import { getEnrollmentDetail, updateEnrollmentContract } from "../services/enrollments.service";
 
 function statusLabel(status) {
   const value = String(status || "").toUpperCase();
@@ -35,7 +37,11 @@ function getErrorMessage(error, fallback = "No se pudo cargar la matrícula") {
 
 export default function EnrollmentDetailPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { enrollmentId } = useParams();
+  const [isContractModalOpen, setIsContractModalOpen] = useState(false);
+  const [contractForm, setContractForm] = useState({ address: "", notes: "", contractDate: "" });
+  const [contractError, setContractError] = useState("");
 
   const detailQuery = useQuery({
     queryKey: ["enrollments", "detail", enrollmentId],
@@ -46,6 +52,52 @@ export default function EnrollmentDetailPage() {
   });
 
   const detail = detailQuery.data;
+
+  const currentContractDate = useMemo(() => {
+    if (!detail?.contract?.confirmedAt) return "";
+    return String(detail.contract.confirmedAt).slice(0, 10);
+  }, [detail?.contract?.confirmedAt]);
+
+  const updateContractMutation = useMutation({
+    mutationFn: (payload) => updateEnrollmentContract(enrollmentId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+      await queryClient.invalidateQueries({ queryKey: ["enrollments", "list"] });
+      setIsContractModalOpen(false);
+      setContractError("");
+    },
+    onError: (error) => {
+      setContractError(getErrorMessage(error, "No se pudo guardar los datos del contrato"));
+    },
+  });
+
+  function openContractEditModal() {
+    setContractForm({
+      address: detail?.contract?.address || "",
+      notes: detail?.contract?.notes || "",
+      contractDate: currentContractDate || "",
+    });
+    setContractError("");
+    setIsContractModalOpen(true);
+  }
+
+  function handleSaveContract() {
+    if (!String(contractForm.address || "").trim()) {
+      setContractError("La dirección de contacto es obligatoria.");
+      return;
+    }
+
+    if (!String(contractForm.contractDate || "").trim()) {
+      setContractError("La fecha de celebración del contrato es obligatoria.");
+      return;
+    }
+
+    updateContractMutation.mutate({
+      address: String(contractForm.address || "").trim(),
+      notes: String(contractForm.notes || "").trim(),
+      contractDate: contractForm.contractDate,
+    });
+  }
 
   if (detailQuery.isLoading) {
     return <Card className="border border-gray-200 text-sm text-gray-500">Cargando detalle de matrícula...</Card>;
@@ -76,6 +128,7 @@ export default function EnrollmentDetailPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <SecondaryButton onClick={() => navigate(ROUTES.dashboardEnrollments)}>Volver</SecondaryButton>
+            <SecondaryButton onClick={openContractEditModal}>Completar contrato</SecondaryButton>
             <Button
               onClick={() =>
                 window.open(
@@ -137,9 +190,76 @@ export default function EnrollmentDetailPage() {
         <div className="mt-3 space-y-1 text-sm text-gray-600">
           <p>Dirección de contacto: {detail.contract?.address || "-"}</p>
           <p>Observaciones: {detail.contract?.notes || "-"}</p>
-          <p>Confirmada: {detail.contract?.confirmedAt ? String(detail.contract.confirmedAt).slice(0, 10) : "-"}</p>
+          <p>Fecha de contrato: {detail.contract?.confirmedAt ? String(detail.contract.confirmedAt).slice(0, 10) : "-"}</p>
         </div>
       </Card>
+
+      <BaseModal
+        open={isContractModalOpen}
+        onClose={() => !updateContractMutation.isPending && setIsContractModalOpen(false)}
+        title="Completar datos de contrato"
+        maxWidthClass="max-w-2xl"
+        footer={(
+          <div className="flex flex-wrap justify-end gap-2">
+            <SecondaryButton onClick={() => setIsContractModalOpen(false)} disabled={updateContractMutation.isPending}>
+              Cancelar
+            </SecondaryButton>
+            <Button onClick={handleSaveContract} disabled={updateContractMutation.isPending}>
+              Guardar
+            </Button>
+          </div>
+        )}
+      >
+        <div className="space-y-4 px-5 py-4">
+          <p className="text-sm text-gray-600">
+            Este ajuste es solo para completar datos históricos del contrato. No modifica alumnos ni tutores.
+          </p>
+
+          <Input
+            label="Fecha de celebración del contrato"
+            type="date"
+            value={contractForm.contractDate}
+            onChange={(e) => {
+              setContractForm((prev) => ({ ...prev, contractDate: e.target.value }));
+              setContractError("");
+            }}
+          />
+
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Dirección de contacto</label>
+            <textarea
+              value={contractForm.address}
+              onChange={(e) => {
+                setContractForm((prev) => ({ ...prev, address: e.target.value }));
+                setContractError("");
+              }}
+              rows={3}
+              className="rounded border px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-200"
+              placeholder="Dirección usada en el contrato"
+            />
+          </div>
+
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Observaciones</label>
+            <textarea
+              value={contractForm.notes}
+              onChange={(e) => {
+                setContractForm((prev) => ({ ...prev, notes: e.target.value }));
+                setContractError("");
+              }}
+              rows={4}
+              className="rounded border px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-200"
+              placeholder="Observaciones del contrato"
+            />
+          </div>
+
+          {contractError ? (
+            <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {contractError}
+            </div>
+          ) : null}
+        </div>
+      </BaseModal>
     </div>
   );
 }

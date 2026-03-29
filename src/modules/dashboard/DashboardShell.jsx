@@ -30,6 +30,9 @@ const PAGE_META = {
   adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades tecnicas." },
   enrollments: { title: "Matriculas", description: "Monitorea y registra el flujo de matriculas." },
   enrollmentNew: { title: "Nueva Matricula", description: "Monitorea y registra el flujo de matriculas." },
+  programs: { title: "Programas", description: "Gestiona programas temporales y sus pagos independientes." },
+  programDetail: { title: "Detalle de programa", description: "Opera sesiones, asistencia del día y pagos del programa." },
+  programSessionDetail: { title: "Detalle de sesión", description: "Registra asistencia, pagos y receptor del cobro en la sesión." },
   payments: { title: "Pagos", description: "Controla cobros, vencimientos y estado de pagos." },
   notFound: { title: "Pagina no encontrada", description: "La ruta no existe en el panel." },
 };
@@ -48,11 +51,14 @@ function resolvePageKey(pathname) {
   if (/^\/dashboard\/activities\/[^/]+$/.test(pathname)) return "activityDetail";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
   if (/^\/dashboard\/enrollments\/[^/]+$/.test(pathname) && pathname !== ROUTES.dashboardEnrollmentNew) return "enrollmentDetail";
+  if (/^\/dashboard\/programs\/[^/]+\/sessions\/[^/]+$/.test(pathname)) return "programSessionDetail";
+  if (/^\/dashboard\/programs\/[^/]+$/.test(pathname)) return "programDetail";
   if (/^\/dashboard\/payments\/[^/]+$/.test(pathname)) return "paymentDetail";
   if (pathname.startsWith(ROUTES.dashboardStudents)) return "students";
   if (pathname.startsWith(ROUTES.dashboardAdminDev)) return "adminDev";
   if (pathname.startsWith(ROUTES.dashboardAdminSettings) || pathname === ROUTES.dashboardAdmin) return "adminSettings";
   if (pathname === ROUTES.dashboardEnrollmentNew) return "enrollmentNew";
+  if (pathname === ROUTES.dashboardPrograms) return "programs";
   if (pathname.startsWith(ROUTES.dashboardEnrollments)) return "enrollments";
   if (pathname.startsWith(ROUTES.dashboardPayments)) return "payments";
   if (pathname.startsWith("/dashboard/")) return "notFound";
@@ -209,6 +215,30 @@ export default function DashboardShell() {
         rootCrumb,
         { label: "Matriculas", to: ROUTES.dashboardEnrollments },
         { label: "Detalle de matrícula" },
+      ];
+    }
+
+    if (pageKey === "programs") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Programas" },
+      ];
+    }
+
+    if (pageKey === "programDetail") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Programas", to: ROUTES.dashboardPrograms },
+        { label: "Detalle del programa" },
+      ];
+    }
+
+    if (pageKey === "programSessionDetail") {
+      return [
+        { label: "Inicio", to: ROUTES.dashboard },
+        { label: "Programas", to: ROUTES.dashboardPrograms },
+        { label: "Detalle del programa", to: ROUTES.dashboardProgramDetail(location.pathname.split("/")[3]) },
+        { label: "Detalle de sesión" },
       ];
     }
 
