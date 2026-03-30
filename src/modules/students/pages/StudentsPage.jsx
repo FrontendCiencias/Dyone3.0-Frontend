@@ -36,6 +36,12 @@ function fullName(student) {
   return lastNames || names || "-";
 }
 
+function handleSearchInputKeyDown(event, onSearch) {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  onSearch?.();
+}
+
 function getGrade(student) {
   return student?.lastKnownGrade || student?.grade || "-";
 }
@@ -368,6 +374,7 @@ export default function StudentsPage() {
               label="Buscar alumno"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(event) => handleSearchInputKeyDown(event, handleSearch)}
               placeholder="Buscar por DNI, nombre o código"
             />
           </div>

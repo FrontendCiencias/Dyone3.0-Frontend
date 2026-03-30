@@ -290,6 +290,13 @@ export default function DashboardShell() {
       ];
     }
 
+    if (pageKey === "students") {
+      return [
+        rootCrumb,
+        { label: "Alumnos" },
+      ];
+    }
+
     if (pageKey === "activityDetail") {
       return [
         rootCrumb,
