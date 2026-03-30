@@ -119,6 +119,12 @@ export default function AttendanceTakePage() {
   const [justificationTarget, setJustificationTarget] = useState(null);
   const [justificationReason, setJustificationReason] = useState("");
 
+  const focusScanInput = () => {
+    setTimeout(() => {
+      scanInputRef.current?.focus();
+    }, 0);
+  };
+
   const intakeViewQuery = useAttendanceIntakeViewQuery({
     sessionId,
     limit: 5,
@@ -129,7 +135,7 @@ export default function AttendanceTakePage() {
   const justifyMutation = useAttendanceJustifyMutation();
 
   useEffect(() => {
-    scanInputRef.current?.focus();
+    focusScanInput();
   }, []);
 
   useEffect(() => {
@@ -173,7 +179,10 @@ export default function AttendanceTakePage() {
   const handleScanSubmit = async (event) => {
     event.preventDefault();
     const cleanCode = String(studentCode || "").trim();
-    if (!sessionId || !cleanCode) return;
+    if (!sessionId || !cleanCode) {
+      focusScanInput();
+      return;
+    }
 
     setUiMessage("");
 
@@ -192,11 +201,11 @@ export default function AttendanceTakePage() {
         queryKey: ["attendance", "intake-view", sessionId],
       });
       await intakeViewQuery.refetch();
-      scanInputRef.current?.focus();
     } catch (error) {
+      setStudentCode("");
       setUiMessage(getErrorMessage(error, "No se pudo registrar la asistencia."));
-      scanInputRef.current?.select();
-      scanInputRef.current?.focus();
+    } finally {
+      focusScanInput();
     }
   };
 
@@ -299,6 +308,7 @@ export default function AttendanceTakePage() {
               label="Codigo interno del alumno"
               value={studentCode}
               onChange={(event) => setStudentCode(event.target.value)}
+              onBlur={focusScanInput}
               placeholder="Escanea o escribe el internalCode"
               disabled={scanMutation.isPending}
               ref={scanInputRef}
