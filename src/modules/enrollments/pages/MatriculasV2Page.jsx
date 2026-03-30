@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
@@ -11,7 +11,7 @@ import { useAuth } from "../../../lib/auth";
 import { useCampusesQuery } from "../../admin/hooks/useCampusesQuery";
 import { useCyclesQuery } from "../../admin/hooks/useCyclesQuery";
 import { getClassroomOptions, getStudentSummary, searchStudents } from "../../students/services/students.service";
-import { finalizeEnrollment, searchTutorsForEnrollments } from "../services/enrollments.service";
+import { finalizeEnrollment, getEnrollmentDetail, searchTutorsForEnrollments } from "../services/enrollments.service";
 
 const LEVEL_OPTIONS = [
   { value: "INITIAL", label: "Inicial" },
@@ -223,8 +223,34 @@ function isStudentSummaryAlreadyEnrolled(summary = {}) {
   return ["ENROLLED", "CONFIRMED"].includes(currentStatus);
 }
 
+function toAmountString(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return "0";
+  if (parsed <= 0) return "0";
+  return String(parsed);
+}
+
+function normalizePensionDraft(values = []) {
+  const source = Array.isArray(values) ? values : [];
+  const normalized = Array.from({ length: 10 }, (_, index) => {
+    const raw = Number(source[index] ?? 0);
+    if (!Number.isFinite(raw) || raw < 0) return 0;
+    return raw;
+  });
+
+  const first = normalized[0] ?? 0;
+  const useDetailedPensions = normalized.some((value) => value !== first);
+
+  return {
+    pensionAmount: toAmountString(first),
+    pensionMonthlyAmounts: normalized.map((value) => toAmountString(value)),
+    useDetailedPensions,
+  };
+}
+
 export default function MatriculasV2Page() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { activeCampus } = useAuth();
   const cyclesQuery = useCyclesQuery();
   const campusesQuery = useCampusesQuery();
@@ -278,6 +304,7 @@ export default function MatriculasV2Page() {
   const [completedEnrollment, setCompletedEnrollment] = useState(null);
   const manualStudentDniRef = useRef(null);
   const manualTutorDniRef = useRef(null);
+  const resumeHydratedRef = useRef(false);
   const finalizeMutation = useMutation({
     mutationFn: finalizeEnrollment,
     onError: (error) => {
@@ -308,11 +335,119 @@ export default function MatriculasV2Page() {
     return rows.find((row) => row?.isActive) || null;
   }, [cyclesQuery.data]);
 
+  const resumeEnrollmentId = useMemo(() => {
+    const value = String(searchParams.get("resumeEnrollmentId") || "").trim();
+    return value || "";
+  }, [searchParams]);
+  const isResumeMode = Boolean(resumeEnrollmentId);
+
+  const resumeEnrollmentQuery = useQuery({
+    queryKey: ["enrollments", "resume", resumeEnrollmentId],
+    queryFn: () => getEnrollmentDetail(resumeEnrollmentId),
+    enabled: isResumeMode,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    resumeHydratedRef.current = false;
+  }, [resumeEnrollmentId]);
+
   useEffect(() => {
     if (!toast) return undefined;
     const timer = window.setTimeout(() => setToast(null), 3500);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (!isResumeMode) return;
+    if (resumeHydratedRef.current) return;
+    if (resumeEnrollmentQuery.isLoading || !resumeEnrollmentQuery.data) return;
+
+    const detail = resumeEnrollmentQuery.data;
+    const status = String(detail?.status || "").toUpperCase();
+    if (status !== "ABSENT") {
+      resumeHydratedRef.current = true;
+      setStatusMessage("Solo se puede reanudar desde matrículas en estado Ausente.");
+      return;
+    }
+
+    const detailStudents = Array.isArray(detail.students) ? detail.students : [];
+    const seededStudents = detailStudents.map((student, index) => {
+      const localId = `resume-student-${student.studentId || student.enrollmentStudentId || index + 1}`;
+      const pensionsDraft = normalizePensionDraft(student.pensionMonthlyAmounts);
+      const previousSchoolType = student.previousSchoolType || "OTHER";
+      const previousSchoolName = previousSchoolType === "OTHER" ? (student.previousSchoolName || "") : "";
+
+      return {
+        localId,
+        mode: "existing",
+        existingStudentId: student.studentId || "",
+        fullName: student.fullName || [student.lastNames, student.names].filter(Boolean).join(", "),
+        names: student.names || "",
+        lastNames: student.lastNames || "",
+        dni: student.dni || "",
+        gender: "M",
+        previousSchoolType,
+        previousSchoolName,
+        level: "",
+        grade: "",
+        campusCode: detail?.campus?.code || activeCampus || "",
+        classroomId: student.classroom?.id || "",
+        classroomLabel: student.classroom?.displayName || "",
+        notes: student.notes || "",
+        isBlocked: false,
+        blockReason: "",
+        existingSummary: null,
+        inferredOnce: false,
+        amounts: {
+          admissionFeeAmount: toAmountString(student?.admissionFee?.amount),
+          enrollmentFeeAmount: toAmountString(student?.enrollmentFee?.amount),
+          ...pensionsDraft,
+        },
+      };
+    });
+
+    const allStudentIds = seededStudents.map((student) => student.localId);
+    const detailTutors = Array.isArray(detail.tutors) ? detail.tutors : [];
+    const seededTutors = detailTutors.map((tutor, index) => ({
+      localId: `resume-tutor-${tutor.personId || tutor.dni || index + 1}`,
+      mode: "existing-related",
+      existingTutorId: tutor.personId || "",
+      personId: tutor.personId || "",
+      relationship: tutor.relationship || "Apoderado",
+      names: tutor.names || "",
+      lastNames: tutor.lastNames || "",
+      dni: tutor.dni || "",
+      phone: tutor.phone || "",
+      isLegalResponsible: true,
+      includeInContract: true,
+      linkedStudentIds: allStudentIds,
+      source: "resume-enrollment",
+    }));
+
+    setCompletedEnrollment(null);
+    setCurrentStep(1);
+    setStudentsDraft(seededStudents);
+    setTutorsDraft(seededTutors);
+    setObservations({
+      general: detail?.notes || detail?.contract?.notes || "",
+      address: detail?.contract?.address || "",
+    });
+    setStudentSearch("");
+    setStudentResults([]);
+    setTutorSearch("");
+    setTutorResults([]);
+    setManualStudent(emptyStudentDraft(activeCampus || detail?.campus?.code || ""));
+    setManualTutor(emptyTutorDraft());
+    setStatusMessage("Se cargó la matrícula ausente. Completa los datos faltantes y presiona Matricular.");
+    resumeHydratedRef.current = true;
+  }, [
+    isResumeMode,
+    resumeEnrollmentQuery.isLoading,
+    resumeEnrollmentQuery.data,
+    activeCampus,
+  ]);
 
   useEffect(() => {
     const term = String(studentSearch || "").trim();
@@ -1380,6 +1515,18 @@ export default function MatriculasV2Page() {
 
   return (
     <div className="space-y-5">
+      {isResumeMode && resumeEnrollmentQuery.isLoading ? (
+        <Card className="border border-blue-200 bg-blue-50 text-sm text-blue-800">
+          Cargando matrícula ausente para continuar el flujo...
+        </Card>
+      ) : null}
+
+      {isResumeMode && resumeEnrollmentQuery.isError ? (
+        <Card className="border border-red-200 bg-red-50 text-sm text-red-700">
+          {getErrorMessage(resumeEnrollmentQuery.error, "No se pudo cargar la matrícula a reanudar.")}
+        </Card>
+      ) : null}
+
       <BaseModal
         open={isCancelModalOpen}
         onClose={closeCancelModal}

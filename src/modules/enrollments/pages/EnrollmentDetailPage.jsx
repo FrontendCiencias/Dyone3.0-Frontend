@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
@@ -7,7 +7,8 @@ import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import BaseModal from "../../../shared/ui/BaseModal";
 import { ROUTES } from "../../../config/routes";
-import { getEnrollmentDetail, updateEnrollmentContract } from "../services/enrollments.service";
+import { useAuth } from "../../../lib/auth";
+import { getEnrollmentDetail, listEnrollments, mergeEnrollment, updateEnrollmentContract } from "../services/enrollments.service";
 
 function statusLabel(status) {
   const value = String(status || "").toUpperCase();
@@ -38,10 +39,16 @@ function getErrorMessage(error, fallback = "No se pudo cargar la matrícula") {
 export default function EnrollmentDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { activeRole } = useAuth();
   const { enrollmentId } = useParams();
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
   const [contractForm, setContractForm] = useState({ address: "", notes: "", contractDate: "" });
   const [contractError, setContractError] = useState("");
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [selectedSourceEnrollmentId, setSelectedSourceEnrollmentId] = useState("");
+  const [mergeNotes, setMergeNotes] = useState("");
+  const [mergeError, setMergeError] = useState("");
 
   const detailQuery = useQuery({
     queryKey: ["enrollments", "detail", enrollmentId],
@@ -52,6 +59,8 @@ export default function EnrollmentDetailPage() {
   });
 
   const detail = detailQuery.data;
+  const isAbsentEnrollment = String(detail?.status || "").toUpperCase() === "ABSENT";
+  const isAdmin = String(activeRole || "").toUpperCase() === "ADMIN";
 
   const currentContractDate = useMemo(() => {
     if (!detail?.contract?.confirmedAt) return "";
@@ -70,6 +79,59 @@ export default function EnrollmentDetailPage() {
       setContractError(getErrorMessage(error, "No se pudo guardar los datos del contrato"));
     },
   });
+
+  const mergeCandidatesQuery = useQuery({
+    queryKey: ["enrollments", "merge-candidates", enrollmentId, mergeSearch],
+    queryFn: async () => {
+      const response = await listEnrollments({ q: mergeSearch.trim(), limit: 20 });
+      const items = Array.isArray(response?.items) ? response.items : [];
+      return items.filter((item) => String(item?.enrollmentId || "") !== String(enrollmentId || ""));
+    },
+    enabled: isMergeModalOpen && mergeSearch.trim().length >= 2,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: ({ sourceEnrollmentId, notes }) => mergeEnrollment(enrollmentId, { sourceEnrollmentId, notes }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+      await queryClient.invalidateQueries({ queryKey: ["enrollments", "list"] });
+      setIsMergeModalOpen(false);
+      setMergeSearch("");
+      setSelectedSourceEnrollmentId("");
+      setMergeNotes("");
+      setMergeError("");
+    },
+    onError: (error) => {
+      setMergeError(getErrorMessage(error, "No se pudo fusionar las matrículas"));
+    },
+  });
+
+  const mergeCandidates = useMemo(() => {
+    if (mergeSearch.trim().length < 2) return [];
+    if (!Array.isArray(mergeCandidatesQuery.data)) return [];
+
+    const unique = new Map();
+    for (const item of mergeCandidatesQuery.data) {
+      const candidateId = item?.enrollmentId;
+      if (!candidateId || unique.has(candidateId)) continue;
+      unique.set(candidateId, item);
+    }
+
+    return [...unique.values()];
+  }, [mergeCandidatesQuery.data, mergeSearch]);
+
+  const selectedMergeCandidate = useMemo(
+    () => mergeCandidates.find((row) => String(row.enrollmentId) === String(selectedSourceEnrollmentId)) || null,
+    [mergeCandidates, selectedSourceEnrollmentId]
+  );
+
+  useEffect(() => {
+    if (!isMergeModalOpen) return;
+    setSelectedSourceEnrollmentId("");
+    setMergeError("");
+  }, [mergeSearch, isMergeModalOpen]);
 
   function openContractEditModal() {
     setContractForm({
@@ -96,6 +158,26 @@ export default function EnrollmentDetailPage() {
       address: String(contractForm.address || "").trim(),
       notes: String(contractForm.notes || "").trim(),
       contractDate: contractForm.contractDate,
+    });
+  }
+
+  function openMergeModal() {
+    setMergeSearch("");
+    setSelectedSourceEnrollmentId("");
+    setMergeNotes("");
+    setMergeError("");
+    setIsMergeModalOpen(true);
+  }
+
+  function handleMergeEnrollments() {
+    if (!selectedSourceEnrollmentId) {
+      setMergeError("Selecciona una matrícula origen para fusionar.");
+      return;
+    }
+
+    mergeMutation.mutate({
+      sourceEnrollmentId: selectedSourceEnrollmentId,
+      notes: String(mergeNotes || "").trim(),
     });
   }
 
@@ -128,18 +210,34 @@ export default function EnrollmentDetailPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <SecondaryButton onClick={() => navigate(ROUTES.dashboardEnrollments)}>Volver</SecondaryButton>
-            <SecondaryButton onClick={openContractEditModal}>Completar contrato</SecondaryButton>
-            <Button
-              onClick={() =>
-                window.open(
-                  `${ROUTES.dashboardEnrollmentContractPreview}?enrollmentId=${encodeURIComponent(detail.id)}`,
-                  "_blank",
-                  "noopener,noreferrer"
-                )
-              }
-            >
-              Ver contrato
-            </Button>
+            {isAdmin ? (
+              <SecondaryButton onClick={openMergeModal}>Fusionar matrícula</SecondaryButton>
+            ) : null}
+            {isAbsentEnrollment ? (
+              <Button
+                onClick={() => {
+                  const params = new URLSearchParams({ resumeEnrollmentId: detail.id });
+                  navigate(`${ROUTES.dashboardEnrollmentNew}?${params.toString()}`);
+                }}
+              >
+                Matricular
+              </Button>
+            ) : (
+              <>
+                <SecondaryButton onClick={openContractEditModal}>Completar contrato</SecondaryButton>
+                <Button
+                  onClick={() =>
+                    window.open(
+                      `${ROUTES.dashboardEnrollmentContractPreview}?enrollmentId=${encodeURIComponent(detail.id)}`,
+                      "_blank",
+                      "noopener,noreferrer"
+                    )
+                  }
+                >
+                  Ver contrato
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </Card>
@@ -185,14 +283,33 @@ export default function EnrollmentDetailPage() {
         </div>
       </Card>
 
-      <Card className="border border-gray-200">
-        <h2 className="text-sm font-semibold text-gray-900">Contrato</h2>
-        <div className="mt-3 space-y-1 text-sm text-gray-600">
-          <p>Dirección de contacto: {detail.contract?.address || "-"}</p>
-          <p>Observaciones: {detail.contract?.notes || "-"}</p>
-          <p>Fecha de contrato: {detail.contract?.confirmedAt ? String(detail.contract.confirmedAt).slice(0, 10) : "-"}</p>
-        </div>
-      </Card>
+      {isAbsentEnrollment ? (
+        <Card className="border border-amber-200 bg-amber-50">
+          <h2 className="text-sm font-semibold text-amber-900">Contrato no disponible</h2>
+          <p className="mt-2 text-sm text-amber-800">
+            Esta matrícula está en estado Ausente. Completa el flujo de matrícula para registrar tutores, montos y generar el contrato.
+          </p>
+          <div className="mt-3">
+            <Button
+              onClick={() => {
+                const params = new URLSearchParams({ resumeEnrollmentId: detail.id });
+                navigate(`${ROUTES.dashboardEnrollmentNew}?${params.toString()}`);
+              }}
+            >
+              Matricular
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <Card className="border border-gray-200">
+          <h2 className="text-sm font-semibold text-gray-900">Contrato</h2>
+          <div className="mt-3 space-y-1 text-sm text-gray-600">
+            <p>Dirección de contacto: {detail.contract?.address || "-"}</p>
+            <p>Observaciones: {detail.contract?.notes || "-"}</p>
+            <p>Fecha de contrato: {detail.contract?.confirmedAt ? String(detail.contract.confirmedAt).slice(0, 10) : "-"}</p>
+          </div>
+        </Card>
+      )}
 
       <BaseModal
         open={isContractModalOpen}
@@ -256,6 +373,104 @@ export default function EnrollmentDetailPage() {
           {contractError ? (
             <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
               {contractError}
+            </div>
+          ) : null}
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={isMergeModalOpen}
+        onClose={() => !mergeMutation.isPending && setIsMergeModalOpen(false)}
+        title="Fusionar matrículas (solo admin)"
+        maxWidthClass="max-w-3xl"
+        footer={(
+          <div className="flex flex-wrap justify-end gap-2">
+            <SecondaryButton onClick={() => setIsMergeModalOpen(false)} disabled={mergeMutation.isPending}>
+              Cancelar
+            </SecondaryButton>
+            <Button onClick={handleMergeEnrollments} disabled={mergeMutation.isPending || !selectedSourceEnrollmentId}>
+              {mergeMutation.isPending ? "Fusionando..." : "Fusionar"}
+            </Button>
+          </div>
+        )}
+      >
+        <div className="space-y-4 px-5 py-4">
+          <p className="text-sm text-gray-600">
+            Matrícula destino: <span className="font-medium text-gray-900">{detail.id}</span>. Busca y selecciona la matrícula origen que quieres mover a esta.
+          </p>
+
+          <Input
+            label="Buscar matrícula origen"
+            value={mergeSearch}
+            onChange={(e) => {
+              setMergeSearch(e.target.value);
+              setMergeError("");
+            }}
+            placeholder="DNI, nombre o código de alumno"
+          />
+
+          {mergeSearch.trim().length < 2 ? (
+            <p className="text-sm text-gray-500">Escribe al menos 2 caracteres para buscar matrículas.</p>
+          ) : mergeCandidatesQuery.isLoading ? (
+            <p className="text-sm text-gray-500">Buscando matrículas...</p>
+          ) : mergeCandidates.length ? (
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
+              {mergeCandidates.map((row) => {
+                const candidateId = row.enrollmentId;
+                const student = row.student || {};
+                const isSelected = String(candidateId) === String(selectedSourceEnrollmentId);
+                return (
+                  <button
+                    key={`${candidateId}-${student.id || student.code || student.dni || "student"}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSourceEnrollmentId(candidateId);
+                      setMergeError("");
+                    }}
+                    className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${isSelected ? "border-blue-400 bg-blue-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                  >
+                    <p className="font-medium text-gray-900">
+                      Matrícula: {candidateId}
+                    </p>
+                    <p className="text-gray-600">
+                      {student.lastNames}, {student.names} · DNI: {student.dni || "-"} · Código: {student.code || "-"}
+                    </p>
+                    <p className="text-gray-500">
+                      Estado: {statusLabel(row.status)} · Campus: {row.campus?.name || row.campus?.code || "-"} · Ciclo: {row.cycle?.name || "-"}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No se encontraron matrículas para la búsqueda.</p>
+          )}
+
+          {selectedMergeCandidate ? (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <p>
+                Origen seleccionado: <span className="font-medium text-slate-900">{selectedMergeCandidate.enrollmentId}</span>
+              </p>
+              <p className="mt-1 text-slate-600">
+                Esta acción moverá los alumnos de la matrícula origen a la destino y no se puede deshacer desde esta vista.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">Nota de fusión (opcional)</label>
+            <textarea
+              rows={3}
+              value={mergeNotes}
+              onChange={(e) => setMergeNotes(e.target.value)}
+              className="rounded border px-3 py-2 text-sm focus:outline-none focus:ring focus:ring-blue-200"
+              placeholder="Motivo o contexto de la fusión"
+            />
+          </div>
+
+          {mergeError ? (
+            <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {mergeError}
             </div>
           ) : null}
         </div>
