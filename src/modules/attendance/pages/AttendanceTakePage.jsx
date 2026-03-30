@@ -119,10 +119,25 @@ export default function AttendanceTakePage() {
   const [justificationTarget, setJustificationTarget] = useState(null);
   const [justificationReason, setJustificationReason] = useState("");
 
+  const syncClearNativeInput = () => {
+    const input = scanInputRef.current;
+    if (!input) return;
+    input.value = "";
+  };
+
   const focusScanInput = () => {
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       scanInputRef.current?.focus();
-    }, 0);
+    });
+  };
+
+  const resetScanInput = () => {
+    setStudentCode("");
+    syncClearNativeInput();
+    requestAnimationFrame(() => {
+      syncClearNativeInput();
+      scanInputRef.current?.focus();
+    });
   };
 
   const intakeViewQuery = useAttendanceIntakeViewQuery({
@@ -194,7 +209,7 @@ export default function AttendanceTakePage() {
         markMethod: "BARCODE",
       });
 
-      setStudentCode("");
+      resetScanInput();
       setFeaturedScan(result);
       setUiMessage(`Asistencia registrada para ${result?.student?.fullName || "alumno"}.`);
       await queryClient.invalidateQueries({
@@ -202,7 +217,7 @@ export default function AttendanceTakePage() {
       });
       await intakeViewQuery.refetch();
     } catch (error) {
-      setStudentCode("");
+      resetScanInput();
       setUiMessage(getErrorMessage(error, "No se pudo registrar la asistencia."));
     } finally {
       focusScanInput();
@@ -311,6 +326,10 @@ export default function AttendanceTakePage() {
               onBlur={focusScanInput}
               placeholder="Escanea o escribe el internalCode"
               disabled={scanMutation.isPending}
+              inputMode="numeric"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               ref={scanInputRef}
             />
             <div className="flex items-end">
