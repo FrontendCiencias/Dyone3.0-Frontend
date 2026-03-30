@@ -24,6 +24,12 @@ function statusClasses(status) {
   return "bg-emerald-100 text-emerald-700";
 }
 
+function getMonthlyPensionAmount(student) {
+  const amounts = Array.isArray(student?.pensionMonthlyAmounts) ? student.pensionMonthlyAmounts : [];
+  const firstApplicable = amounts.find((amount) => Number(amount) >= 0);
+  return Number(firstApplicable || 0);
+}
+
 function formatMoney(value) {
   const amount = Number(value || 0);
   return `S/ ${Number.isNaN(amount) ? "0.00" : amount.toFixed(2)}`;
@@ -260,6 +266,7 @@ export default function EnrollmentDetailPage() {
                 <div className="text-sm text-gray-600">
                   <p>Derecho de ingreso: {formatMoney(student.admissionFee?.amount)}</p>
                   <p>Matrícula: {formatMoney(student.enrollmentFee?.amount)}</p>
+                  <p>Pensión: {formatMoney(getMonthlyPensionAmount(student))}</p>
                 </div>
               </div>
             </div>
