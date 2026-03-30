@@ -8,7 +8,7 @@ import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import BaseModal from "../../../shared/ui/BaseModal";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
-import { getEnrollmentDetail, listEnrollments, mergeEnrollment, updateEnrollmentContract } from "../services/enrollments.service";
+import { getEnrollmentDetail, listEnrollments, mergeEnrollment, updateEnrollmentContract, updateEnrollmentStudentCosts } from "../services/enrollments.service";
 
 function statusLabel(status) {
   const value = String(status || "").toUpperCase();
@@ -55,6 +55,14 @@ export default function EnrollmentDetailPage() {
   const [selectedSourceEnrollmentId, setSelectedSourceEnrollmentId] = useState("");
   const [mergeNotes, setMergeNotes] = useState("");
   const [mergeError, setMergeError] = useState("");
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [studentCostsForm, setStudentCostsForm] = useState({
+    enrollmentStudentId: "",
+    admissionFeeAmount: "0",
+    enrollmentFeeAmount: "0",
+    pensionAmount: "0",
+  });
+  const [studentCostsError, setStudentCostsError] = useState("");
 
   const detailQuery = useQuery({
     queryKey: ["enrollments", "detail", enrollmentId],
@@ -83,6 +91,19 @@ export default function EnrollmentDetailPage() {
     },
     onError: (error) => {
       setContractError(getErrorMessage(error, "No se pudo guardar los datos del contrato"));
+    },
+  });
+
+  const updateStudentCostsMutation = useMutation({
+    mutationFn: (payload) => updateEnrollmentStudentCosts(enrollmentId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+      await queryClient.invalidateQueries({ queryKey: ["enrollments", "list"] });
+      setEditingStudent(null);
+      setStudentCostsError("");
+    },
+    onError: (error) => {
+      setStudentCostsError(getErrorMessage(error, "No se pudo actualizar los montos del alumno"));
     },
   });
 
@@ -187,6 +208,37 @@ export default function EnrollmentDetailPage() {
     });
   }
 
+  function openStudentCostsModal(student) {
+    setEditingStudent(student);
+    setStudentCostsError("");
+    setStudentCostsForm({
+      enrollmentStudentId: student?.enrollmentStudentId || "",
+      admissionFeeAmount: String(Number(student?.admissionFee?.amount || 0)),
+      enrollmentFeeAmount: String(Number(student?.enrollmentFee?.amount || 0)),
+      pensionAmount: String(getMonthlyPensionAmount(student)),
+    });
+  }
+
+  function handleSaveStudentCosts() {
+    const admissionFeeAmount = Number(studentCostsForm.admissionFeeAmount || 0);
+    const enrollmentFeeAmount = Number(studentCostsForm.enrollmentFeeAmount || 0);
+    const pensionAmount = Number(studentCostsForm.pensionAmount || 0);
+
+    if ([admissionFeeAmount, enrollmentFeeAmount, pensionAmount].some((amount) => Number.isNaN(amount) || amount < 0)) {
+      setStudentCostsError("Todos los montos deben ser números mayores o iguales a cero.");
+      return;
+    }
+
+    updateStudentCostsMutation.mutate({
+      students: [{
+        enrollmentStudentId: studentCostsForm.enrollmentStudentId,
+        admissionFeeAmount,
+        enrollmentFeeAmount,
+        pensionAmount,
+      }],
+    });
+  }
+
   if (detailQuery.isLoading) {
     return <Card className="border border-gray-200 text-sm text-gray-500">Cargando detalle de matrícula...</Card>;
   }
@@ -267,6 +319,11 @@ export default function EnrollmentDetailPage() {
                   <p>Derecho de ingreso: {formatMoney(student.admissionFee?.amount)}</p>
                   <p>Matrícula: {formatMoney(student.enrollmentFee?.amount)}</p>
                   <p>Pensión: {formatMoney(getMonthlyPensionAmount(student))}</p>
+                  {isAdmin ? (
+                    <div className="mt-2">
+                      <SecondaryButton onClick={() => openStudentCostsModal(student)}>Editar montos</SecondaryButton>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -480,6 +537,53 @@ export default function EnrollmentDetailPage() {
               {mergeError}
             </div>
           ) : null}
+        </div>
+      </BaseModal>
+
+      <BaseModal
+        open={Boolean(editingStudent)}
+        onClose={() => !updateStudentCostsMutation.isPending && setEditingStudent(null)}
+        title="Editar montos del alumno"
+        footer={(
+          <div className="flex justify-end gap-2">
+            <SecondaryButton onClick={() => setEditingStudent(null)} disabled={updateStudentCostsMutation.isPending}>
+              Cancelar
+            </SecondaryButton>
+            <Button onClick={handleSaveStudentCosts} disabled={updateStudentCostsMutation.isPending}>
+              {updateStudentCostsMutation.isPending ? "Guardando..." : "Guardar"}
+            </Button>
+          </div>
+        )}
+      >
+        <div className="space-y-4 p-5">
+          <p className="text-sm text-gray-600">{editingStudent?.fullName || "Alumno"}</p>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Input
+              label="Derecho de ingreso"
+              type="number"
+              min="0"
+              step="0.01"
+              value={studentCostsForm.admissionFeeAmount}
+              onChange={(event) => setStudentCostsForm((prev) => ({ ...prev, admissionFeeAmount: event.target.value }))}
+            />
+            <Input
+              label="Matrícula"
+              type="number"
+              min="0"
+              step="0.01"
+              value={studentCostsForm.enrollmentFeeAmount}
+              onChange={(event) => setStudentCostsForm((prev) => ({ ...prev, enrollmentFeeAmount: event.target.value }))}
+            />
+            <Input
+              label="Pensión"
+              type="number"
+              min="0"
+              step="0.01"
+              value={studentCostsForm.pensionAmount}
+              onChange={(event) => setStudentCostsForm((prev) => ({ ...prev, pensionAmount: event.target.value }))}
+            />
+          </div>
+          {studentCostsError ? <p className="text-sm text-red-600">{studentCostsError}</p> : null}
         </div>
       </BaseModal>
     </div>

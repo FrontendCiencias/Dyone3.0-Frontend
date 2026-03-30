@@ -105,6 +105,16 @@ export async function updateEnrollmentContract(enrollmentId, payload) {
   return res.data;
 }
 
+export async function updateEnrollmentStudentCosts(enrollmentId, payload) {
+  const endpoint = API_ROUTES.enrollmentStudentCosts(enrollmentId);
+
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+
+  return res.data;
+}
+
 export async function mergeEnrollment(targetEnrollmentId, payload) {
   const endpoint = API_ROUTES.enrollmentMerge(targetEnrollmentId);
   logRequest(endpoint, "POST", payload);
