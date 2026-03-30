@@ -15,14 +15,14 @@ export default function NotesEditModal({ open, onClose, value = "", onSave, savi
     <BaseModal
       open={open}
       onClose={onClose}
-      title="Editar notas internas"
+      title="Editar observaciones del alumno"
       statusOverlay={saving ? {
         state: "loading",
-        title: "Guardando notas",
-        message: "Actualizando las notas internas...",
+        title: "Guardando observaciones",
+        message: "Actualizando las observaciones del alumno...",
       } : success ? {
         state: "success",
-        title: "Notas guardadas",
+        title: "Observaciones guardadas",
         message: "Verifica el check y luego cierra el modal.",
       } : errorMessage ? {
         state: "error",
@@ -41,7 +41,7 @@ export default function NotesEditModal({ open, onClose, value = "", onSave, savi
           className="min-h-[180px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Escribe notas de secretaría..."
+          placeholder="Escribe observaciones del alumno..."
         />
         {errorMessage ? <p className="text-xs text-red-600">{errorMessage}</p> : null}
       </div>

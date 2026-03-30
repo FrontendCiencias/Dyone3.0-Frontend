@@ -105,7 +105,7 @@ export default function StudentDetailPage() {
   const canCreateCharge = hasCapability(activeRole, CAPABILITIES.paymentsCreateCharge);
 
   const status = safeUpper(enrollmentStatus?.status || "?");
-  const internalNotes = detail.internalNotes || student.internalNotes || "";
+  const internalNotes = detail.notes || student.notes || "";
   const transferMutation = useUpdateEnrollmentStatusMutation(studentId, enrollmentStatus?.id);
   const changeClassroomMutation = useChangeStudentClassroomMutation(studentId);
   const createChargeMutation = useCreateStudentChargeMutation(studentId);
@@ -387,7 +387,7 @@ export default function StudentDetailPage() {
 
           <Card className="border border-gray-200 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Notas internas</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Observaciones del alumno</h3>
               <SecondaryButton
                 disabled={!canEditStudentNotes || (lockEdition && activeEditor !== "notes")}
                 onClick={() => canEditStudentNotes && openEditor("notes")}
@@ -397,7 +397,7 @@ export default function StudentDetailPage() {
             </div>
             <textarea
               readOnly
-              value={internalNotes || "Sin notas internas"}
+              value={internalNotes || "Sin observaciones"}
               className="min-h-[120px] w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
             />
           </Card>
@@ -493,7 +493,7 @@ export default function StudentDetailPage() {
         onSave={handleSaveNotes}
         saving={updateNotesMutation.isPending}
         success={updateNotesMutation.isSuccess}
-        errorMessage={updateNotesMutation.isError ? getErrorMessage(updateNotesMutation.error, "No se pudo guardar las notas") : ""}
+        errorMessage={updateNotesMutation.isError ? getErrorMessage(updateNotesMutation.error, "No se pudo guardar las observaciones") : ""}
       />
 
       <TransferStudentModal
