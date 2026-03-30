@@ -173,10 +173,8 @@ function isValidDni(value) {
 }
 
 function isStudentReady(student = {}) {
-  const requiresDni = student.mode === "existing" && !isValidDni(student.dni);
   return Boolean(
     !student.isBlocked
-    && !requiresDni
     && String(student.names || "").trim()
     && String(student.lastNames || "").trim()
     && student.previousSchoolType
@@ -1048,44 +1046,48 @@ export default function MatriculasV2Page() {
       return;
     }
 
-    if (!isValidDni(dni)) {
+    if (dni && !isValidDni(dni)) {
       setPersonalEdit((prev) => ({ ...prev, error: "El DNI debe tener exactamente 8 números." }));
       return;
     }
 
-    const dniError = validateDraftStudentDni(personalEdit.localId, dni);
-    if (dniError) {
-      setPersonalEdit((prev) => ({ ...prev, error: dniError }));
-      return;
+    if (dni) {
+      const dniError = validateDraftStudentDni(personalEdit.localId, dni);
+      if (dniError) {
+        setPersonalEdit((prev) => ({ ...prev, error: dniError }));
+        return;
+      }
     }
 
     try {
-      const [studentResponse, tutorResponse] = await Promise.all([
-        searchStudents({ q: dni, limit: 5 }),
-        searchTutorsForEnrollments({ q: dni, limit: 5 }),
-      ]);
+      if (dni) {
+        const [studentResponse, tutorResponse] = await Promise.all([
+          searchStudents({ q: dni, limit: 5 }),
+          searchTutorsForEnrollments({ q: dni, limit: 5 }),
+        ]);
 
-      const studentItems = Array.isArray(studentResponse?.items) ? studentResponse.items : [];
-      const tutorItems = Array.isArray(tutorResponse?.items) ? tutorResponse.items : [];
+        const studentItems = Array.isArray(studentResponse?.items) ? studentResponse.items : [];
+        const tutorItems = Array.isArray(tutorResponse?.items) ? tutorResponse.items : [];
 
-      const duplicatedStudentInDb = studentItems.some((student) => {
-        const sameDni = normalizeStudentDni(student.dni || student.personId?.dni) === dni;
-        if (!sameDni) return false;
-        if (currentStudent?.mode === "existing" && currentStudent?.existingStudentId) {
-          return String(student.id || student._id) !== String(currentStudent.existingStudentId);
+        const duplicatedStudentInDb = studentItems.some((student) => {
+          const sameDni = normalizeStudentDni(student.dni || student.personId?.dni) === dni;
+          if (!sameDni) return false;
+          if (currentStudent?.mode === "existing" && currentStudent?.existingStudentId) {
+            return String(student.id || student._id) !== String(currentStudent.existingStudentId);
+          }
+          return true;
+        });
+
+        if (duplicatedStudentInDb) {
+          setPersonalEdit((prev) => ({ ...prev, error: "Ese DNI ya pertenece a otro alumno registrado." }));
+          return;
         }
-        return true;
-      });
 
-      if (duplicatedStudentInDb) {
-        setPersonalEdit((prev) => ({ ...prev, error: "Ese DNI ya pertenece a otro alumno registrado." }));
-        return;
-      }
-
-      const duplicatedTutorInDb = tutorItems.some((tutor) => normalizeStudentDni(tutor.dni) === dni);
-      if (duplicatedTutorInDb) {
-        setPersonalEdit((prev) => ({ ...prev, error: "Ese DNI ya pertenece a un tutor registrado." }));
-        return;
+        const duplicatedTutorInDb = tutorItems.some((tutor) => normalizeStudentDni(tutor.dni) === dni);
+        if (duplicatedTutorInDb) {
+          setPersonalEdit((prev) => ({ ...prev, error: "Ese DNI ya pertenece a un tutor registrado." }));
+          return;
+        }
       }
     } catch (error) {
       if (!isRemoteValidationRecoverable(error)) {
@@ -1099,7 +1101,7 @@ export default function MatriculasV2Page() {
       names,
       lastNames,
       fullName: `${lastNames}, ${names}`,
-      dni,
+      dni: dni || "",
     });
 
     if (didUpdate !== false) {
