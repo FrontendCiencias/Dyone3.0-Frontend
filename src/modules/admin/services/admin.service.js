@@ -104,6 +104,16 @@ export async function upsertAttendancePolicy(payload) {
   return response.data;
 }
 
+export async function getAdminAttendanceSessions(params = {}) {
+  const response = await axiosInstance.get(API_ROUTES.adminAttendanceSessions, { params });
+  return response.data;
+}
+
+export async function deleteAdminAttendanceSession(sessionId) {
+  const response = await axiosInstance.delete(API_ROUTES.adminAttendanceSessionById(sessionId));
+  return response.data;
+}
+
 function parseDownloadFileName(contentDisposition) {
   const header = String(contentDisposition || "");
   const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);

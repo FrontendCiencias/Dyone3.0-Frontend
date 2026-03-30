@@ -10,6 +10,7 @@ import { useCampusesQuery } from "../../admin/hooks/useCampusesQuery";
 import { useCyclesQuery } from "../../admin/hooks/useCyclesQuery";
 import { useAttendanceIntakeViewQuery } from "../hooks/useAttendanceIntakeViewQuery";
 import { useAttendanceOpenSessionMutation } from "../hooks/useAttendanceOpenSessionMutation";
+import { useCurrentAttendanceSessionQuery } from "../hooks/useCurrentAttendanceSessionQuery";
 import {
   clearStoredAttendanceSessionId,
   getStoredAttendanceSessionId,
@@ -102,6 +103,15 @@ export default function AttendanceIntakePage() {
     [activeCampus, today],
   );
   const [resolvedSessionId, setResolvedSessionId] = useState(storedSessionId);
+  const activeCampusId = activeCampusRow?.id || activeCampusRow?._id || "";
+  const activeCycleId = activeCycle?.id || activeCycle?._id || "";
+
+  const currentSessionQuery = useCurrentAttendanceSessionQuery({
+    campusId: activeCampusId,
+    cycleId: activeCycleId,
+    date: today,
+    enabled: Boolean(activeCampusId && activeCycleId),
+  });
 
   useEffect(() => {
     setResolvedSessionId(storedSessionId);
@@ -114,7 +124,18 @@ export default function AttendanceIntakePage() {
     suppressNotFound: true,
   });
 
-  const effectiveSession = intakeViewQuery.data?.session || openSessionMutation.data?.session || null;
+  useEffect(() => {
+    const currentSessionId = currentSessionQuery.data?.session?.id || "";
+    if (!currentSessionId) return;
+    if (String(currentSessionId) === String(resolvedSessionId || "")) return;
+    setResolvedSessionId(currentSessionId);
+    setStoredAttendanceSessionId({ campus: activeCampus, date: today, sessionId: currentSessionId });
+  }, [activeCampus, currentSessionQuery.data?.session?.id, resolvedSessionId, today]);
+
+  const effectiveSession = intakeViewQuery.data?.session
+    || currentSessionQuery.data?.session
+    || openSessionMutation.data?.session
+    || null;
 
   useEffect(() => {
     if (!resolvedSessionId || intakeViewQuery.isLoading) return;
