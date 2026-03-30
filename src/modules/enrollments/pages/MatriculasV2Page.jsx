@@ -100,6 +100,11 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
+function isPermissionValidationError(error) {
+  const status = Number(error?.response?.status || 0);
+  return status === 401 || status === 403;
+}
+
 function buildContractPayload({ activeCampus, students, tutors, observations }) {
   return {
     enrollmentId: "",
@@ -877,9 +882,11 @@ export default function MatriculasV2Page() {
           return;
         }
       } catch (error) {
-        setStatusMessage(getErrorMessage(error, "No se pudo validar el DNI del alumno."));
-        setToast({ type: "error", message: "No se pudo validar el DNI del alumno." });
-        return;
+        if (!isPermissionValidationError(error)) {
+          setStatusMessage(getErrorMessage(error, "No se pudo validar el DNI del alumno."));
+          setToast({ type: "error", message: "No se pudo validar el DNI del alumno." });
+          return;
+        }
       }
     }
 
@@ -1079,8 +1086,10 @@ export default function MatriculasV2Page() {
         return;
       }
     } catch (error) {
-      setPersonalEdit((prev) => ({ ...prev, error: getErrorMessage(error, "No se pudo validar el DNI del alumno.") }));
-      return;
+      if (!isPermissionValidationError(error)) {
+        setPersonalEdit((prev) => ({ ...prev, error: getErrorMessage(error, "No se pudo validar el DNI del alumno.") }));
+        return;
+      }
     }
 
     const didUpdate = updateStudent(personalEdit.localId, {
@@ -1219,9 +1228,11 @@ export default function MatriculasV2Page() {
           return;
         }
       } catch (error) {
-        setStatusMessage(getErrorMessage(error, "No se pudo validar el DNI del tutor."));
-        setToast({ type: "error", message: "No se pudo validar el DNI del tutor." });
-        return;
+        if (!isPermissionValidationError(error)) {
+          setStatusMessage(getErrorMessage(error, "No se pudo validar el DNI del tutor."));
+          setToast({ type: "error", message: "No se pudo validar el DNI del tutor." });
+          return;
+        }
       }
     }
 
@@ -1352,8 +1363,10 @@ export default function MatriculasV2Page() {
           return;
         }
       } catch (error) {
-        setTutorEdit((prev) => ({ ...prev, error: getErrorMessage(error, "No se pudo validar el DNI del tutor.") }));
-        return;
+        if (!isPermissionValidationError(error)) {
+          setTutorEdit((prev) => ({ ...prev, error: getErrorMessage(error, "No se pudo validar el DNI del tutor.") }));
+          return;
+        }
       }
     }
 
