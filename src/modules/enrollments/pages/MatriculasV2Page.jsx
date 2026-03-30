@@ -100,9 +100,10 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
-function isPermissionValidationError(error) {
+function isRemoteValidationRecoverable(error) {
   const status = Number(error?.response?.status || 0);
-  return status === 401 || status === 403;
+  if (!status) return true;
+  return status >= 500 || status === 401 || status === 403;
 }
 
 function buildContractPayload({ activeCampus, students, tutors, observations }) {
@@ -882,11 +883,12 @@ export default function MatriculasV2Page() {
           return;
         }
       } catch (error) {
-        if (!isPermissionValidationError(error)) {
+        if (!isRemoteValidationRecoverable(error)) {
           setStatusMessage(getErrorMessage(error, "No se pudo validar el DNI del alumno."));
           setToast({ type: "error", message: "No se pudo validar el DNI del alumno." });
           return;
         }
+        setStatusMessage("No se pudo validar el DNI del alumno contra base en este momento. Se aplicará validación local.");
       }
     }
 
@@ -1086,10 +1088,11 @@ export default function MatriculasV2Page() {
         return;
       }
     } catch (error) {
-      if (!isPermissionValidationError(error)) {
+      if (!isRemoteValidationRecoverable(error)) {
         setPersonalEdit((prev) => ({ ...prev, error: getErrorMessage(error, "No se pudo validar el DNI del alumno.") }));
         return;
       }
+      setStatusMessage("No se pudo validar el DNI del alumno contra base en este momento. Se aplicará validación local.");
     }
 
     const didUpdate = updateStudent(personalEdit.localId, {
@@ -1228,11 +1231,12 @@ export default function MatriculasV2Page() {
           return;
         }
       } catch (error) {
-        if (!isPermissionValidationError(error)) {
+        if (!isRemoteValidationRecoverable(error)) {
           setStatusMessage(getErrorMessage(error, "No se pudo validar el DNI del tutor."));
           setToast({ type: "error", message: "No se pudo validar el DNI del tutor." });
           return;
         }
+        setStatusMessage("No se pudo validar el DNI del tutor contra base en este momento. Se aplicará validación local.");
       }
     }
 
@@ -1363,10 +1367,11 @@ export default function MatriculasV2Page() {
           return;
         }
       } catch (error) {
-        if (!isPermissionValidationError(error)) {
+        if (!isRemoteValidationRecoverable(error)) {
           setTutorEdit((prev) => ({ ...prev, error: getErrorMessage(error, "No se pudo validar el DNI del tutor.") }));
           return;
         }
+        setStatusMessage("No se pudo validar el DNI del tutor contra base en este momento. Se aplicará validación local.");
       }
     }
 
