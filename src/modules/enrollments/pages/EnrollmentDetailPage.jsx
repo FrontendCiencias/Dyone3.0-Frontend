@@ -9,6 +9,13 @@ import BaseModal from "../../../shared/ui/BaseModal";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
 import { getEnrollmentDetail, listEnrollments, mergeEnrollment, updateEnrollmentContract, updateEnrollmentStudentCosts } from "../services/enrollments.service";
+import IdentityEditModal from "../../students/components/detail/modals/IdentityEditModal";
+import TutorsManageModal from "../../students/components/detail/modals/TutorsManageModal";
+import { useStudentDetailQuery } from "../../students/hooks/useStudentDetailQuery";
+import { useUpdateStudentIdentityMutation } from "../../students/hooks/useUpdateStudentIdentityMutation";
+import { useUpdateTutorMutation } from "../../students/hooks/useUpdateTutorMutation";
+import { useDeleteTutorMutation } from "../../students/hooks/useDeleteTutorMutation";
+import { useCreateTutorMutation } from "../../students/hooks/useCreateTutorMutation";
 
 function statusLabel(status) {
   const value = String(status || "").toUpperCase();
@@ -63,6 +70,10 @@ export default function EnrollmentDetailPage() {
     pensionAmount: "0",
   });
   const [studentCostsError, setStudentCostsError] = useState("");
+  const [editingIdentityStudentId, setEditingIdentityStudentId] = useState("");
+  const [managingTutorsStudentId, setManagingTutorsStudentId] = useState("");
+  const [identityFormError, setIdentityFormError] = useState("");
+  const [tutorManageError, setTutorManageError] = useState("");
 
   const detailQuery = useQuery({
     queryKey: ["enrollments", "detail", enrollmentId],
@@ -75,6 +86,25 @@ export default function EnrollmentDetailPage() {
   const detail = detailQuery.data;
   const isAbsentEnrollment = String(detail?.status || "").toUpperCase() === "ABSENT";
   const isAdmin = String(activeRole || "").toUpperCase() === "ADMIN";
+  const activeStudentDetailId = editingIdentityStudentId || managingTutorsStudentId;
+  const activeStudentDetailQuery = useStudentDetailQuery(activeStudentDetailId, Boolean(activeStudentDetailId));
+  const activeStudentDetail = activeStudentDetailQuery.data || {};
+  const activeStudent = activeStudentDetail.student || {};
+  const activeTutorLink = activeStudentDetail.tutorLink || activeStudentDetail.familyLink || {};
+
+  const activeTutors = useMemo(() => {
+    const primaryTutorBase = activeTutorLink?.primaryTutor || activeTutorLink?.primaryTutor_send;
+    const primaryTutor = primaryTutorBase
+      ? { ...primaryTutorBase, isPrimary: true }
+      : null;
+    const others = Array.isArray(activeTutorLink?.otherTutors)
+      ? activeTutorLink.otherTutors
+      : Array.isArray(activeTutorLink?.otherTutors_send)
+        ? activeTutorLink.otherTutors_send
+        : [];
+
+    return [primaryTutor, ...others].filter(Boolean);
+  }, [activeTutorLink]);
 
   const currentContractDate = useMemo(() => {
     if (!detail?.contract?.confirmedAt) return "";
@@ -106,6 +136,11 @@ export default function EnrollmentDetailPage() {
       setStudentCostsError(getErrorMessage(error, "No se pudo actualizar los montos del alumno"));
     },
   });
+
+  const updateIdentityMutation = useUpdateStudentIdentityMutation(activeStudentDetailId);
+  const updateTutorMutation = useUpdateTutorMutation(activeStudentDetailId);
+  const deleteTutorMutation = useDeleteTutorMutation(activeStudentDetailId);
+  const createTutorMutation = useCreateTutorMutation(activeStudentDetailId);
 
   const mergeCandidatesQuery = useQuery({
     queryKey: ["enrollments", "merge-candidates", enrollmentId, mergeSearch],
@@ -239,6 +274,125 @@ export default function EnrollmentDetailPage() {
     });
   }
 
+  function buildIdentityPayload(formValues = {}) {
+    const trimOrEmpty = (value) => String(value || "").trim();
+    const original = {
+      names: trimOrEmpty(activeStudent?.names),
+      lastNames: trimOrEmpty(activeStudent?.lastNames),
+      dni: trimOrEmpty(activeStudent?.dni),
+      bankCode: trimOrEmpty(activeStudent?.bankCode),
+      gender: trimOrEmpty(activeStudent?.gender),
+      phone: trimOrEmpty(activeStudent?.phone),
+      address: trimOrEmpty(activeStudent?.address),
+    };
+
+    const next = {
+      names: trimOrEmpty(formValues?.names),
+      lastNames: trimOrEmpty(formValues?.lastNames),
+      dni: trimOrEmpty(formValues?.dni),
+      bankCode: trimOrEmpty(formValues?.bankCode),
+      gender: trimOrEmpty(formValues?.gender),
+      phone: trimOrEmpty(formValues?.phone),
+      address: trimOrEmpty(formValues?.address),
+    };
+
+    if (!next.names && !next.lastNames) return { error: "Debe completar nombres o apellidos." };
+    if (next.bankCode && !/^\d{10}$/.test(next.bankCode)) {
+      return { error: "Cod. Caja Arequipa debe tener 10 dígitos." };
+    }
+
+    const payload = {};
+    ["names", "lastNames", "dni", "bankCode", "gender", "phone", "address"].forEach((key) => {
+      if (next[key] !== original[key] && next[key] !== "") payload[key] = next[key];
+    });
+
+    if (payload.bankCode && Object.keys(payload).length === 1) {
+      payload.names = next.names || original.names;
+    }
+
+    if (!Object.keys(payload).length) {
+      return { error: "No hay cambios para guardar." };
+    }
+
+    return { payload };
+  }
+
+  async function handleSaveIdentity(formValues) {
+    const { payload, error } = buildIdentityPayload(formValues);
+    if (error) {
+      setIdentityFormError(error);
+      return;
+    }
+
+    setIdentityFormError("");
+    await updateIdentityMutation.mutateAsync(payload);
+    await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+  }
+
+  async function handleSaveTutor(selectedTutor, formValues) {
+    const tutorId = String(selectedTutor?.id || selectedTutor?._id || "").trim();
+    if (!tutorId) {
+      setTutorManageError("No se pudo identificar el tutor seleccionado.");
+      return;
+    }
+
+    const payload = {
+      names: String(formValues?.names || "").trim(),
+      lastNames: String(formValues?.lastNames || "").trim(),
+      dni: String(formValues?.dni || "").trim(),
+      phone: String(formValues?.phone || "").trim(),
+      gender: String(formValues?.gender || "").trim() || undefined,
+      relationship: String(formValues?.relationship || "").trim(),
+      isPrimary: Boolean(formValues?.isPrimary),
+      livesWithStudent: Boolean(formValues?.livesWithStudent),
+      notes: String(formValues?.notes || "").trim(),
+    };
+
+    if (!payload.names || !payload.lastNames || !payload.relationship) {
+      setTutorManageError("Nombres, apellidos y relacion son obligatorios.");
+      return;
+    }
+
+    setTutorManageError("");
+    await updateTutorMutation.mutateAsync({ tutorId, payload });
+    await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+  }
+
+  async function handleDeleteTutor(selectedTutor) {
+    const tutorId = String(selectedTutor?.id || selectedTutor?._id || "").trim();
+    if (!tutorId) {
+      setTutorManageError("No se pudo identificar el tutor seleccionado.");
+      return;
+    }
+
+    setTutorManageError("");
+    await deleteTutorMutation.mutateAsync(tutorId);
+    await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+  }
+
+  async function handleCreateTutor(formValues) {
+    const payload = {
+      studentId: activeStudentDetailId,
+      names: String(formValues?.names || "").trim(),
+      lastNames: String(formValues?.lastNames || "").trim(),
+      dni: String(formValues?.dni || "").trim(),
+      phone: String(formValues?.phone || "").trim(),
+      relationship: String(formValues?.relationship || "").trim(),
+      isPrimary: Boolean(formValues?.isPrimary),
+      livesWithStudent: Boolean(formValues?.livesWithStudent),
+      notes: String(formValues?.notes || "").trim(),
+    };
+
+    if (!payload.names || !payload.lastNames || !payload.relationship) {
+      setTutorManageError("Nombres, apellidos y relacion son obligatorios.");
+      return;
+    }
+
+    setTutorManageError("");
+    await createTutorMutation.mutateAsync(payload);
+    await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+  }
+
   if (detailQuery.isLoading) {
     return <Card className="border border-gray-200 text-sm text-gray-500">Cargando detalle de matrícula...</Card>;
   }
@@ -314,13 +468,25 @@ export default function EnrollmentDetailPage() {
                   <p className="mt-1 text-sm text-gray-600">
                     Aula: {student.classroom?.displayName || "-"}
                   </p>
+                  {isAdmin ? (
+                    <div className="mt-2">
+                      <SecondaryButton
+                        onClick={() => {
+                          setIdentityFormError("");
+                          setEditingIdentityStudentId(student.studentId || "");
+                        }}
+                      >
+                        Editar alumno
+                      </SecondaryButton>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="text-sm text-gray-600">
                   <p>Derecho de ingreso: {formatMoney(student.admissionFee?.amount)}</p>
                   <p>Matrícula: {formatMoney(student.enrollmentFee?.amount)}</p>
                   <p>Pensión: {formatMoney(getMonthlyPensionAmount(student))}</p>
                   {isAdmin ? (
-                    <div className="mt-2">
+                    <div className="mt-2 flex flex-wrap justify-end gap-2">
                       <SecondaryButton onClick={() => openStudentCostsModal(student)}>Editar montos</SecondaryButton>
                     </div>
                   ) : null}
@@ -332,14 +498,40 @@ export default function EnrollmentDetailPage() {
       </Card>
 
       <Card className="border border-gray-200">
-        <h2 className="text-sm font-semibold text-gray-900">Tutores firmantes</h2>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Tutores firmantes</h2>
+            <p className="mt-1 text-sm text-gray-500">Los tutores mostrados aquí participan en la matrícula y firma del contrato.</p>
+          </div>
+          {isAdmin ? (
+            <div className="flex flex-wrap gap-2">
+              {detail.students.map((student) => (
+                <SecondaryButton
+                  key={`manage-tutors-${student.enrollmentStudentId || student.studentId}`}
+                  onClick={() => {
+                    setTutorManageError("");
+                    setManagingTutorsStudentId(student.studentId || "");
+                  }}
+                >
+                  Editar tutores de {student.fullName || "alumno"}
+                </SecondaryButton>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="mt-3 space-y-3">
           {detail.tutors.length ? detail.tutors.map((tutor) => (
             <div key={tutor.personId} className="rounded-xl border border-gray-200 p-3">
-              <p className="font-medium text-gray-900">{tutor.fullName || "Tutor"}</p>
-              <p className="text-sm text-gray-600">
-                DNI: {tutor.dni || "-"} · Teléfono: {tutor.phone || "-"} · Parentesco: {tutor.relationship || "-"}
-              </p>
+              <div className="flex items-start gap-3">
+                <input type="checkbox" checked readOnly className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                <div>
+                  <p className="font-medium text-gray-900">{tutor.fullName || "Tutor"}</p>
+                  <p className="text-sm text-gray-600">
+                    DNI: {tutor.dni || "-"} · Teléfono: {tutor.phone || "-"} · Parentesco: {tutor.relationship || "-"}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-emerald-700">Tutor firmante</p>
+                </div>
+              </div>
             </div>
           )) : (
             <p className="text-sm text-gray-500">No hay tutores relacionados para esta matrícula.</p>
@@ -586,6 +778,56 @@ export default function EnrollmentDetailPage() {
           {studentCostsError ? <p className="text-sm text-red-600">{studentCostsError}</p> : null}
         </div>
       </BaseModal>
+
+      <IdentityEditModal
+        open={Boolean(editingIdentityStudentId)}
+        onClose={() => {
+          setIdentityFormError("");
+          updateIdentityMutation.reset();
+          setEditingIdentityStudentId("");
+        }}
+        student={activeStudent}
+        onSave={handleSaveIdentity}
+        saving={updateIdentityMutation.isPending}
+        success={updateIdentityMutation.isSuccess}
+        errorMessage={
+          identityFormError ||
+          (updateIdentityMutation.isError
+            ? getErrorMessage(updateIdentityMutation.error, "No se pudo guardar la identidad")
+            : "")
+        }
+      />
+
+      <TutorsManageModal
+        open={Boolean(managingTutorsStudentId)}
+        onClose={() => {
+          setTutorManageError("");
+          updateTutorMutation.reset();
+          deleteTutorMutation.reset();
+          createTutorMutation.reset();
+          setManagingTutorsStudentId("");
+        }}
+        tutors={activeTutors}
+        canDelete={isAdmin}
+        canCreate={isAdmin}
+        onSaveTutor={handleSaveTutor}
+        onDeleteTutor={handleDeleteTutor}
+        onCreateTutor={handleCreateTutor}
+        saving={updateTutorMutation.isPending}
+        deleting={deleteTutorMutation.isPending}
+        creating={createTutorMutation.isPending}
+        success={updateTutorMutation.isSuccess || deleteTutorMutation.isSuccess || createTutorMutation.isSuccess}
+        errorMessage={
+          tutorManageError ||
+          (updateTutorMutation.isError
+            ? getErrorMessage(updateTutorMutation.error, "No se pudo actualizar el tutor.")
+            : deleteTutorMutation.isError
+              ? getErrorMessage(deleteTutorMutation.error, "No se pudo eliminar el tutor.")
+              : createTutorMutation.isError
+                ? getErrorMessage(createTutorMutation.error, "No se pudo vincular el tutor.")
+                : "")
+        }
+      />
     </div>
   );
 }
