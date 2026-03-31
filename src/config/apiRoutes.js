@@ -60,6 +60,7 @@ export const API_ROUTES = {
   enrollmentsList: "/api/enrollments",
   enrollmentDetail: (id) => `/api/enrollments/${id}`,
   enrollmentContract: (id) => `/api/enrollments/${id}/contract`,
+  enrollmentContractSigners: (id) => `/api/enrollments/${id}/contract-signers`,
   enrollmentStudentCosts: (id) => `/api/enrollments/${id}/student-costs`,
   enrollmentMerge: (id) => `/api/enrollments/${id}/merge`,
   enrollmentStatus: (id) => `/api/enrollments/${id}/status`,

@@ -106,11 +106,12 @@ function normalizeContractData(raw) {
 function normalizeContractDataFromEnrollmentDetail(detail) {
   const tutors = Array.isArray(detail?.tutors)
     ? detail.tutors.map((tutor) => ({
+      includeInContract: tutor?.includeInContract !== false,
       fullName: tutor?.fullName || [tutor?.names, tutor?.lastNames].filter(Boolean).join(" ").trim(),
       dni: tutor?.dni || "",
       phone: tutor?.phone || "",
       relationship: tutor?.relationship || "Apoderado",
-    }))
+    })).filter((tutor) => tutor.includeInContract !== false)
     : [];
 
   const students = Array.isArray(detail?.students)

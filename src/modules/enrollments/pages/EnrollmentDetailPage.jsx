@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
@@ -8,7 +8,7 @@ import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import BaseModal from "../../../shared/ui/BaseModal";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
-import { getEnrollmentDetail, listEnrollments, mergeEnrollment, updateEnrollmentContract, updateEnrollmentStudentCosts } from "../services/enrollments.service";
+import { getEnrollmentDetail, listEnrollments, mergeEnrollment, updateEnrollmentContract, updateEnrollmentContractSigners, updateEnrollmentStudentCosts } from "../services/enrollments.service";
 import IdentityEditModal from "../../students/components/detail/modals/IdentityEditModal";
 import TutorsManageModal from "../../students/components/detail/modals/TutorsManageModal";
 import { useStudentDetailQuery } from "../../students/hooks/useStudentDetailQuery";
@@ -16,6 +16,7 @@ import { useUpdateStudentIdentityMutation } from "../../students/hooks/useUpdate
 import { useUpdateTutorMutation } from "../../students/hooks/useUpdateTutorMutation";
 import { useDeleteTutorMutation } from "../../students/hooks/useDeleteTutorMutation";
 import { useCreateTutorMutation } from "../../students/hooks/useCreateTutorMutation";
+import { getStudentDetail } from "../../students/services/students.service";
 
 function statusLabel(status) {
   const value = String(status || "").toUpperCase();
@@ -71,7 +72,7 @@ export default function EnrollmentDetailPage() {
   });
   const [studentCostsError, setStudentCostsError] = useState("");
   const [editingIdentityStudentId, setEditingIdentityStudentId] = useState("");
-  const [managingTutorsStudentId, setManagingTutorsStudentId] = useState("");
+  const [managingTutorsOpen, setManagingTutorsOpen] = useState(false);
   const [identityFormError, setIdentityFormError] = useState("");
   const [tutorManageError, setTutorManageError] = useState("");
 
@@ -86,25 +87,77 @@ export default function EnrollmentDetailPage() {
   const detail = detailQuery.data;
   const isAbsentEnrollment = String(detail?.status || "").toUpperCase() === "ABSENT";
   const isAdmin = String(activeRole || "").toUpperCase() === "ADMIN";
-  const activeStudentDetailId = editingIdentityStudentId || managingTutorsStudentId;
+  const activeStudentDetailId = editingIdentityStudentId;
   const activeStudentDetailQuery = useStudentDetailQuery(activeStudentDetailId, Boolean(activeStudentDetailId));
   const activeStudentDetail = activeStudentDetailQuery.data || {};
   const activeStudent = activeStudentDetail.student || {};
-  const activeTutorLink = activeStudentDetail.tutorLink || activeStudentDetail.familyLink || {};
+  const enrollmentStudentIds = useMemo(
+    () => (Array.isArray(detail?.students) ? detail.students.map((student) => String(student?.studentId || "")).filter(Boolean) : []),
+    [detail?.students]
+  );
 
-  const activeTutors = useMemo(() => {
-    const primaryTutorBase = activeTutorLink?.primaryTutor || activeTutorLink?.primaryTutor_send;
-    const primaryTutor = primaryTutorBase
-      ? { ...primaryTutorBase, isPrimary: true }
-      : null;
-    const others = Array.isArray(activeTutorLink?.otherTutors)
-      ? activeTutorLink.otherTutors
-      : Array.isArray(activeTutorLink?.otherTutors_send)
-        ? activeTutorLink.otherTutors_send
-        : [];
+  const mergedTutorStudentQueries = useQueries({
+    queries: enrollmentStudentIds.map((studentId) => ({
+      queryKey: ["students", "detail", studentId],
+      queryFn: () => getStudentDetail(studentId),
+      enabled: managingTutorsOpen && Boolean(studentId),
+      retry: false,
+      refetchOnWindowFocus: false,
+    })),
+  });
 
-    return [primaryTutor, ...others].filter(Boolean);
-  }, [activeTutorLink]);
+  const mergedTutors = useMemo(() => {
+    const tutorsByPerson = new Map();
+
+    enrollmentStudentIds.forEach((studentId, index) => {
+      const studentQuery = mergedTutorStudentQueries[index];
+      const studentDetail = studentQuery?.data || {};
+      const tutorLink = studentDetail.tutorLink || studentDetail.familyLink || {};
+      const studentSummary = (detail?.students || []).find((row) => String(row?.studentId || "") === String(studentId));
+      const studentLabel = studentSummary?.fullName || "Alumno";
+
+      const primaryTutorBase = tutorLink?.primaryTutor || tutorLink?.primaryTutor_send;
+      const primaryTutor = primaryTutorBase ? { ...primaryTutorBase, isPrimary: true } : null;
+      const others = Array.isArray(tutorLink?.otherTutors)
+        ? tutorLink.otherTutors
+        : Array.isArray(tutorLink?.otherTutors_send)
+          ? tutorLink.otherTutors_send
+          : [];
+
+      [primaryTutor, ...others].filter(Boolean).forEach((tutor) => {
+        const dedupeKey = String(tutor?.personId || tutor?.dni || tutor?.id || tutor?._id || "").trim();
+        if (!dedupeKey) return;
+
+        if (!tutorsByPerson.has(dedupeKey)) {
+          tutorsByPerson.set(dedupeKey, {
+            ...tutor,
+            id: tutor?.id || tutor?._id || dedupeKey,
+            sourceTutorIds: [],
+            linkedStudentIds: [],
+            linkedStudentNames: [],
+          });
+        }
+
+        const current = tutorsByPerson.get(dedupeKey);
+        const sourceTutorId = String(tutor?.id || tutor?._id || "").trim();
+        if (sourceTutorId && !current.sourceTutorIds.includes(sourceTutorId)) {
+          current.sourceTutorIds.push(sourceTutorId);
+        }
+        if (studentId && !current.linkedStudentIds.includes(studentId)) {
+          current.linkedStudentIds.push(studentId);
+        }
+        if (studentLabel && !current.linkedStudentNames.includes(studentLabel)) {
+          current.linkedStudentNames.push(studentLabel);
+        }
+        if (!current.phone && tutor?.phone) current.phone = tutor.phone;
+        if (!current.relationship && tutor?.relationship) current.relationship = tutor.relationship;
+        if (!current.notes && tutor?.notes) current.notes = tutor.notes;
+        current.isPrimary = Boolean(current.isPrimary || tutor?.isPrimary);
+      });
+    });
+
+    return [...tutorsByPerson.values()];
+  }, [detail?.students, enrollmentStudentIds, mergedTutorStudentQueries]);
 
   const currentContractDate = useMemo(() => {
     if (!detail?.contract?.confirmedAt) return "";
@@ -137,10 +190,17 @@ export default function EnrollmentDetailPage() {
     },
   });
 
+  const updateContractSignersMutation = useMutation({
+    mutationFn: (payload) => updateEnrollmentContractSigners(enrollmentId, payload),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+    },
+  });
+
   const updateIdentityMutation = useUpdateStudentIdentityMutation(activeStudentDetailId);
-  const updateTutorMutation = useUpdateTutorMutation(activeStudentDetailId);
-  const deleteTutorMutation = useDeleteTutorMutation(activeStudentDetailId);
-  const createTutorMutation = useCreateTutorMutation(activeStudentDetailId);
+  const updateTutorMutation = useUpdateTutorMutation(enrollmentStudentIds[0] || "");
+  const deleteTutorMutation = useDeleteTutorMutation(enrollmentStudentIds[0] || "");
+  const createTutorMutation = useCreateTutorMutation(enrollmentStudentIds[0] || "");
 
   const mergeCandidatesQuery = useQuery({
     queryKey: ["enrollments", "merge-candidates", enrollmentId, mergeSearch],
@@ -330,8 +390,10 @@ export default function EnrollmentDetailPage() {
   }
 
   async function handleSaveTutor(selectedTutor, formValues) {
-    const tutorId = String(selectedTutor?.id || selectedTutor?._id || "").trim();
-    if (!tutorId) {
+    const tutorIds = Array.isArray(selectedTutor?.sourceTutorIds)
+      ? selectedTutor.sourceTutorIds.map((value) => String(value || "").trim()).filter(Boolean)
+      : [String(selectedTutor?.id || selectedTutor?._id || "").trim()].filter(Boolean);
+    if (!tutorIds.length) {
       setTutorManageError("No se pudo identificar el tutor seleccionado.");
       return;
     }
@@ -354,28 +416,36 @@ export default function EnrollmentDetailPage() {
     }
 
     setTutorManageError("");
-    await updateTutorMutation.mutateAsync({ tutorId, payload });
+    await Promise.all(tutorIds.map((tutorId) => updateTutorMutation.mutateAsync({ tutorId, payload })));
     await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+    await Promise.all(enrollmentStudentIds.map((studentId) => queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] })));
   }
 
   async function handleDeleteTutor(selectedTutor) {
-    const tutorId = String(selectedTutor?.id || selectedTutor?._id || "").trim();
-    if (!tutorId) {
+    const tutorIds = Array.isArray(selectedTutor?.sourceTutorIds)
+      ? selectedTutor.sourceTutorIds.map((value) => String(value || "").trim()).filter(Boolean)
+      : [String(selectedTutor?.id || selectedTutor?._id || "").trim()].filter(Boolean);
+    if (!tutorIds.length) {
       setTutorManageError("No se pudo identificar el tutor seleccionado.");
       return;
     }
 
     setTutorManageError("");
-    await deleteTutorMutation.mutateAsync(tutorId);
+    await Promise.all(tutorIds.map((tutorId) => deleteTutorMutation.mutateAsync(tutorId)));
     await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+    await Promise.all(enrollmentStudentIds.map((studentId) => queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] })));
   }
 
   async function handleCreateTutor(formValues) {
+    const normalizedDni = String(formValues?.dni || "").trim();
+    const linkedExistingTutor = formValues?._linkedExistingTutor || null;
+    const existingTutorKey = String(
+      linkedExistingTutor?.personId || linkedExistingTutor?.id || linkedExistingTutor?._id || normalizedDni
+    ).trim();
     const payload = {
-      studentId: activeStudentDetailId,
       names: String(formValues?.names || "").trim(),
       lastNames: String(formValues?.lastNames || "").trim(),
-      dni: String(formValues?.dni || "").trim(),
+      dni: normalizedDni,
       phone: String(formValues?.phone || "").trim(),
       relationship: String(formValues?.relationship || "").trim(),
       isPrimary: Boolean(formValues?.isPrimary),
@@ -389,8 +459,51 @@ export default function EnrollmentDetailPage() {
     }
 
     setTutorManageError("");
-    await createTutorMutation.mutateAsync(payload);
+    const existingLinkedStudentIds = mergedTutors
+      .find((tutor) => {
+        const tutorKey = String(tutor?.personId || tutor?.id || tutor?._id || tutor?.dni || "").trim();
+        if (existingTutorKey && tutorKey === existingTutorKey) return true;
+        if (normalizedDni && String(tutor?.dni || "").trim() === normalizedDni) return true;
+        return false;
+      })
+      ?.linkedStudentIds || [];
+
+    const targetStudentIds = enrollmentStudentIds.filter((studentId) => !existingLinkedStudentIds.includes(studentId));
+    if (!targetStudentIds.length) {
+      setTutorManageError("Ese tutor ya está vinculado a todos los alumnos de esta matrícula.");
+      return;
+    }
+
+    await Promise.all(targetStudentIds.map((studentId) => createTutorMutation.mutateAsync({
+      ...payload,
+      studentId,
+    })));
     await queryClient.invalidateQueries({ queryKey: ["enrollments", "detail", enrollmentId] });
+    await Promise.all(enrollmentStudentIds.map((studentId) => queryClient.invalidateQueries({ queryKey: ["students", "detail", studentId] })));
+  }
+
+  function handleToggleContractSigner(tutor, checked) {
+    if (!isAdmin || updateContractSignersMutation.isPending) return;
+
+    const personId = String(tutor?.personId || "").trim();
+    if (!personId) return;
+
+    const currentSignerIds = (Array.isArray(detail?.tutors) ? detail.tutors : [])
+      .filter((row) => row?.includeInContract !== false)
+      .map((row) => String(row?.personId || "").trim())
+      .filter(Boolean);
+
+    let nextSignerIds = checked
+      ? [...new Set([...currentSignerIds, personId])]
+      : currentSignerIds.filter((id) => id !== personId);
+
+    if (!nextSignerIds.length) {
+      setTutorManageError("Debe quedar al menos un tutor firmante.");
+      return;
+    }
+
+    setTutorManageError("");
+    updateContractSignersMutation.mutate({ signerPersonIds: nextSignerIds });
   }
 
   if (detailQuery.isLoading) {
@@ -504,32 +617,35 @@ export default function EnrollmentDetailPage() {
             <p className="mt-1 text-sm text-gray-500">Los tutores mostrados aquí participan en la matrícula y firma del contrato.</p>
           </div>
           {isAdmin ? (
-            <div className="flex flex-wrap gap-2">
-              {detail.students.map((student) => (
-                <SecondaryButton
-                  key={`manage-tutors-${student.enrollmentStudentId || student.studentId}`}
-                  onClick={() => {
-                    setTutorManageError("");
-                    setManagingTutorsStudentId(student.studentId || "");
-                  }}
-                >
-                  Editar tutores de {student.fullName || "alumno"}
-                </SecondaryButton>
-              ))}
-            </div>
+            <SecondaryButton
+              onClick={() => {
+                setTutorManageError("");
+                setManagingTutorsOpen(true);
+              }}
+            >
+              Editar tutores
+            </SecondaryButton>
           ) : null}
         </div>
         <div className="mt-3 space-y-3">
           {detail.tutors.length ? detail.tutors.map((tutor) => (
             <div key={tutor.personId} className="rounded-xl border border-gray-200 p-3">
               <div className="flex items-start gap-3">
-                <input type="checkbox" checked readOnly className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                <input
+                  type="checkbox"
+                  checked={tutor.includeInContract !== false}
+                  disabled={!isAdmin || updateContractSignersMutation.isPending}
+                  onChange={(event) => handleToggleContractSigner(tutor, event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                />
                 <div>
                   <p className="font-medium text-gray-900">{tutor.fullName || "Tutor"}</p>
                   <p className="text-sm text-gray-600">
                     DNI: {tutor.dni || "-"} · Teléfono: {tutor.phone || "-"} · Parentesco: {tutor.relationship || "-"}
                   </p>
-                  <p className="mt-1 text-xs font-medium text-emerald-700">Tutor firmante</p>
+                  <p className={`mt-1 text-xs font-medium ${tutor.includeInContract !== false ? "text-emerald-700" : "text-gray-500"}`}>
+                    {tutor.includeInContract !== false ? "Tutor firmante" : "Tutor no firmante"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -537,6 +653,15 @@ export default function EnrollmentDetailPage() {
             <p className="text-sm text-gray-500">No hay tutores relacionados para esta matrícula.</p>
           )}
         </div>
+        {tutorManageError ? (
+          <div className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {tutorManageError}
+          </div>
+        ) : updateContractSignersMutation.isError ? (
+          <div className="mt-3 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {getErrorMessage(updateContractSignersMutation.error, "No se pudo actualizar los tutores firmantes.")}
+          </div>
+        ) : null}
       </Card>
 
       {isAbsentEnrollment ? (
@@ -799,15 +924,15 @@ export default function EnrollmentDetailPage() {
       />
 
       <TutorsManageModal
-        open={Boolean(managingTutorsStudentId)}
+        open={managingTutorsOpen}
         onClose={() => {
           setTutorManageError("");
           updateTutorMutation.reset();
           deleteTutorMutation.reset();
           createTutorMutation.reset();
-          setManagingTutorsStudentId("");
+          setManagingTutorsOpen(false);
         }}
-        tutors={activeTutors}
+        tutors={mergedTutors}
         canDelete={isAdmin}
         canCreate={isAdmin}
         onSaveTutor={handleSaveTutor}
