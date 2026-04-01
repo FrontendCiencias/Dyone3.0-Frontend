@@ -530,6 +530,10 @@ export default function AttendanceReportsPage() {
               rows={4}
               className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-orange-300"
               placeholder="Escribe la justificación"
+              inputMode="text"
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              enterKeyHint="done"
             />
           </div>
         </form>

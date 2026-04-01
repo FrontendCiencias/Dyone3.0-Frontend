@@ -461,6 +461,10 @@ export default function AttendanceTakePage() {
               value={justificationReason}
               onChange={(event) => setJustificationReason(event.target.value)}
               placeholder="Escribe la justificación"
+              inputMode="text"
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              enterKeyHint="done"
               disabled={justifyMutation.isPending}
             />
           </div>
