@@ -9,6 +9,9 @@ import LandingPage from "../modules/landing/pages/LandingPage";
 import AdminConfigPage from "../modules/admin/pages/AdminConfigPage";
 import AdminDevPage from "../modules/admin/pages/AdminDevPage";
 import AdminLegacyRedirectPage from "../modules/admin/pages/AdminLegacyRedirectPage";
+import ProgramsPage from "../modules/admin/pages/ProgramsPage";
+import ProgramDetailPage from "../modules/admin/pages/ProgramDetailPage";
+import ProgramSessionDetailPage from "../modules/admin/pages/ProgramSessionDetailPage";
 import DashboardHome from "../modules/dashboard/pages/DashboardHome";
 import StudentsPage from "../modules/students/pages/StudentsPage";
 import StudentDetailPage from "../modules/students/pages/StudentDetailPage";
@@ -134,6 +137,9 @@ export default function AppRoutes() {
             </Route>
 
             <Route element={<CapabilityRoute capability={CAPABILITIES.adminView} />}>
+              <Route path={ROUTES.dashboardPrograms} element={<ProgramsPage />} />
+              <Route path={ROUTES.dashboardProgramSessionDetail()} element={<ProgramSessionDetailPage />} />
+              <Route path={ROUTES.dashboardProgramDetail()} element={<ProgramDetailPage />} />
               <Route path={ROUTES.dashboardAdmin} element={<AdminLegacyRedirectPage />} />
               <Route path={ROUTES.dashboardAdminSettings} element={<AdminConfigPage />} />
               <Route element={<CapabilityRoute capability={CAPABILITIES.adminDevView} />}>

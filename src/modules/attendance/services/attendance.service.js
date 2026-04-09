@@ -6,6 +6,18 @@ export async function openAttendanceSession(payload) {
   return response.data;
 }
 
+export async function getCurrentAttendanceSession({ campusId, campusCode, cycleId, date }) {
+  const response = await axiosInstance.get(API_ROUTES.attendanceCurrentSession, {
+    params: {
+      campusId: campusId || undefined,
+      campusCode: campusCode || undefined,
+      cycleId: cycleId || undefined,
+      date,
+    },
+  });
+  return response.data;
+}
+
 export async function getAttendanceIntakeView({ sessionId, limit = 10, q = "", suppressNotFound = false }) {
   try {
     const response = await axiosInstance.get(API_ROUTES.attendanceIntakeView(sessionId), {

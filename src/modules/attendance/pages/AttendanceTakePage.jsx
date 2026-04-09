@@ -119,6 +119,27 @@ export default function AttendanceTakePage() {
   const [justificationTarget, setJustificationTarget] = useState(null);
   const [justificationReason, setJustificationReason] = useState("");
 
+  const syncClearNativeInput = () => {
+    const input = scanInputRef.current;
+    if (!input) return;
+    input.value = "";
+  };
+
+  const focusScanInput = () => {
+    requestAnimationFrame(() => {
+      scanInputRef.current?.focus();
+    });
+  };
+
+  const resetScanInput = () => {
+    setStudentCode("");
+    syncClearNativeInput();
+    requestAnimationFrame(() => {
+      syncClearNativeInput();
+      scanInputRef.current?.focus();
+    });
+  };
+
   const intakeViewQuery = useAttendanceIntakeViewQuery({
     sessionId,
     limit: 5,
@@ -129,7 +150,7 @@ export default function AttendanceTakePage() {
   const justifyMutation = useAttendanceJustifyMutation();
 
   useEffect(() => {
-    scanInputRef.current?.focus();
+    focusScanInput();
   }, []);
 
   useEffect(() => {
@@ -173,7 +194,10 @@ export default function AttendanceTakePage() {
   const handleScanSubmit = async (event) => {
     event.preventDefault();
     const cleanCode = String(studentCode || "").trim();
-    if (!sessionId || !cleanCode) return;
+    if (!sessionId || !cleanCode) {
+      focusScanInput();
+      return;
+    }
 
     setUiMessage("");
 
@@ -185,18 +209,18 @@ export default function AttendanceTakePage() {
         markMethod: "BARCODE",
       });
 
-      setStudentCode("");
+      resetScanInput();
       setFeaturedScan(result);
       setUiMessage(`Asistencia registrada para ${result?.student?.fullName || "alumno"}.`);
       await queryClient.invalidateQueries({
         queryKey: ["attendance", "intake-view", sessionId],
       });
       await intakeViewQuery.refetch();
-      scanInputRef.current?.focus();
     } catch (error) {
+      resetScanInput();
       setUiMessage(getErrorMessage(error, "No se pudo registrar la asistencia."));
-      scanInputRef.current?.select();
-      scanInputRef.current?.focus();
+    } finally {
+      focusScanInput();
     }
   };
 
@@ -299,8 +323,13 @@ export default function AttendanceTakePage() {
               label="Codigo interno del alumno"
               value={studentCode}
               onChange={(event) => setStudentCode(event.target.value)}
+              onBlur={focusScanInput}
               placeholder="Escanea o escribe el internalCode"
               disabled={scanMutation.isPending}
+              inputMode="numeric"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
               ref={scanInputRef}
             />
             <div className="flex items-end">

@@ -5,7 +5,7 @@ import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
 import Code39Barcode from "../components/Code39Barcode";
 
-const CARDS_PER_PAGE = 18;
+const CARDS_PER_PAGE = 21;
 
 function normalizeItems(rawItems) {
   if (!Array.isArray(rawItems)) return [];
@@ -124,23 +124,23 @@ export default function StudentPrintCardsPreviewPage() {
                 className="print-sheet mx-auto w-[190mm] max-w-full border border-gray-200 bg-white p-0.5 shadow-sm"
               >
                 <div
-                  className="grid h-full w-full grid-cols-3 grid-rows-6 gap-[1.8mm]"
+                  className="grid h-full w-full grid-cols-3 grid-rows-7 gap-[1.2mm]"
                 >
                   {pageItems.map((item, index) => {
                     const classroom = item.classroomLabel || [item.grade, item.section].filter(Boolean).join(" - ") || "-";
                     return (
                       <article
                         key={`${item.studentId}-${pageIndex}-${index}`}
-                        className="card-item flex min-h-0 flex-col justify-between overflow-hidden border border-gray-400 px-[1.6mm] py-[1.4mm] text-black"
+                        className="card-item flex min-h-0 flex-col items-center justify-center overflow-hidden border border-gray-400 px-[1.6mm] py-[1.4mm] text-center text-black"
                       >
-                        <div className="min-h-0">
-                          <p className="truncate text-[12.6px] font-bold uppercase leading-tight">{item.lastNames || "-"}</p>
-                          <p className="truncate text-[11.6px] leading-tight">{item.names || "-"}</p>
-                          <p className="truncate text-[10.8px] leading-tight">{classroom}</p>
+                        <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
+                          <p className="w-full truncate text-[14.2px] font-bold uppercase leading-[1.05]">{item.lastNames || "-"}</p>
+                          <p className="mt-[0.4mm] w-full truncate text-[13.2px] font-semibold leading-[1.05]">{item.names || "-"}</p>
+                          <p className="mt-[0.7mm] w-full truncate text-[10.8px] leading-tight">{classroom}</p>
                         </div>
-                        <div>
-                          <Code39Barcode value={item.internalCode} className="h-[13.5mm] w-full" height={42} />
-                          <p className="mt-[1mm] text-center text-[10.8px] font-semibold tracking-wide">{item.internalCode}</p>
+                        <div className="flex w-full flex-col items-center">
+                          <Code39Barcode value={item.internalCode} className="h-[10.5mm] w-full" height={42} />
+                          <p className="mt-[0.8mm] text-center text-[10.6px] font-semibold tracking-wide">{item.internalCode}</p>
                         </div>
                       </article>
                     );

@@ -48,3 +48,7 @@ export function canAccessAdmin(role) {
 export function canAccessClassroomBoard(role) {
   return hasCapability(role, CAPABILITIES.classroomsBoardView);
 }
+
+export function canAccessPrograms(role) {
+  return isAdminRole(role);
+}

@@ -95,6 +95,44 @@ export async function getEnrollmentDetail(enrollmentId) {
   return res.data;
 }
 
+export async function updateEnrollmentContract(enrollmentId, payload) {
+  const endpoint = API_ROUTES.enrollmentContract(enrollmentId);
+
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+
+  return res.data;
+}
+
+export async function updateEnrollmentContractSigners(enrollmentId, payload) {
+  const endpoint = API_ROUTES.enrollmentContractSigners(enrollmentId);
+
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+
+  return res.data;
+}
+
+export async function updateEnrollmentStudentCosts(enrollmentId, payload) {
+  const endpoint = API_ROUTES.enrollmentStudentCosts(enrollmentId);
+
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+
+  return res.data;
+}
+
+export async function mergeEnrollment(targetEnrollmentId, payload) {
+  const endpoint = API_ROUTES.enrollmentMerge(targetEnrollmentId);
+  logRequest(endpoint, "POST", payload);
+  const res = await axiosInstance.post(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
 export async function searchStudentsForEnrollments({ q, limit = 20 }) {
   const normalizedQuery = String(q || "").trim();
   if (normalizedQuery.length < 2) {

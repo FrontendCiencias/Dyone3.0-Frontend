@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Users,
   School,
+  BookOpenCheck,
 } from "lucide-react";
 
 import { ROUTES } from "../../../config/routes";
@@ -55,6 +56,14 @@ const NAV_ITEMS = [
     description: "Concursos y recaudaciones especiales",
     icon: Sparkles,
     capability: CAPABILITIES.activitiesView,
+  },
+  {
+    to: ROUTES.dashboardPrograms,
+    label: "Programas",
+    description: "Programas y pagos libres",
+    icon: BookOpenCheck,
+    capability: CAPABILITIES.adminView,
+    roles: ["ADMIN"],
   },
   {
     to: ROUTES.dashboardAttendance,

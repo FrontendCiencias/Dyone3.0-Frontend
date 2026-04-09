@@ -6,10 +6,9 @@ import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
 import { getRoleTheme } from "../../dashboard/config/roleTheme";
-import { useCampusesQuery } from "../../admin/hooks/useCampusesQuery";
-import { useCyclesQuery } from "../../admin/hooks/useCyclesQuery";
 import { useAttendanceIntakeViewQuery } from "../hooks/useAttendanceIntakeViewQuery";
 import { useAttendanceOpenSessionMutation } from "../hooks/useAttendanceOpenSessionMutation";
+import { useCurrentAttendanceSessionQuery } from "../hooks/useCurrentAttendanceSessionQuery";
 import {
   clearStoredAttendanceSessionId,
   getStoredAttendanceSessionId,
@@ -43,18 +42,6 @@ function getErrorMessage(error, fallback = "No se pudo completar la operación."
   return fallback;
 }
 
-function getCycleRows(data) {
-  if (Array.isArray(data?.items)) return data.items;
-  if (Array.isArray(data)) return data;
-  return [];
-}
-
-function getCampusRows(data) {
-  if (Array.isArray(data?.items)) return data.items;
-  if (Array.isArray(data)) return data;
-  return [];
-}
-
 function InfoCard({ icon: Icon, label, value, hint, accent }) {
   return (
     <article className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -82,26 +69,20 @@ export default function AttendanceIntakePage() {
   const [uiMessage, setUiMessage] = useState("");
   const today = getTodayDateInputValue();
 
-  const campusesQuery = useCampusesQuery();
-  const cyclesQuery = useCyclesQuery();
   const openSessionMutation = useAttendanceOpenSessionMutation();
-
-  const activeCycle = useMemo(() => {
-    const rows = getCycleRows(cyclesQuery.data);
-    return rows.find((cycle) => cycle?.isActive) || rows[0] || null;
-  }, [cyclesQuery.data]);
-
-  const activeCampusRow = useMemo(() => {
-    const rows = getCampusRows(campusesQuery.data);
-    const code = String(activeCampus || "").toUpperCase();
-    return rows.find((campus) => String(campus?.code || campus?.campusCode || "").toUpperCase() === code) || null;
-  }, [campusesQuery.data, activeCampus]);
+  const activeCampusCode = String(activeCampus || "").toUpperCase();
 
   const storedSessionId = useMemo(
     () => getStoredAttendanceSessionId({ campus: activeCampus, date: today }),
     [activeCampus, today],
   );
   const [resolvedSessionId, setResolvedSessionId] = useState(storedSessionId);
+
+  const currentSessionQuery = useCurrentAttendanceSessionQuery({
+    campusCode: activeCampusCode || undefined,
+    date: today,
+    enabled: Boolean(activeCampusCode),
+  });
 
   useEffect(() => {
     setResolvedSessionId(storedSessionId);
@@ -114,7 +95,18 @@ export default function AttendanceIntakePage() {
     suppressNotFound: true,
   });
 
-  const effectiveSession = intakeViewQuery.data?.session || openSessionMutation.data?.session || null;
+  useEffect(() => {
+    const currentSessionId = currentSessionQuery.data?.session?.id || "";
+    if (!currentSessionId) return;
+    if (String(currentSessionId) === String(resolvedSessionId || "")) return;
+    setResolvedSessionId(currentSessionId);
+    setStoredAttendanceSessionId({ campus: activeCampus, date: today, sessionId: currentSessionId });
+  }, [activeCampus, currentSessionQuery.data?.session?.id, resolvedSessionId, today]);
+
+  const effectiveSession = intakeViewQuery.data?.session
+    || currentSessionQuery.data?.session
+    || openSessionMutation.data?.session
+    || null;
 
   useEffect(() => {
     if (!resolvedSessionId || intakeViewQuery.isLoading) return;
@@ -124,13 +116,8 @@ export default function AttendanceIntakePage() {
   }, [activeCampus, intakeViewQuery.data, intakeViewQuery.isLoading, resolvedSessionId, today]);
 
   const handleStartAttendance = async () => {
-    if (!activeCampusRow?.id && !activeCampusRow?._id) {
+    if (!activeCampusCode) {
       setUiMessage("No se encontró el campus activo para iniciar el tomado.");
-      return;
-    }
-
-    if (!activeCycle?.id && !activeCycle?._id) {
-      setUiMessage("No se encontró un ciclo activo para iniciar el tomado.");
       return;
     }
 
@@ -141,8 +128,7 @@ export default function AttendanceIntakePage() {
 
       if (!sessionId) {
         const result = await openSessionMutation.mutateAsync({
-          campusId: activeCampusRow.id || activeCampusRow._id,
-          cycleId: activeCycle.id || activeCycle._id,
+          campusCode: activeCampusCode,
           date: today,
         });
 
@@ -176,13 +162,13 @@ export default function AttendanceIntakePage() {
 
           <div className="inline-flex items-center gap-2 self-start rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700">
             <Building2 className="h-4 w-4 text-gray-500" />
-            {activeCampusRow?.name || activeCampus || "Campus"}
+            {activeCampusCode || "Campus"}
           </div>
         </div>
       </section>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <InfoCard icon={Building2} label="Campus" value={activeCampusRow?.code || activeCampus || "-"} hint={activeCampusRow?.name || "Contexto actual"} accent={theme} />
+        <InfoCard icon={Building2} label="Campus" value={activeCampusCode || "-"} hint="Contexto actual" accent={theme} />
         <InfoCard icon={CalendarClock} label="Fecha" value={formatLongDate(today)} hint="Jornada de hoy" accent={theme} />
         <InfoCard icon={CheckCheck} label="Sesión" value={effectiveSession?.status || "Se abrirá al iniciar"} hint={effectiveSession ? "Lista para continuar" : "Se creará usando la política activa"} accent={theme} />
       </div>
