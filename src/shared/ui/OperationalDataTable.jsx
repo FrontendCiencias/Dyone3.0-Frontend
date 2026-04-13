@@ -19,6 +19,8 @@ export default function OperationalDataTable({
   tableClassName = "min-w-full divide-y divide-gray-200 text-sm",
   headerClassName = "sticky top-0 z-10 bg-gray-50",
   bodyClassName = "divide-y divide-gray-100 bg-white",
+  headerContainerClassName = "overflow-hidden border-b border-gray-200",
+  bodyScrollClassName = "h-[36vh] min-h-0 overflow-auto",
   emptyMessage = "No hay datos disponibles.",
   emptyMinHeight = "220px",
 }) {
@@ -103,7 +105,7 @@ export default function OperationalDataTable({
 
   return (
     <div className="flex min-h-0 flex-col">
-      <div ref={headerScrollRef} className="overflow-hidden border-b border-gray-200">
+      <div ref={headerScrollRef} className={headerContainerClassName}>
         <table className={tableClassName} style={tableWidth ? { width: tableWidth } : undefined}>
           {renderColGroup()}
           <thead className={headerClassName}>
@@ -151,7 +153,7 @@ export default function OperationalDataTable({
         </table>
       </div>
 
-      <div ref={bodyScrollRef} className="h-[36vh] min-h-0 overflow-auto" onScroll={syncHeaderScroll}>
+      <div ref={bodyScrollRef} className={bodyScrollClassName} onScroll={syncHeaderScroll}>
         <table ref={bodyTableRef} className={tableClassName}>
           {renderColGroup()}
           <tbody className={bodyClassName}>

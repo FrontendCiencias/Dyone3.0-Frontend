@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FileText, Filter, Users } from "lucide-react";
+import { Filter, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import OperationalBlockState from "../../../shared/ui/OperationalBlockState";
 import OperationalContextBar from "../../../shared/ui/OperationalContextBar";
+import OperationalDataTable from "../../../shared/ui/OperationalDataTable";
 import OperationalSearchBar from "../../../shared/ui/OperationalSearchBar";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
@@ -175,7 +176,7 @@ export default function PaymentsDebtorsPrintPage() {
       if (appliedFilters.section && String(row.section || "") !== String(appliedFilters.section)) return false;
       return true;
     });
-  }, [rows, appliedFilters.level, appliedFilters.grade, appliedFilters.section]);
+  }, [rows, appliedFilters.level, appliedFilters.grade, appliedFilters.section, appliedFilters.onlyOverdue]);
 
   const currentCampusLabel = useMemo(() => {
     const campusCode = secretaryCampus || appliedFilters.campus || (activeCampus === "ALL" ? "Todos" : activeCampus) || "Todos";
@@ -208,6 +209,48 @@ export default function PaymentsDebtorsPrintPage() {
       return next;
     });
   };
+
+  const tableColumns = useMemo(
+    () => [
+      {
+        key: "selected",
+        header: <input type="checkbox" checked={allSelected} onChange={handleToggleAllVisible} aria-label="Seleccionar visibles" />,
+        sortable: false,
+        width: "56px",
+        render: (row) => (
+          <input
+            type="checkbox"
+            checked={selectedIds.has(row.id)}
+            onChange={() => handleToggleRow(row.id)}
+            aria-label={`Seleccionar ${row.fullName}`}
+            onClick={(event) => event.stopPropagation()}
+          />
+        ),
+      },
+      { key: "fullName", header: "Alumno" },
+      { key: "dni", header: "DNI" },
+      { key: "code", header: "Código" },
+      { key: "campus", header: "Campus" },
+      { key: "level", header: "Nivel" },
+      { key: "grade", header: "Grado" },
+      { key: "section", header: "Sección" },
+      {
+        key: "totalPending",
+        header: "Pendiente",
+        align: "right",
+        render: (row) => formatMoney(row.totalPending),
+        cellClassName: "font-medium text-gray-900",
+      },
+      {
+        key: "totalOverdue",
+        header: "Vencido",
+        align: "right",
+        render: (row) => formatMoney(row.totalOverdue),
+        cellClassName: "font-medium text-amber-700",
+      },
+    ],
+    [allSelected, selectedIds],
+  );
 
   const handleApplyFilters = () => {
     setAppliedFilters({
@@ -285,7 +328,7 @@ export default function PaymentsDebtorsPrintPage() {
         backLabel="Volver a pagos"
       />
 
-      <OperationalSearchBar>
+      <OperationalSearchBar className="py-1">
         <div className="grid gap-3 md:grid-cols-12 md:items-end">
           <div className="md:col-span-3">
             <Input
@@ -376,15 +419,15 @@ export default function PaymentsDebtorsPrintPage() {
       </OperationalSearchBar>
 
       <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Comunicado</p>
             <h2 className="mt-1 text-base font-semibold text-gray-900">{communicationTemplate.title || "Comunicado de cobranza"}</h2>
-            <p className="mt-1 line-clamp-2 max-w-3xl text-sm text-gray-600">
+            <p className="mt-1 line-clamp-2 text-sm text-gray-600">
               {communicationTemplate.subject || communicationTemplate.body || "Sin contenido"}
             </p>
           </div>
-          <SecondaryButton onClick={() => setTemplateOpen(true)}>Editar</SecondaryButton>
+          <SecondaryButton className="shrink-0 self-start" onClick={() => setTemplateOpen(true)}>Editar</SecondaryButton>
         </div>
       </div>
 
@@ -396,81 +439,36 @@ export default function PaymentsDebtorsPrintPage() {
         <OperationalBlockState mode="error" message={getErrorMessage(activeQuery.error)} minHeight="360px" />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
+          <div className="border-b border-gray-200 px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold text-gray-900">Imprimir lista de deudores</h2>
-                <p className="mt-1 text-sm text-gray-600">Selecciona alumnos con deuda vencida para imprimir una lista consolidada o comunicados personalizados.</p>
+                <p className="mt-0 text-sm text-gray-400">
+                  Seleccionados: <span className="font-semibold text-gray-900">{selectedCount}</span>
+                </p>
               </div>
-              <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                Seleccionados: <span className="font-semibold">{selectedCount}</span>
+              <div className="flex flex-wrap justify-end gap-2">
+                <SecondaryButton onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size || isPreparingPrint}>Limpiar selección</SecondaryButton>
+                <Button onClick={handlePrintList} disabled={!selectedIds.size || isPreparingPrint}>
+                  {isPreparingPrint ? "Preparando..." : "Imprimir lista"}
+                </Button>
+                <Button onClick={handlePrintLetters} disabled={!selectedIds.size || isPreparingPrint}>
+                  {isPreparingPrint ? "Preparando..." : "Imprimir comunicados"}
+                </Button>
               </div>
             </div>
           </div>
 
-          <div className={`h-[29vh] overflow-auto ${activeQuery.isFetching ? "bg-gray-50/40" : ""}`}>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="sticky top-0 z-10 bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left">
-                      <input type="checkbox" checked={allSelected} onChange={handleToggleAllVisible} aria-label="Seleccionar visibles" />
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Alumno</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">DNI</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Código</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Campus</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Nivel</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Grado</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Sección</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Pendiente</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Vencido</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {visibleRows.map((row) => (
-                    <tr key={row.id} className="transition hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(row.id)}
-                          onChange={() => handleToggleRow(row.id)}
-                          aria-label={`Seleccionar ${row.fullName}`}
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-gray-900">{row.fullName}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.dni}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.code}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.campus}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.level || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.grade || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.section || "-"}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{formatMoney(row.totalPending)}</td>
-                      <td className="px-4 py-3 font-medium text-amber-700">{formatMoney(row.totalOverdue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {!visibleRows.length ? (
-            <div className="border-t border-gray-200 px-4 py-6 text-sm text-gray-500">
-              {appliedFilters.q ? "No se encontraron alumnos para esa búsqueda." : "No hay deudores para los filtros seleccionados."}
-            </div>
-          ) : null}
+          <OperationalDataTable
+            columns={tableColumns}
+            data={visibleRows}
+            rowKey="id"
+            bodyScrollClassName={`h-[29vh] min-h-0 overflow-auto ${activeQuery.isFetching ? "bg-gray-50/40" : ""}`}
+            emptyMessage={appliedFilters.q ? "No se encontraron alumnos para esa búsqueda." : "No hay deudores para los filtros seleccionados."}
+            emptyMinHeight="29vh"
+          />
 
           {printError ? <div className="border-t border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{printError}</div> : null}
-
-          <div className="flex flex-wrap justify-end gap-2 border-t border-gray-200 px-4 py-3">
-            <SecondaryButton onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size || isPreparingPrint}>Limpiar selección</SecondaryButton>
-            <Button onClick={handlePrintList} disabled={!selectedIds.size || isPreparingPrint}>
-              {isPreparingPrint ? "Preparando..." : "Imprimir lista"}
-            </Button>
-            <Button onClick={handlePrintLetters} disabled={!selectedIds.size || isPreparingPrint}>
-              {isPreparingPrint ? "Preparando..." : "Imprimir comunicados"}
-            </Button>
-          </div>
         </div>
       )}
 
