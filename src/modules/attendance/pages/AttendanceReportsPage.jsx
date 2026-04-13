@@ -45,6 +45,18 @@ function getStudentFullName(student) {
   return lastNames || names || student?.fullName || "-";
 }
 
+function getStudentCode(student) {
+  return student?.internalCode || student?.code || "-";
+}
+
+function normalizeSearchValue(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function getAttendanceTone(status, justificationStatus) {
   if (justificationStatus === "JUSTIFIED") return "border-violet-200 bg-violet-50 text-violet-700";
   if (status === "ABSENT") return "border-rose-200 bg-rose-50 text-rose-700";
@@ -132,26 +144,34 @@ export default function AttendanceReportsPage() {
   const [classroomId, setClassroomId] = useState("");
   const [classroomDate, setClassroomDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [uiMessage, setUiMessage] = useState("");
+  const normalizedStudentSearch = String(studentSearch || "").trim();
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setDebouncedStudentSearch(studentSearch.trim());
-    }, 250);
+      setDebouncedStudentSearch(normalizedStudentSearch);
+    }, 450);
     return () => window.clearTimeout(timer);
-  }, [studentSearch]);
+  }, [normalizedStudentSearch]);
 
   const [year, month] = useMemo(() => {
     const [parsedYear, parsedMonth] = String(monthValue || "").split("-").map(Number);
     return [parsedYear, parsedMonth];
   }, [monthValue]);
 
-  const studentsQuery = useStudentsSearchQuery({
-    q: debouncedStudentSearch,
-    enabled: reportType === "student" && debouncedStudentSearch.length >= 2,
-    campus: activeCampus === "ALL" ? null : activeCampus,
-    mode: activeCampus === "ALL" ? "global" : "campus",
-    limit: 8,
+  const shouldSearchStudents =
+    reportType === "student" &&
+    debouncedStudentSearch.length >= 3 &&
+    debouncedStudentSearch !== String(selectedStudent?.fullName || "").trim();
+  const shouldWarmCampusRoster = reportType === "student" && activeCampus !== "ALL";
+
+  const studentRosterQuery = useStudentsSearchQuery({
+    q: "",
+    enabled: shouldWarmCampusRoster,
+    campus: shouldWarmCampusRoster ? activeCampus : null,
+    mode: "campus",
+    limit: 2500,
   });
+  const useLocalStudentSearch = shouldWarmCampusRoster;
 
   const studentReportQuery = useAttendanceStudentMonthlySummaryQuery({
     studentId: selectedStudent?.id,
@@ -174,11 +194,49 @@ export default function AttendanceReportsPage() {
     setSelectedRecordIds([]);
   }, [selectedStudent?.id, monthValue]);
 
-  const studentResults = Array.isArray(studentsQuery.data?.items) ? studentsQuery.data.items : [];
+  const studentRoster = Array.isArray(studentRosterQuery.data?.items) ? studentRosterQuery.data.items : [];
   const monthlyRecords = Array.isArray(studentReportQuery.data?.records) ? studentReportQuery.data.records : [];
   const classroomOptions = Array.isArray(classroomOptionsQuery.data?.items) ? classroomOptionsQuery.data.items : [];
   const classroomItems = Array.isArray(classroomReportQuery.data?.items) ? classroomReportQuery.data.items : [];
   const calendarCells = useMemo(() => buildCalendarDays(year, month, monthlyRecords), [year, month, monthlyRecords]);
+  const selectedRecords = useMemo(
+    () => monthlyRecords.filter((record) => selectedRecordIds.includes(record.recordId)),
+    [monthlyRecords, selectedRecordIds]
+  );
+  const studentResults = useMemo(() => {
+    if (!useLocalStudentSearch || debouncedStudentSearch.length < 3) return [];
+
+    const normalizedQuery = normalizeSearchValue(debouncedStudentSearch);
+    return studentRoster
+      .filter((student) => {
+        const fullName = normalizeSearchValue(getStudentFullName(student));
+        const internalCode = normalizeSearchValue(getStudentCode(student));
+        return fullName.includes(normalizedQuery) || internalCode.includes(normalizedQuery);
+      })
+      .slice(0, 8);
+  }, [debouncedStudentSearch, studentRoster, useLocalStudentSearch]);
+  const isStudentSearchLoading = useLocalStudentSearch && studentRosterQuery.isLoading;
+  const showStudentSearchPanel =
+    debouncedStudentSearch.length >= 3 &&
+    shouldSearchStudents &&
+    (isStudentSearchLoading || studentResults.length > 0 || !studentRosterQuery.isLoading);
+  const noStudentMatches =
+    showStudentSearchPanel &&
+    !isStudentSearchLoading &&
+    !studentRosterQuery.error &&
+    !studentResults.length;
+
+  useEffect(() => {
+    if (!shouldWarmCampusRoster || !studentRoster.length) return;
+    console.log("[AttendanceReports][StudentRoster][Loaded]", {
+      activeCampus,
+      total: studentRoster.length,
+      names: studentRoster.map((student) => ({
+        code: getStudentCode(student),
+        fullName: getStudentFullName(student),
+      })),
+    });
+  }, [activeCampus, shouldWarmCampusRoster, studentRoster]);
 
   const selectedCount = selectedRecordIds.length;
   const classroomStatusCounts = useMemo(() => classroomItems.reduce((acc, item) => {
@@ -191,7 +249,7 @@ export default function AttendanceReportsPage() {
     setSelectedStudent({
       id: student?._id || student?.id,
       fullName: getStudentFullName(student),
-      internalCode: student?.internalCode || null,
+      internalCode: getStudentCode(student),
     });
     setStudentSearch(getStudentFullName(student));
   };
@@ -288,27 +346,43 @@ export default function AttendanceReportsPage() {
                   <label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">Alumno</label>
                   <Input
                     value={studentSearch}
-                    onChange={(event) => setStudentSearch(event.target.value)}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setStudentSearch(nextValue);
+                      if (selectedStudent && nextValue.trim() !== String(selectedStudent.fullName || "").trim()) {
+                        setSelectedStudent(null);
+                      }
+                    }}
                     placeholder="Busca por código, nombre o apellidos"
                     className="mt-2"
                   />
 
-                  {debouncedStudentSearch.length >= 2 && studentResults.length ? (
+                  {showStudentSearchPanel ? (
                     <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
-                      {studentResults.map((student) => (
-                        <button
-                          key={student._id || student.id}
-                          type="button"
-                          onClick={() => handleStudentPick(student)}
-                          className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 hover:bg-gray-50"
-                        >
-                          <div>
-                            <div className="text-sm font-semibold text-gray-950">{getStudentFullName(student)}</div>
-                            <div className="mt-1 text-xs text-gray-500">{student?.internalCode || "-"}</div>
-                          </div>
-                          <div className="text-xs text-gray-500">{student?.lastKnownClassroom || student?.section || ""}</div>
-                        </button>
-                      ))}
+                      {isStudentSearchLoading ? (
+                        <div className="px-4 py-3 text-sm text-gray-500">Buscando alumnos...</div>
+                      ) : null}
+                      {!isStudentSearchLoading && studentResults.length ? (
+                        studentResults.map((student) => (
+                          <button
+                            key={student._id || student.id}
+                            type="button"
+                            onClick={() => handleStudentPick(student)}
+                            className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 hover:bg-gray-50"
+                          >
+                            <div>
+                              <div className="text-sm font-semibold text-gray-950">{getStudentFullName(student)}</div>
+                              <div className="mt-1 text-xs text-gray-500">{student?.internalCode || "-"}</div>
+                            </div>
+                            <div className="text-xs text-gray-500">{student?.lastKnownClassroom || student?.section || ""}</div>
+                          </button>
+                        ))
+                      ) : null}
+                      {noStudentMatches ? (
+                        <div className="px-4 py-3 text-sm text-gray-500">
+                          No encontramos alumnos que coincidan con "{debouncedStudentSearch}".
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -327,7 +401,9 @@ export default function AttendanceReportsPage() {
                 </div>
               ) : (
                 <div className="mt-5 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
-                  Elige un alumno para abrir su reporte mensual y justificar faltas o tardanzas.
+                  {normalizedStudentSearch.length > 0 && normalizedStudentSearch.length < 3
+                    ? "Escribe al menos 3 caracteres para buscar un alumno."
+                    : "Elige un alumno para abrir su reporte mensual y justificar faltas o tardanzas."}
                 </div>
               )}
             </div>
@@ -522,6 +598,23 @@ export default function AttendanceReportsPage() {
           <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-sm text-gray-600">
             Esta acción justificará todos los días seleccionados del reporte mensual del alumno.
           </div>
+          {selectedRecords.length ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-600">
+                Días seleccionados
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedRecords.map((record) => (
+                  <span
+                    key={record.recordId}
+                    className="inline-flex rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-800"
+                  >
+                    {formatLongDate(record.date)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div>
             <label className="text-sm font-medium text-gray-800">Motivo</label>
             <textarea

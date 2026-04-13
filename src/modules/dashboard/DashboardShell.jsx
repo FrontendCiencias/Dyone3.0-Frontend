@@ -19,7 +19,7 @@ const PAGE_META = {
   attendanceJustifications: { title: "Justificaciones", description: "Gestiona tardanzas y faltas justificadas." },
   attendanceReports: { title: "Reportes de asistencia", description: "Consulta resumenes por alumno y salon." },
   students: { title: "Alumnos", description: "Busca, filtra y gestiona expedientes estudiantiles." },
-  classrooms: { title: "Salones", description: "Reubica alumnos por grado y seccion." },
+  classrooms: { title: "Salones", description: "Consulta la distribucion de alumnos por grado y seccion." },
   studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matricula, aula y finanzas." },
   enrollmentDetail: { title: "Detalle de matrícula", description: "Revisa el estado, alumnos firmantes y contrato de la matrícula." },
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },

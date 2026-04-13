@@ -6,6 +6,7 @@ import { useAuth } from "../../../lib/auth";
 import { useCampusesQuery } from "../hooks/useCampusesQuery";
 import { useClassroomBoardQuery } from "../hooks/useClassroomBoardQuery";
 import { changeStudentClassroom } from "../../students/services/students.service";
+import { CAPABILITIES, hasCapability } from "../../auth/utils/capabilities";
 
 const LEVEL_OPTIONS = [
   { value: "INITIAL", label: "Inicial" },
@@ -43,7 +44,9 @@ function getErrorMessage(error, fallback = "No se pudo completar la operación."
 
 export default function ClassroomsBoardPage() {
   const queryClient = useQueryClient();
-  const { activeCampus } = useAuth();
+  const { activeCampus, activeRole, roles } = useAuth();
+  const role = activeRole || roles?.[0] || "";
+  const canMoveStudents = hasCapability(role, CAPABILITIES.studentsChangeClassroom);
   const campusesQuery = useCampusesQuery();
   const campuses = useMemo(() => getCampusOptions(campusesQuery.data), [campusesQuery.data]);
 
@@ -111,7 +114,9 @@ export default function ClassroomsBoardPage() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Salones por grado</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Revisa todas las secciones de un grado y mueve alumnos entre columnas sin salir de la vista.
+              {canMoveStudents
+                ? "Revisa todas las secciones de un grado y mueve alumnos entre columnas sin salir de la vista."
+                : "Revisa todas las secciones de un grado y consulta la distribucion actual de alumnos por salon."}
             </p>
           </div>
 
@@ -171,7 +176,7 @@ export default function ClassroomsBoardPage() {
             <strong className="text-gray-900">{totalStudents}</strong> alumno(s)
           </div>
 
-          {moveMutation.isError ? (
+          {canMoveStudents && moveMutation.isError ? (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {getErrorMessage(moveMutation.error, "No se pudo mover el alumno.")}
             </div>
@@ -232,29 +237,31 @@ export default function ClassroomsBoardPage() {
                               </span>
                             </div>
 
-                            <div className="mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                              <select
-                                className="h-10 rounded-lg border border-gray-300 px-3 text-sm"
-                                value={moveTargets[studentId] || ""}
-                                onChange={(e) => setMoveTargets((prev) => ({ ...prev, [studentId]: e.target.value }))}
-                              >
-                                <option value="">Mover a...</option>
-                                {destinationOptions.map((option) => (
-                                  <option key={option.classroomId} value={option.classroomId}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-
-                              <div className="flex justify-end">
-                                <Button
-                                  onClick={() => handleMoveStudent(studentId)}
-                                  disabled={!moveTargets[studentId] || isPending || !cycleId}
+                            {canMoveStudents ? (
+                              <div className="mt-2 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                                <select
+                                  className="h-10 rounded-lg border border-gray-300 px-3 text-sm"
+                                  value={moveTargets[studentId] || ""}
+                                  onChange={(e) => setMoveTargets((prev) => ({ ...prev, [studentId]: e.target.value }))}
                                 >
-                                  {isPending ? "Moviendo..." : "Mover"}
-                                </Button>
+                                  <option value="">Mover a...</option>
+                                  {destinationOptions.map((option) => (
+                                    <option key={option.classroomId} value={option.classroomId}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+
+                                <div className="flex justify-end">
+                                  <Button
+                                    onClick={() => handleMoveStudent(studentId)}
+                                    disabled={!moveTargets[studentId] || isPending || !cycleId}
+                                  >
+                                    {isPending ? "Moviendo..." : "Mover"}
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
+                            ) : null}
                           </div>
                         );
                       }) : (

@@ -117,11 +117,12 @@ export default function AppRoutes() {
               <Route path={ROUTES.dashboardAttendanceReports} element={<AttendanceReportsPage />} />
             </Route>
 
+            <Route element={<CapabilityRoute capability={CAPABILITIES.classroomsBoardView} />}>
+              <Route path={ROUTES.dashboardClassrooms} element={<ClassroomsBoardPage />} />
+            </Route>
+
             <Route element={<CapabilityRoute capability={CAPABILITIES.studentsView} />}>
               <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
-              <Route element={<CapabilityRoute capability={CAPABILITIES.classroomsBoardView} />}>
-                <Route path={ROUTES.dashboardClassrooms} element={<ClassroomsBoardPage />} />
-              </Route>
               <Route element={<CapabilityRoute capability={CAPABILITIES.studentsPrintCards} />}>
                 <Route path={ROUTES.dashboardStudentsPrintCards} element={<StudentPrintCardsPage />} />
               </Route>

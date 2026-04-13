@@ -46,6 +46,7 @@ const ROLE_CAPABILITIES = {
     CAPABILITIES.studentsEditNotes,
     CAPABILITIES.studentsManageTutors,
     CAPABILITIES.studentsChangeClassroom,
+    CAPABILITIES.studentsPrintCards,
     CAPABILITIES.enrollmentsView,
     CAPABILITIES.enrollmentsCreate,
     CAPABILITIES.enrollmentsDetailView,
@@ -68,6 +69,8 @@ const ROLE_CAPABILITIES = {
     CAPABILITIES.activitiesView,
     CAPABILITIES.activitiesCollect,
     CAPABILITIES.attendanceView,
+    CAPABILITIES.classroomsBoardView,
+    CAPABILITIES.studentsChangeClassroom,
   ],
   DIRECTOR: [
     CAPABILITIES.dashboardView,
