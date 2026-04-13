@@ -37,6 +37,22 @@ export async function searchDebtors({ q, campus, limit = 15 } = {}) {
   return res.data;
 }
 
+export async function fetchDebtorsForPrint(payload) {
+  const body = {
+    studentIds: Array.isArray(payload?.studentIds) ? payload.studentIds : [],
+    filters: payload?.filters || {},
+  };
+
+  logRequest(API_ROUTES.paymentsDebtorsPrint, "POST", body);
+  const res = await axiosInstance.post(API_ROUTES.paymentsDebtorsPrint, body);
+  const items = Array.isArray(res.data?.items) ? res.data.items : [];
+  logResponse(API_ROUTES.paymentsDebtorsPrint, res.status, { count: items.length });
+  return {
+    ...res.data,
+    items,
+  };
+}
+
 export async function createPayment(payload) {
   logRequest(API_ROUTES.paymentsCreate, "POST", payload);
   const res = await axiosInstance.post(API_ROUTES.paymentsCreate, payload);
@@ -91,5 +107,34 @@ export async function getDailyPaymentTransactions({ date, campus, page = 1, limi
     page: res.data?.pageInfo?.page || 1,
     hasNext: Boolean(res.data?.pageInfo?.hasNext),
   });
+  return res.data;
+}
+
+export async function processCajaArequipaPdf(payload) {
+  logRequest(API_ROUTES.paymentsCajaArequipaProcess, "POST", {
+    campus: payload?.campus,
+    fileName: payload?.fileName,
+    pdfBase64Length: payload?.pdfBase64?.length || 0,
+  });
+  const res = await axiosInstance.post(API_ROUTES.paymentsCajaArequipaProcess, payload);
+  logResponse(API_ROUTES.paymentsCajaArequipaProcess, res.status, res.data);
+  return res.data;
+}
+
+export async function getCajaArequipaReview(importId) {
+  const endpoint = API_ROUTES.paymentsCajaArequipaReview(importId);
+  logRequest(endpoint, "GET", {});
+  const res = await axiosInstance.get(endpoint);
+  logResponse(endpoint, res.status, {
+    status: res.data?.status,
+    processedRows: res.data?.summary?.processedRows || 0,
+  });
+  return res.data;
+}
+
+export async function confirmCajaArequipaImport(importId) {
+  logRequest(API_ROUTES.paymentsCajaArequipaConfirm, "POST", { importId });
+  const res = await axiosInstance.post(API_ROUTES.paymentsCajaArequipaConfirm, { importId });
+  logResponse(API_ROUTES.paymentsCajaArequipaConfirm, res.status, res.data);
   return res.data;
 }

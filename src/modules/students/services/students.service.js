@@ -191,6 +191,29 @@ export async function updateStudentIdentity(studentId, payload) {
   return res.data;
 }
 
+export async function updateStudentBankCode(studentId, bankCode) {
+  const endpoint = API_ROUTES.studentBankCode(studentId);
+  const payload = { bankCode };
+  logRequest(endpoint, "PATCH", payload);
+  const res = await axiosInstance.patch(endpoint, payload);
+  logResponse(endpoint, res.status, res.data);
+  return res.data;
+}
+
+export async function searchStudentsAutocomplete({ q, limit = 10 }) {
+  const normalizedQuery = String(q || "").trim();
+  if (normalizedQuery.length < 2) return [];
+
+  const params = { q: normalizedQuery, limit };
+  logRequest(API_ROUTES.studentsSearch, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.studentsSearch, { params });
+  const items = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.items) ? res.data.items : [];
+  logResponse(API_ROUTES.studentsSearch, res.status, {
+    count: items.length,
+  });
+  return items;
+}
+
 export async function updateStudentInternalNotes(studentId, payload) {
   const endpoint = API_ROUTES.studentInternalNotes(studentId);
   logRequest(endpoint, "PATCH", payload);

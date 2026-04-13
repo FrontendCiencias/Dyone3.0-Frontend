@@ -40,6 +40,7 @@ function resolveMethodLabel(method) {
   if (method === "CASH") return "Efectivo";
   if (method === "YAPE") return "Yape";
   if (method === "TRANSFER") return "Transferencia";
+  if (method === "CAJA_AREQUIPA") return "Caja Arequipa";
   return method || "-";
 }
 

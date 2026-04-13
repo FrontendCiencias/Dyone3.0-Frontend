@@ -22,10 +22,16 @@ import MatriculasV2Page from "../modules/enrollments/pages/MatriculasV2Page";
 import EnrollmentDetailPage from "../modules/enrollments/pages/EnrollmentDetailPage";
 import EnrollmentContractPreviewPage from "../modules/enrollments/pages/EnrollmentContractPreviewPage";
 import PaymentsPage from "../modules/payments/pages/PaymentsPage";
+import PaymentsCajaArequipaPage from "../modules/payments/pages/PaymentsCajaArequipaPage";
+import PaymentsCajaArequipaPrintPreviewPage from "../modules/payments/pages/PaymentsCajaArequipaPrintPreviewPage";
 import PaymentsDailyCashPage from "../modules/payments/pages/PaymentsDailyCashPage";
+import PaymentsDebtorsPrintPage from "../modules/payments/pages/PaymentsDebtorsPrintPage";
+import PaymentsDebtorsPrintPreviewPage from "../modules/payments/pages/PaymentsDebtorsPrintPreviewPage";
+import PaymentsDebtorsLettersPreviewPage from "../modules/payments/pages/PaymentsDebtorsLettersPreviewPage";
 import PaymentStudentDetailPage from "../modules/payments/pages/PaymentStudentDetailPage";
 import ActivitiesPage from "../modules/activities/pages/ActivitiesPage";
 import ActivityDetailPage from "../modules/activities/pages/ActivityDetailPage";
+import ActivityPaidListPage from "../modules/activities/pages/ActivityPaidListPage";
 import ClassroomsBoardPage from "../modules/admin/pages/ClassroomsBoardPage";
 import AttendanceIntakePage from "../modules/attendance/pages/AttendanceIntakePage";
 import AttendanceTakePage from "../modules/attendance/pages/AttendanceTakePage";
@@ -93,6 +99,13 @@ export default function AppRoutes() {
           <Route element={<CapabilityRoute capability={CAPABILITIES.studentsPrintCards} />}>
             <Route path={ROUTES.dashboardStudentsPrintCardsPreview} element={<StudentPrintCardsPreviewPage />} />
           </Route>
+          <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsPrintDebtors} />}>
+            <Route path={ROUTES.dashboardPaymentsDebtorsPrintPreview} element={<PaymentsDebtorsPrintPreviewPage />} />
+            <Route path={ROUTES.dashboardPaymentsDebtorsLettersPreview} element={<PaymentsDebtorsLettersPreviewPage />} />
+          </Route>
+          <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsCajaArequipa} />}>
+            <Route path={ROUTES.dashboardPaymentsCajaArequipaPrintPreview} element={<PaymentsCajaArequipaPrintPreviewPage />} />
+          </Route>
           <Route element={<DashboardLayout />}>
             <Route path={ROUTES.dashboard} element={<DashboardHome />} />
 
@@ -127,13 +140,20 @@ export default function AppRoutes() {
 
             <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsView} />}>
               <Route path={ROUTES.dashboardPayments} element={<PaymentsPage />} />
+              <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsCajaArequipa} />}>
+                <Route path={ROUTES.dashboardPaymentsCajaArequipa} element={<PaymentsCajaArequipaPage />} />
+              </Route>
               <Route path={ROUTES.dashboardPaymentsDailyCash} element={<PaymentsDailyCashPage />} />
+              <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsPrintDebtors} />}>
+                <Route path={ROUTES.dashboardPaymentsDebtorsPrint} element={<PaymentsDebtorsPrintPage />} />
+              </Route>
               <Route path={ROUTES.dashboardPaymentDetail()} element={<PaymentStudentDetailPage />} />
             </Route>
 
             <Route element={<CapabilityRoute capability={CAPABILITIES.activitiesView} />}>
               <Route path={ROUTES.dashboardActivities} element={<ActivitiesPage />} />
               <Route path={ROUTES.dashboardActivityDetail()} element={<ActivityDetailPage />} />
+              <Route path={ROUTES.dashboardActivityPaidList()} element={<ActivityPaidListPage />} />
             </Route>
 
             <Route element={<CapabilityRoute capability={CAPABILITIES.adminView} />}>

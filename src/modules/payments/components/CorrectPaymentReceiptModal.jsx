@@ -10,6 +10,7 @@ function formatMethod(value) {
   if (value === "CASH") return "Efectivo";
   if (value === "YAPE") return "Yape";
   if (value === "TRANSFER") return "Transferencia";
+  if (value === "CAJA_AREQUIPA") return "Caja Arequipa";
   return value || "-";
 }
 
@@ -46,6 +47,7 @@ function summarizeCharge(charge) {
     id: charge?.id || charge?._id || "",
     concept: charge?.concept || charge?.description || "Cargo",
     outstandingAmount: Number(charge?.outstandingAmount || 0),
+    amount: Number(charge?.amount || 0),
     dueDate: charge?.dueDate || null,
   };
 }
@@ -62,11 +64,17 @@ export default function CorrectPaymentReceiptModal({
   canEditPaidAt = false,
   canReassign = false,
   currentStudentId = null,
+  availableCharges = [],
 }) {
+  const currentPrimaryChargeId = Array.isArray(payment?.allocations) && payment.allocations.length === 1
+    ? String(payment.allocations[0]?.chargeId || "")
+    : "";
+
   const [form, setForm] = useState({
     method: payment?.method || "CASH",
     amount: payment?.amount ? String(Number(payment.amount).toFixed(2)) : "",
     paidAt: formatDateTimeLocal(payment?.paidAt || payment?.date),
+    targetChargeId: currentPrimaryChargeId,
     receiptNumber: payment?.receiptNumber || "",
     voucherNumber: payment?.voucherNumber || "",
     notes: payment?.note || "",
@@ -92,6 +100,9 @@ export default function CorrectPaymentReceiptModal({
       method: payment?.method || "CASH",
       amount: payment?.amount ? String(Number(payment.amount).toFixed(2)) : "",
       paidAt: formatDateTimeLocal(payment?.paidAt || payment?.date),
+      targetChargeId: Array.isArray(payment?.allocations) && payment.allocations.length === 1
+        ? String(payment.allocations[0]?.chargeId || "")
+        : "",
       receiptNumber: payment?.receiptNumber || "",
       voucherNumber: payment?.voucherNumber || "",
       notes: payment?.note || "",
@@ -155,17 +166,18 @@ export default function CorrectPaymentReceiptModal({
     const nextMethod = String(form.method || "").toUpperCase();
     if (!previousMethod || previousMethod === nextMethod) return null;
     if (previousMethod === "CASH" && ["YAPE", "TRANSFER"].includes(nextMethod)) {
-      return "Este pago dejará de contar como efectivo en caja y pasará a pagos no presenciales.";
+      return "Este pago dejara de contar como efectivo en caja y pasara a pagos no presenciales.";
     }
     if (["YAPE", "TRANSFER"].includes(previousMethod) && nextMethod === "CASH") {
-      return "Este pago pasará a sumar dinero físico disponible en caja.";
+      return "Este pago pasara a sumar dinero fisico disponible en caja.";
     }
-    return `El método cambiará de ${formatMethod(previousMethod)} a ${formatMethod(nextMethod)}.`;
+    return `El metodo cambiara de ${formatMethod(previousMethod)} a ${formatMethod(nextMethod)}.`;
   }, [form.method, payment?.method]);
 
   const paymentAmount = Number(payment?.amount || 0);
   const editedAmount = Number(form.amount || 0);
   const effectivePaymentAmount = canEditAmount && editedAmount > 0 ? editedAmount : paymentAmount;
+
   const allocationTotal = useMemo(
     () => Object.values(allocationAmounts).reduce((acc, value) => acc + Number(value || 0), 0),
     [allocationAmounts],
@@ -182,6 +194,19 @@ export default function CorrectPaymentReceiptModal({
     if (!form.targetStudentId) return false;
     return Math.abs(allocationDifference) < 0.001;
   }, [allocationDifference, canEditAmount, editedAmount, form.correctionReason, form.method, form.reassignEnabled, form.targetStudentId]);
+
+  const chargeOptions = useMemo(
+    () =>
+      (Array.isArray(availableCharges) ? availableCharges : [])
+        .map((charge) => ({
+          id: String(charge.id || charge._id || ""),
+          label: charge.concept || charge.description || "Cargo",
+          amount: Number(charge.amount || 0),
+          outstandingAmount: Number(charge.outstandingAmount || 0),
+        }))
+        .filter((charge) => charge.id),
+    [availableCharges],
+  );
 
   const handleToggleCharge = (charge) => {
     setAllocationAmounts((prev) => {
@@ -214,6 +239,20 @@ export default function CorrectPaymentReceiptModal({
       correctionReason: String(form.correctionReason || "").trim(),
     };
 
+    const normalizedTargetChargeId = String(form.targetChargeId || "").trim();
+    if (
+      !form.reassignEnabled &&
+      currentStudentId &&
+      normalizedTargetChargeId &&
+      normalizedTargetChargeId !== String(currentPrimaryChargeId || "")
+    ) {
+      payload.reassignStudentId = String(currentStudentId);
+      payload.reassignAllocations = [{
+        chargeId: normalizedTargetChargeId,
+        amount: effectivePaymentAmount,
+      }];
+    }
+
     if (form.reassignEnabled && form.targetStudentId) {
       payload.reassignStudentId = form.targetStudentId;
       payload.reassignAllocations = Object.entries(allocationAmounts)
@@ -237,15 +276,15 @@ export default function CorrectPaymentReceiptModal({
         <div className="flex justify-end gap-2">
           <SecondaryButton onClick={onClose} disabled={isPending}>Cancelar</SecondaryButton>
           <Button onClick={handleSubmit} disabled={isPending || isSuccess || !canSave}>
-            {isPending ? "Guardando..." : "Guardar corrección"}
+            {isPending ? "Guardando..." : "Guardar correccion"}
           </Button>
         </div>
       )}
     >
-      <div className="space-y-4 p-5">
+      <div className="max-h-[72vh] space-y-4 overflow-y-auto p-5">
         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
           <p><strong>Pago:</strong> {payment?.internalCode || "-"}</p>
-          <p className="mt-1"><strong>Método actual:</strong> {formatMethod(payment?.method)}</p>
+          <p className="mt-1"><strong>Metodo actual:</strong> {formatMethod(payment?.method)}</p>
           <p className="mt-1"><strong>Monto:</strong> {payment?.amount ? `S/ ${Number(payment.amount).toFixed(2)}` : "-"}</p>
         </div>
 
@@ -255,49 +294,83 @@ export default function CorrectPaymentReceiptModal({
           </div>
         ) : null}
 
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Método de pago</label>
-          <select
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-            value={form.method}
-            onChange={(e) => setForm((prev) => ({ ...prev, method: e.target.value }))}
-          >
-            <option value="CASH">Efectivo</option>
-            <option value="YAPE">Yape</option>
-            <option value="TRANSFER">Transferencia</option>
-          </select>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Metodo de pago</label>
+            <select
+              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+              value={form.method}
+              onChange={(e) => setForm((prev) => ({ ...prev, method: e.target.value }))}
+            >
+              <option value="CASH">Efectivo</option>
+              <option value="YAPE">Yape</option>
+              <option value="TRANSFER">Transferencia</option>
+              {payment?.method === "CAJA_AREQUIPA" ? <option value="CAJA_AREQUIPA">Caja Arequipa</option> : null}
+            </select>
+          </div>
+
+          {canEditAmount ? (
+            <Input
+              label="Monto del recibo"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={form.amount}
+              onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
+              placeholder="0.00"
+            />
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="mb-1 text-sm font-medium text-gray-700">Monto del recibo</div>
+              <div className="text-sm text-gray-800">{formatMoney(payment?.amount)}</div>
+            </div>
+          )}
         </div>
 
-        {canEditAmount ? (
-          <Input
-            label="Monto del recibo"
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={form.amount}
-            onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
-            placeholder="0.00"
-          />
-        ) : null}
+        <div className="grid gap-3 md:grid-cols-2">
+          {canEditPaidAt ? (
+            <Input
+              label="Fecha del pago"
+              type="datetime-local"
+              value={form.paidAt}
+              onChange={(e) => setForm((prev) => ({ ...prev, paidAt: e.target.value }))}
+            />
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="mb-1 text-sm font-medium text-gray-700">Fecha del pago</div>
+              <div className="text-sm text-gray-800">{formatDateTimeLocal(payment?.paidAt || payment?.date) || "-"}</div>
+            </div>
+          )}
 
-        {canEditPaidAt ? (
-          <Input
-            label="Fecha del pago"
-            type="datetime-local"
-            value={form.paidAt}
-            onChange={(e) => setForm((prev) => ({ ...prev, paidAt: e.target.value }))}
-          />
-        ) : null}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Cargo pagado</label>
+            <select
+              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+              value={form.targetChargeId}
+              onChange={(e) => setForm((prev) => ({ ...prev, targetChargeId: e.target.value }))}
+            >
+              <option value="">Mantener cargo actual</option>
+              {chargeOptions.map((charge) => (
+                <option key={charge.id} value={charge.id}>
+                  {`${charge.label} · ${formatMoney(charge.amount)} · Pendiente ${formatMoney(charge.outstandingAmount)}`}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Si eliges otro cargo, el pago se reaplica dentro del mismo alumno.
+            </p>
+          </div>
+        </div>
 
         <div className="grid gap-3 md:grid-cols-2">
           <Input
-            label="Recibo físico"
+            label="Recibo fisico"
             value={form.receiptNumber}
             onChange={(e) => setForm((prev) => ({ ...prev, receiptNumber: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
             placeholder="Opcional"
           />
           <Input
-            label="Voucher / operación"
+            label="Voucher / operacion"
             value={form.voucherNumber}
             onChange={(e) => setForm((prev) => ({ ...prev, voucherNumber: e.target.value }))}
             placeholder="Opcional"
@@ -305,9 +378,9 @@ export default function CorrectPaymentReceiptModal({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Observación visible del recibo</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Observacion visible del recibo</label>
           <textarea
-            className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2"
+            className="min-h-[72px] w-full rounded-lg border border-gray-300 px-3 py-2"
             value={form.notes}
             onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
           />
@@ -340,7 +413,7 @@ export default function CorrectPaymentReceiptModal({
                   label="Buscar alumno destino"
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
-                  placeholder="DNI, código, nombres o apellidos"
+                  placeholder="DNI, codigo, nombres o apellidos"
                 />
 
                 {studentSearchQuery.isFetching ? (
@@ -472,14 +545,14 @@ export default function CorrectPaymentReceiptModal({
         ) : null}
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Motivo de corrección</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Motivo de correccion</label>
           <textarea
-            className="min-h-[90px] w-full rounded-lg border border-gray-300 px-3 py-2"
+            className="min-h-[72px] w-full rounded-lg border border-gray-300 px-3 py-2"
             value={form.correctionReason}
             onChange={(e) => setForm((prev) => ({ ...prev, correctionReason: e.target.value }))}
-            placeholder="Ej. Se registró como efectivo por error, el padre pagó por Yape."
+            placeholder="Ej. Se registro como efectivo por error, el padre pago por Yape."
           />
-          <p className="mt-1 text-xs text-gray-500">Obligatorio. Se guardará en auditoría.</p>
+          <p className="mt-1 text-xs text-gray-500">Obligatorio. Se guardara en auditoria.</p>
         </div>
 
         {error ? (

@@ -16,7 +16,7 @@ export default function OperationalBlockState({
   return (
     <div
       className={[
-        "flex items-center justify-center rounded-2xl border bg-white px-4 py-6 text-sm shadow-sm",
+        "h-[48vh] flex items-center justify-center rounded-2xl border bg-white px-4 py-6 text-sm shadow-sm",
         isError ? "border-red-100 text-red-700" : "border-gray-200 text-gray-500",
         className,
       ].join(" ")}

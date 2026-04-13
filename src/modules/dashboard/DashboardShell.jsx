@@ -23,9 +23,12 @@ const PAGE_META = {
   studentDetail: { title: "Expediente del alumno", description: "Consulta identidad, matricula, aula y finanzas." },
   enrollmentDetail: { title: "Detalle de matrícula", description: "Revisa el estado, alumnos firmantes y contrato de la matrícula." },
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
+  paymentsCajaArequipa: { title: "Caja Arequipa", description: "Sube PDFs bancarios, revisa coincidencias y confirma importaciones de pensiones." },
   paymentsDailyCash: { title: "Caja del día", description: "Consulta ingresos del día y revisa movimientos recientes por fecha." },
+  paymentsDebtorsPrint: { title: "Imprimir lista de deudores", description: "Filtra alumnos con deuda, selecciona destinatarios e imprime lista o comunicados." },
   activities: { title: "Actividades", description: "Concursos, eventos y recaudaciones especiales fuera de caja diaria." },
   activityDetail: { title: "Detalle de actividad", description: "Participantes, cobros y control operativo por cobrador." },
+  activityPaidList: { title: "Lista de pagados", description: "Tabla consolidada de estudiantes pagados en la actividad." },
   adminSettings: { title: "Configuracion", description: "Sedes, ciclos, aulas y conceptos." },
   adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades tecnicas." },
   enrollments: { title: "Matriculas", description: "Monitorea y registra el flujo de matriculas." },
@@ -46,8 +49,11 @@ function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboardAttendanceReports) return "attendanceReports";
   if (pathname.startsWith(ROUTES.dashboardAttendance)) return "attendance";
   if (pathname === ROUTES.dashboardClassrooms) return "classrooms";
+  if (pathname === ROUTES.dashboardPaymentsCajaArequipa) return "paymentsCajaArequipa";
   if (pathname === ROUTES.dashboardPaymentsDailyCash) return "paymentsDailyCash";
+  if (pathname === ROUTES.dashboardPaymentsDebtorsPrint) return "paymentsDebtorsPrint";
   if (pathname === ROUTES.dashboardActivities) return "activities";
+  if (/^\/dashboard\/activities\/[^/]+\/lista$/.test(pathname)) return "activityPaidList";
   if (/^\/dashboard\/activities\/[^/]+$/.test(pathname)) return "activityDetail";
   if (/^\/dashboard\/students\/[^/]+$/.test(pathname)) return "studentDetail";
   if (/^\/dashboard\/enrollments\/[^/]+$/.test(pathname) && pathname !== ROUTES.dashboardEnrollmentNew) return "enrollmentDetail";
@@ -139,7 +145,7 @@ export default function DashboardShell() {
     return match?.[1] || null;
   }, [location.pathname]);
   const activityDetailId = useMemo(() => {
-    const match = (location.pathname || "").match(/^\/dashboard\/activities\/([^/]+)$/);
+    const match = (location.pathname || "").match(/^\/dashboard\/activities\/([^/]+)(?:\/lista)?$/);
     return match?.[1] || null;
   }, [location.pathname]);
   const deletedStudentId = useMemo(() => {
@@ -154,18 +160,18 @@ export default function DashboardShell() {
   const activityDetailQuery = useActivityDetailQuery(activityDetailId, pageKey === "activityDetail");
 
   const pageMeta = useMemo(() => {
-    if (pageKey !== "studentDetail" && pageKey !== "paymentDetail" && pageKey !== "activityDetail") {
+    if (pageKey !== "studentDetail" && pageKey !== "paymentDetail" && pageKey !== "activityDetail" && pageKey !== "activityPaidList") {
       return PAGE_META[pageKey] || PAGE_META.dashboard;
     }
 
-    if (pageKey === "activityDetail") {
+    if (pageKey === "activityDetail" || pageKey === "activityPaidList") {
       const activityName = activityDetailQuery.isLoading
         ? "Cargando..."
         : activityDetailQuery.data?.activity?.name || "Actividad";
 
       return {
-        title: `Actividad: ${activityName}`,
-        description: PAGE_META.activityDetail.description,
+        title: pageKey === "activityPaidList" ? `Lista de pagados: ${activityName}` : `Actividad: ${activityName}`,
+        description: pageKey === "activityPaidList" ? PAGE_META.activityPaidList.description : PAGE_META.activityDetail.description,
       };
     }
 
@@ -283,6 +289,22 @@ export default function DashboardShell() {
       ];
     }
 
+    if (pageKey === "paymentsCajaArequipa") {
+      return [
+        rootCrumb,
+        { label: "Pagos", to: ROUTES.dashboardPayments },
+        { label: "Caja Arequipa" },
+      ];
+    }
+
+    if (pageKey === "paymentsDebtorsPrint") {
+      return [
+        rootCrumb,
+        { label: "Pagos", to: ROUTES.dashboardPayments },
+        { label: "Imprimir lista de deudores" },
+      ];
+    }
+
     if (pageKey === "activities") {
       return [
         rootCrumb,
@@ -305,6 +327,15 @@ export default function DashboardShell() {
       ];
     }
 
+    if (pageKey === "activityPaidList") {
+      return [
+        rootCrumb,
+        { label: "Actividades", to: ROUTES.dashboardActivities },
+        { label: "Detalle de actividad", to: ROUTES.dashboardActivityDetail(activityDetailId || ":activityId") },
+        { label: "Lista de pagados" },
+      ];
+    }
+
     if (pageKey !== "studentDetail" && pageKey !== "paymentDetail") return null;
 
     const label = studentSummaryQuery.isLoading
@@ -324,7 +355,7 @@ export default function DashboardShell() {
       { label: "Alumnos", to: ROUTES.dashboardStudents },
       { label },
     ];
-  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, activeRole]);
+  }, [pageKey, studentSummaryQuery.isLoading, studentSummaryQuery.data, activeRole, activityDetailId]);
 
   const leftPad = isDesktop ? (expanded ? SIDEBAR_WIDTHS.expanded : SIDEBAR_WIDTHS.collapsed) : 0;
 

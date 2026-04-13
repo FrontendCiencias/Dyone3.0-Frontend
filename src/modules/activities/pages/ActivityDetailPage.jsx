@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import {
-  CreditCard,
   Eye,
   LayoutGrid,
+  List,
   ListFilter,
   Pencil,
   Search,
@@ -253,7 +253,6 @@ export default function ActivityDetailPage() {
   const participants = Array.isArray(detailQuery.data?.participants) ? detailQuery.data.participants : [];
   const collections = Array.isArray(detailQuery.data?.collections) ? detailQuery.data.collections : [];
   const collectorReport = Array.isArray(detailQuery.data?.collectorReport) ? detailQuery.data.collectorReport : [];
-  const registrationReport = Array.isArray(detailQuery.data?.registrationReport) ? detailQuery.data.registrationReport : [];
   const summary = detailQuery.data?.summary || {};
   const permissions = detailQuery.data?.permissions || {};
 
@@ -361,8 +360,15 @@ export default function ActivityDetailPage() {
         <div className={`grid gap-3 md:grid-cols-2 xl:grid-cols-4 ${detailQuery.isFetching ? "opacity-75" : ""}`}>
           <OperationalSummaryCard label="Inscritos" value={String(summary.participantsCount || 0)} hint="Base de la actividad" icon={Users} />
           <OperationalSummaryCard label="Pagados" value={String(summary.paidCount || 0)} hint="Cobros cerrados" icon={UserCheck} variant="green" />
-          <OperationalSummaryCard label="Pendientes" value={String(summary.pendingCount || 0)} hint="Aún por recaudar" icon={CreditCard} variant="amber" />
           <OperationalSummaryCard label="Recaudado" value={formatMoney(summary.totalCollected || 0)} hint="Total visible de la actividad" icon={Wallet2} variant="blue" />
+          <OperationalSummaryCard
+            label="Lista"
+            value="Ver pagados"
+            hint="Abrir tabla completa con DNI y recibos"
+            icon={List}
+            actionLabel="Abrir"
+            onAction={() => navigate(ROUTES.dashboardActivityPaidList(activityDetailId))}
+          />
         </div>
       )}
 
@@ -528,34 +534,6 @@ export default function ActivityDetailPage() {
                       </div>
                     ))}
                     {!collectorReport.length ? <p className="text-sm text-gray-500">Aún no hay cobros registrados.</p> : null}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {canReportCapability ? (
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div className="border-b border-gray-200 px-4 py-4">
-                  <h2 className="text-base font-semibold text-gray-900">Quién inscribió</h2>
-                  <p className="mt-1 text-sm text-gray-600">Participantes registrados por cada cuenta y rol.</p>
-                </div>
-                <div className="h-[22vh] overflow-auto px-4 py-3">
-                  <div className="space-y-3">
-                    {registrationReport.map((row) => (
-                      <div key={`${row.registeredByUserId}-${row.registeredByRole}`} className="rounded-xl border border-gray-200 px-3 py-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">{row.registeredByName}</p>
-                            <p className="mt-1 text-xs uppercase tracking-[0.14em] text-gray-400">{row.registeredByRole}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-gray-900">{row.participantsCount}</p>
-                            <p className="text-xs text-gray-500">inscritos</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {!registrationReport.length ? <p className="text-sm text-gray-500">Aún no hay registros manuales.</p> : null}
                   </div>
                 </div>
               </div>

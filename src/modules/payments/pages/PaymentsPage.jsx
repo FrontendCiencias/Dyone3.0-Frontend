@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Clock3, Filter, Users, Wallet2 } from "lucide-react";
+import { AlertCircle, Filter, Landmark, Users, Wallet2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import OperationalBlockState from "../../../shared/ui/OperationalBlockState";
 import OperationalContextBar from "../../../shared/ui/OperationalContextBar";
+import OperationalDataTable from "../../../shared/ui/OperationalDataTable";
 import OperationalSearchBar from "../../../shared/ui/OperationalSearchBar";
 import OperationalSummaryCard from "../../../shared/ui/OperationalSummaryCard";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
+import { CAPABILITIES, hasCapability } from "../../auth/utils/capabilities";
 import { usePaymentsDebtorsQuery } from "../hooks/usePaymentsDebtorsQuery";
 
 function formatMoney(value) {
@@ -124,8 +126,59 @@ export default function PaymentsPage() {
     () => visibleRows.reduce((acc, row) => acc + Number(row.totalOverdue || 0), 0),
     [visibleRows],
   );
+  const tableColumns = useMemo(
+    () => [
+      {
+        key: "student",
+        header: "Alumno",
+        accessor: (row) => [row.lastNames, row.names].filter(Boolean).join(", ") || "-",
+        sortType: "string",
+        cellClassName: "text-gray-900",
+      },
+      {
+        key: "dni",
+        header: "DNI",
+        accessor: (row) => row.dni || "-",
+        sortType: "string",
+      },
+      {
+        key: "code",
+        header: "Codigo",
+        accessor: (row) => row.code || "-",
+        sortType: "string",
+      },
+      ...conceptColumns.map((column) => ({
+        key: `concept-${column.code}`,
+        header: translateConceptCode(column.code),
+        accessor: (row) => Number(row.conceptStatusByCode?.[column.code]?.pendingAmount || 0),
+        sortType: "number",
+        render: (row) => {
+          const concept = row.conceptStatusByCode?.[column.code];
+          return concept?.owes ? formatMoney(concept.pendingAmount) : "No debe";
+        },
+      })),
+      {
+        key: "totalPending",
+        header: "Pendiente",
+        accessor: (row) => Number(row.totalPending || 0),
+        sortType: "number",
+        cellClassName: "font-medium text-gray-900",
+        render: (row) => formatMoney(row.totalPending),
+      },
+      {
+        key: "totalOverdue",
+        header: "Vencido",
+        accessor: (row) => Number(row.totalOverdue || 0),
+        sortType: "number",
+        cellClassName: "font-medium text-amber-700",
+        render: (row) => formatMoney(row.totalOverdue),
+      },
+    ],
+    [conceptColumns],
+  );
   const filterModeLabel = onlyOverdue ? "Solo vencidos" : "Toda la cartera";
   const currentCampusLabel = campusFilter || (activeCampus === "ALL" ? "Todos" : activeCampus) || "Todos";
+  const canPrintDebtors = hasCapability(activeRole, CAPABILITIES.paymentsPrintDebtors);
 
   return (
     <div className="flex min-h-0 flex-col gap-4">
@@ -151,20 +204,21 @@ export default function PaymentsPage() {
             loading={activeQuery.isLoading}
           />
           <OperationalSummaryCard
-            label="Pendiente"
-            value={formatMoney(totalPending)}
-            hint="Suma de deuda visible"
-            icon={Clock3}
-            variant="neutral"
-            loading={activeQuery.isLoading}
-          />
-          <OperationalSummaryCard
             label="Vencido"
             value={formatMoney(totalOverdue)}
             hint="Deuda vencida visible"
             icon={AlertCircle}
             variant="amber"
             loading={activeQuery.isLoading}
+          />
+          <OperationalSummaryCard
+            label="Caja Arequipa"
+            value="Importar PDF"
+            hint="Carga, revisa y confirma pagos bancarios"
+            actionLabel="Abrir"
+            icon={Landmark}
+            variant="blue"
+            onAction={() => navigate(ROUTES.dashboardPaymentsCajaArequipa)}
           />
           <OperationalSummaryCard
             label="Caja del día"
@@ -237,55 +291,26 @@ export default function PaymentsPage() {
                   Consulta deuda resumida por alumno y abre el detalle para registrar pagos o revisar cargos.
                 </p>
               </div>
-              <div className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 md:flex">
-                <Wallet2 className="h-4 w-4" />
-                <span>{formatMoney(totalPending)} pendientes visibles</span>
-              </div>
+              {canPrintDebtors ? (
+                <SecondaryButton onClick={() => navigate(ROUTES.dashboardPaymentsDebtorsPrint)}>
+                  Lista de Deudores
+                </SecondaryButton>
+              ) : (
+                <div className="hidden items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 md:flex">
+                  <Wallet2 className="h-4 w-4" />
+                  <span>{formatMoney(totalPending)} pendientes visibles</span>
+                </div>
+              )}
             </div>
           </div>
 
           <div className={`h-[34vh] overflow-auto ${activeQuery.isFetching ? "bg-gray-50/40" : ""}`}>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="sticky top-0 z-10 bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Alumno</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">DNI</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Codigo</th>
-                    {conceptColumns.map((column) => (
-                      <th key={column.code} className="px-4 py-3 text-left font-medium text-gray-700">
-                        {translateConceptCode(column.code)}
-                      </th>
-                    ))}
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Pendiente</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Vencido</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {visibleRows.map((row) => (
-                    <tr
-                      key={row.id}
-                      className="cursor-pointer transition hover:bg-gray-50"
-                      onClick={() => navigate(ROUTES.dashboardPaymentDetail(row.id))}
-                    >
-                      <td className="px-4 py-3 text-gray-900">{[row.lastNames, row.names].filter(Boolean).join(", ") || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.dni || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700">{row.code || "-"}</td>
-                      {conceptColumns.map((column) => {
-                        const concept = row.conceptStatusByCode?.[column.code];
-                        return (
-                          <td key={`${row.id}-${column.code}`} className="px-4 py-3 text-gray-700">
-                            {concept?.owes ? formatMoney(concept.pendingAmount) : "No debe"}
-                          </td>
-                        );
-                      })}
-                      <td className="px-4 py-3 font-medium text-gray-900">{formatMoney(row.totalPending)}</td>
-                      <td className="px-4 py-3 font-medium text-amber-700">{formatMoney(row.totalOverdue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <OperationalDataTable
+              columns={tableColumns}
+              data={visibleRows}
+              rowKey={(row) => row.id}
+              onRowClick={(row) => navigate(ROUTES.dashboardPaymentDetail(row.id))}
+            />
           </div>
 
           {!rows.length ? (

@@ -5,6 +5,7 @@ import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import OperationalBlockState from "../../../shared/ui/OperationalBlockState";
 import OperationalContextBar from "../../../shared/ui/OperationalContextBar";
+import OperationalDataTable from "../../../shared/ui/OperationalDataTable";
 import OperationalSearchBar from "../../../shared/ui/OperationalSearchBar";
 import OperationalSummaryCard from "../../../shared/ui/OperationalSummaryCard";
 import { ROUTES } from "../../../config/routes";
@@ -62,6 +63,69 @@ export default function ActivitiesPage() {
   const activeCount = items.filter((item) => item.status === "ACTIVE").length;
   const totalCollected = items.reduce((acc, item) => acc + Number(item?.summary?.totalCollected || 0), 0);
   const pendingCount = items.reduce((acc, item) => acc + Number(item?.summary?.pendingCount || 0), 0);
+  const columns = useMemo(
+    () => [
+      {
+        key: "name",
+        header: "Nombre",
+        accessor: (item) => item.name || "-",
+        sortType: "string",
+        cellClassName: "text-gray-900",
+        render: (item) => (
+          <>
+            <div className="font-medium">{item.name}</div>
+            <div className="text-xs text-gray-500">{item.typeLabel}</div>
+          </>
+        ),
+      },
+      {
+        key: "campus",
+        header: "Campus",
+        accessor: (item) => item.campus?.code || "-",
+        sortType: "string",
+      },
+      {
+        key: "audience",
+        header: "Alcance",
+        accessor: (item) => item.audienceLabel || "-",
+        sortType: "string",
+      },
+      {
+        key: "amount",
+        header: "Monto",
+        accessor: (item) => Number(item.amount || 0),
+        sortType: "number",
+        render: (item) => formatMoney(item.amount),
+      },
+      {
+        key: "status",
+        header: "Estado",
+        accessor: (item) => item.status || "-",
+        sortType: "string",
+      },
+      {
+        key: "paidCount",
+        header: "Pagados",
+        accessor: (item) => Number(item.summary?.paidCount || 0),
+        sortType: "number",
+      },
+      {
+        key: "pendingCount",
+        header: "Pendientes",
+        accessor: (item) => Number(item.summary?.pendingCount || 0),
+        sortType: "number",
+      },
+      {
+        key: "collected",
+        header: "Recaudado",
+        accessor: (item) => Number(item.summary?.totalCollected || 0),
+        sortType: "number",
+        cellClassName: "font-medium text-gray-900",
+        render: (item) => formatMoney(item.summary?.totalCollected || 0),
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="flex min-h-0 flex-col gap-4">
@@ -179,43 +243,12 @@ export default function ActivitiesPage() {
           </div>
 
           <div className={`h-[48vh] overflow-auto ${listQuery.isFetching ? "bg-gray-50/40" : ""}`}>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="sticky top-0 z-10 bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Nombre</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Campus</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Alcance</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Monto</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Estado</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Pagados</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Pendientes</th>
-                    <th className="px-4 py-3 text-left font-medium text-gray-700">Recaudado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {items.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="cursor-pointer transition hover:bg-gray-50"
-                      onClick={() => navigate(ROUTES.dashboardActivityDetail(item.id))}
-                    >
-                      <td className="px-4 py-3 text-gray-900">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-xs text-gray-500">{item.typeLabel}</div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">{item.campus?.code || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700">{item.audienceLabel || "-"}</td>
-                      <td className="px-4 py-3 text-gray-700">{formatMoney(item.amount)}</td>
-                      <td className="px-4 py-3 text-gray-700">{item.status}</td>
-                      <td className="px-4 py-3 text-gray-700">{item.summary?.paidCount || 0}</td>
-                      <td className="px-4 py-3 text-gray-700">{item.summary?.pendingCount || 0}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{formatMoney(item.summary?.totalCollected || 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <OperationalDataTable
+              columns={columns}
+              data={items}
+              rowKey={(item) => item.id}
+              onRowClick={(item) => navigate(ROUTES.dashboardActivityDetail(item.id))}
+            />
           </div>
 
           {!items.length ? (

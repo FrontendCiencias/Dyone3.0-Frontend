@@ -24,6 +24,7 @@ function formatMethod(value) {
   if (value === "CASH") return "Efectivo";
   if (value === "YAPE") return "Yape";
   if (value === "TRANSFER") return "Transferencia";
+  if (value === "CAJA_AREQUIPA") return "Caja Arequipa";
   return value || "-";
 }
 
