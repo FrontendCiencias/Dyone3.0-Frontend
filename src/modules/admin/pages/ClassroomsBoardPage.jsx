@@ -2,11 +2,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Card from "../../../components/ui/Card";
 import Button from "../../../components/ui/Button";
+import SecondaryButton from "../../../shared/ui/SecondaryButton";
+import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
 import { useCampusesQuery } from "../hooks/useCampusesQuery";
 import { useClassroomBoardQuery } from "../hooks/useClassroomBoardQuery";
 import { changeStudentClassroom } from "../../students/services/students.service";
 import { CAPABILITIES, hasCapability } from "../../auth/utils/capabilities";
+import {
+  createClassroomRosterPrintStorageKey,
+  saveClassroomRosterPrintPayload,
+} from "../utils/classroomRosterPrintStorage";
 
 const LEVEL_OPTIONS = [
   { value: "INITIAL", label: "Inicial" },
@@ -35,11 +41,24 @@ function getCampusOptions(data) {
   return Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
 }
 
-function getErrorMessage(error, fallback = "No se pudo completar la operación.") {
+function getErrorMessage(error, fallback = "No se pudo completar la operacion.") {
   const message = error?.response?.data?.message || error?.message;
   if (Array.isArray(message)) return message.join(". ");
   if (typeof message === "string") return message;
   return fallback;
+}
+
+function toPrintableClassroomPayload({ classroom, board }) {
+  return {
+    classroomId: classroom.classroomId,
+    label: classroom.label,
+    section: classroom.section || null,
+    grade: classroom.grade || null,
+    level: classroom.level || board?.level || null,
+    campusCode: board?.campus?.code || null,
+    campusName: board?.campus?.name || board?.campus?.code || null,
+    students: Array.isArray(classroom.students) ? classroom.students : [],
+  };
 }
 
 export default function ClassroomsBoardPage() {
@@ -54,6 +73,8 @@ export default function ClassroomsBoardPage() {
   const [selectedLevel, setSelectedLevel] = useState("SECONDARY");
   const [selectedGrade, setSelectedGrade] = useState(1);
   const [moveTargets, setMoveTargets] = useState({});
+  const [selectedClassroomIds, setSelectedClassroomIds] = useState(() => new Set());
+  const [printError, setPrintError] = useState("");
 
   useEffect(() => {
     if (selectedCampus) return;
@@ -78,10 +99,23 @@ export default function ClassroomsBoardPage() {
     grade: selectedGrade,
   });
 
-  const columns = Array.isArray(boardQuery.data?.columns) ? boardQuery.data.columns : [];
-  const cycleId = boardQuery.data?.cycleId || null;
-  const totalStudents = boardQuery.data?.totals?.students || 0;
+  const board = boardQuery.data || null;
+  const columns = Array.isArray(board?.columns) ? board.columns : [];
+  const cycleId = board?.cycleId || null;
+  const totalStudents = board?.totals?.students || 0;
   const gradeOptions = GRADE_OPTIONS_BY_LEVEL[selectedLevel] || [];
+  const visibleClassroomIds = useMemo(() => columns.map((column) => column.classroomId), [columns]);
+  const allVisibleSelected = visibleClassroomIds.length > 0 && visibleClassroomIds.every((classroomId) => selectedClassroomIds.has(classroomId));
+
+  useEffect(() => {
+    setSelectedClassroomIds((prev) => {
+      const next = new Set();
+      visibleClassroomIds.forEach((classroomId) => {
+        if (prev.has(classroomId)) next.add(classroomId);
+      });
+      return next;
+    });
+  }, [visibleClassroomIds]);
 
   const moveMutation = useMutation({
     mutationFn: ({ studentId, classroomId }) => changeStudentClassroom(studentId, {
@@ -107,6 +141,47 @@ export default function ClassroomsBoardPage() {
     });
   };
 
+  const handleToggleClassroom = (classroomId) => {
+    setSelectedClassroomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(classroomId)) next.delete(classroomId);
+      else next.add(classroomId);
+      return next;
+    });
+  };
+
+  const handleToggleAllVisible = () => {
+    setSelectedClassroomIds((prev) => {
+      if (allVisibleSelected) return new Set();
+      return new Set(visibleClassroomIds);
+    });
+  };
+
+  const handlePrintSelected = () => {
+    setPrintError("");
+
+    const selectedColumns = columns.filter((column) => selectedClassroomIds.has(column.classroomId));
+    if (!selectedColumns.length) return;
+
+    let blockedCount = 0;
+
+    selectedColumns.forEach((column) => {
+      const printKey = createClassroomRosterPrintStorageKey();
+      saveClassroomRosterPrintPayload(printKey, {
+        generatedAt: new Date().toISOString(),
+        items: [toPrintableClassroomPayload({ classroom: column, board })],
+      });
+
+      const previewUrl = `${ROUTES.dashboardClassroomsPrintPreview}?printKey=${encodeURIComponent(printKey)}`;
+      const openedWindow = window.open(previewUrl, "_blank", "noopener,noreferrer");
+      if (!openedWindow) blockedCount += 1;
+    });
+
+    if (blockedCount > 0) {
+      setPrintError("Tu navegador bloqueo una o mas pestanas de impresion. Permite ventanas emergentes para generar todas las listas.");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card className="border border-gray-200 shadow-sm">
@@ -115,8 +190,8 @@ export default function ClassroomsBoardPage() {
             <h2 className="text-lg font-semibold text-gray-900">Salones por grado</h2>
             <p className="mt-1 text-sm text-gray-500">
               {canMoveStudents
-                ? "Revisa todas las secciones de un grado y mueve alumnos entre columnas sin salir de la vista."
-                : "Revisa todas las secciones de un grado y consulta la distribucion actual de alumnos por salon."}
+                ? "Revisa todas las secciones de un grado, mueve alumnos y genera listas imprimibles por salon."
+                : "Revisa todas las secciones de un grado y genera listas imprimibles por salon."}
             </p>
           </div>
 
@@ -170,18 +245,34 @@ export default function ClassroomsBoardPage() {
       </Card>
 
       <Card className="border border-gray-200 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
+        <div className="flex flex-col gap-3 border-b border-gray-100 pb-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="text-sm text-gray-600">
-            <strong className="text-gray-900">{columns.length}</strong> sección(es) ·{" "}
-            <strong className="text-gray-900">{totalStudents}</strong> alumno(s)
+            <strong className="text-gray-900">{columns.length}</strong> seccion(es) visibles - {" "}
+            <strong className="text-gray-900">{totalStudents}</strong> alumno(s) - {" "}
+            <strong className="text-gray-900">{selectedClassroomIds.size}</strong> salon(es) seleccionado(s)
           </div>
 
-          {canMoveStudents && moveMutation.isError ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {getErrorMessage(moveMutation.error, "No se pudo mover el alumno.")}
-            </div>
-          ) : null}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <SecondaryButton onClick={handleToggleAllVisible} disabled={!visibleClassroomIds.length}>
+              {allVisibleSelected ? "Limpiar visibles" : "Seleccionar visibles"}
+            </SecondaryButton>
+            <Button onClick={handlePrintSelected} disabled={!selectedClassroomIds.size}>
+              Imprimir listas
+            </Button>
+          </div>
         </div>
+
+        {printError ? (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {printError}
+          </div>
+        ) : null}
+
+        {canMoveStudents && moveMutation.isError ? (
+          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {getErrorMessage(moveMutation.error, "No se pudo mover el alumno.")}
+          </div>
+        ) : null}
 
         {boardQuery.isLoading || campusesQuery.isLoading ? (
           <div className="py-8 text-sm text-gray-500">Cargando salones...</div>
@@ -198,22 +289,34 @@ export default function ClassroomsBoardPage() {
             <div className="flex min-w-max gap-4 xl:min-w-0">
               {columns.map((column) => {
                 const destinationOptions = columns.filter((row) => row.classroomId !== column.classroomId);
+                const isSelected = selectedClassroomIds.has(column.classroomId);
 
                 return (
                   <div
                     key={column.classroomId}
-                    className="flex w-[340px] shrink-0 flex-col rounded-2xl border border-gray-200 bg-gray-50 xl:w-[calc((100%-2rem)/3)]"
+                    className={[
+                      "flex w-[340px] shrink-0 flex-col rounded-2xl border bg-gray-50 xl:w-[calc((100%-2rem)/3)]",
+                      isSelected ? "border-blue-300 ring-2 ring-blue-100" : "border-gray-200",
+                    ].join(" ")}
                   >
                     <div className="border-b border-gray-200 px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="text-sm font-semibold text-gray-900">{column.label}</h3>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleClassroom(column.classroomId)}
+                              aria-label={`Seleccionar ${column.label}`}
+                            />
+                            <h3 className="text-sm font-semibold text-gray-900">{column.label}</h3>
+                          </div>
                           <p className="mt-1 text-xs text-gray-500">
                             {column.studentsCount} alumno(s)
                           </p>
                         </div>
                         <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600">
-                          Sección {column.section}
+                          Seccion {column.section}
                         </span>
                       </div>
                     </div>
@@ -229,7 +332,7 @@ export default function ClassroomsBoardPage() {
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium text-gray-900">{formatStudentName(student)}</p>
                                 <p className="mt-1 truncate text-xs text-gray-500">
-                                  {student.internalCode || "-"} · {student.dni || "-"}
+                                  {student.internalCode || "-"} - {student.dni || "-"}
                                 </p>
                               </div>
                               <span className="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600">
@@ -266,7 +369,7 @@ export default function ClassroomsBoardPage() {
                         );
                       }) : (
                         <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500">
-                          Sin alumnos en esta sección.
+                          Sin alumnos en esta seccion.
                         </div>
                       )}
                     </div>
