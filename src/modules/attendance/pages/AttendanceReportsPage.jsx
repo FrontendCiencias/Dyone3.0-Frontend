@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Gavel } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
@@ -10,6 +10,7 @@ import { useAttendanceStudentMonthlySummaryQuery } from "../hooks/useAttendanceS
 import { useAttendanceBatchJustificationMutation } from "../hooks/useAttendanceBatchJustificationMutation";
 import { useAttendanceClassroomOptionsQuery } from "../hooks/useAttendanceClassroomOptionsQuery";
 import { useAttendanceClassroomDailyReportQuery } from "../hooks/useAttendanceClassroomDailyReportQuery";
+import { useAttendanceJustifyMutation } from "../hooks/useAttendanceJustifyMutation";
 
 function formatMonthInputValue(date = new Date()) {
   const year = date.getFullYear();
@@ -141,6 +142,7 @@ export default function AttendanceReportsPage() {
   const [selectedRecordIds, setSelectedRecordIds] = useState([]);
   const [justificationReason, setJustificationReason] = useState("");
   const [justifyOpen, setJustifyOpen] = useState(false);
+  const [classroomJustificationTarget, setClassroomJustificationTarget] = useState(null);
   const [classroomId, setClassroomId] = useState("");
   const [classroomDate, setClassroomDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [uiMessage, setUiMessage] = useState("");
@@ -189,6 +191,7 @@ export default function AttendanceReportsPage() {
   });
 
   const batchJustificationMutation = useAttendanceBatchJustificationMutation();
+  const justifyMutation = useAttendanceJustifyMutation();
 
   useEffect(() => {
     setSelectedRecordIds([]);
@@ -239,6 +242,7 @@ export default function AttendanceReportsPage() {
   }, [activeCampus, shouldWarmCampusRoster, studentRoster]);
 
   const selectedCount = selectedRecordIds.length;
+  const canJustifyClassroomItem = (item) => item?.attendance?.status === "LATE" && item?.attendance?.justificationStatus !== "JUSTIFIED";
   const classroomStatusCounts = useMemo(() => classroomItems.reduce((acc, item) => {
     const status = item?.attendance?.status || "UNMARKED";
     acc[status] = (acc[status] || 0) + 1;
@@ -273,6 +277,43 @@ export default function AttendanceReportsPage() {
     if (batchJustificationMutation.isPending) return;
     setJustifyOpen(false);
     setJustificationReason("");
+  };
+
+  const openClassroomJustification = (item) => {
+    setUiMessage("");
+    setJustificationReason("");
+    setClassroomJustificationTarget({
+      recordId: item?.attendance?.recordId || item?.recordId,
+      status: item?.attendance?.status,
+      studentName: item?.person?.fullName || "el alumno",
+    });
+  };
+
+  const closeClassroomJustification = () => {
+    if (justifyMutation.isPending) return;
+    setClassroomJustificationTarget(null);
+    setJustificationReason("");
+  };
+
+  const handleClassroomJustificationSubmit = async (event) => {
+    event.preventDefault();
+    const recordId = classroomJustificationTarget?.recordId;
+    const cleanReason = String(justificationReason || "").trim();
+    if (!recordId || cleanReason.length < 3) return;
+
+    try {
+      await justifyMutation.mutateAsync({
+        recordId,
+        justificationReason: cleanReason,
+      });
+      await classroomReportQuery.refetch();
+      setUiMessage(`Tardanza justificada para ${classroomJustificationTarget?.studentName || "el alumno"}.`);
+      setClassroomJustificationTarget(null);
+      setJustificationReason("");
+    } catch (error) {
+      const message = error?.response?.data?.message || "No se pudo guardar la justificaón.";
+      setUiMessage(Array.isArray(message) ? message.join(". ") : message);
+    }
   };
 
   const handleBulkJustificationSubmit = async (event) => {
@@ -553,6 +594,7 @@ export default function AttendanceReportsPage() {
                       <th className="px-4 py-3">Código</th>
                       <th className="px-4 py-3">Estado</th>
                       <th className="px-4 py-3">Hora</th>
+                      <th className="px-4 py-3 text-right">Acción</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -566,6 +608,21 @@ export default function AttendanceReportsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-600">{item?.attendance?.arrivalTime || "-"}</td>
+                        <td className="px-4 py-3 text-right">
+                          {canJustifyClassroomItem(item) ? (
+                            <button
+                              type="button"
+                              onClick={() => openClassroomJustification(item)}
+                              className="inline-flex items-center justify-center rounded-lg p-2 text-violet-700 transition-colors hover:bg-violet-50 hover:text-violet-900"
+                              title="Justificar tardanza"
+                              aria-label="Justificar tardanza"
+                            >
+                              <Gavel className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -575,6 +632,41 @@ export default function AttendanceReportsPage() {
           </div>
         </div>
       )}
+
+      <BaseModal
+        open={Boolean(classroomJustificationTarget)}
+        onClose={closeClassroomJustification}
+        title={classroomJustificationTarget ? `Justificar tardanza de ${classroomJustificationTarget.studentName}` : "Justificar tardanza"}
+        maxWidthClass="max-w-xl"
+        footer={(
+          <div className="flex justify-end gap-3">
+            <SecondaryButton onClick={closeClassroomJustification} disabled={justifyMutation.isPending}>Cancelar</SecondaryButton>
+            <Button
+              type="submit"
+              form="attendance-classroom-justification-form"
+              disabled={justifyMutation.isPending || String(justificationReason || "").trim().length < 3}
+            >
+              {justifyMutation.isPending ? "Guardando..." : "Guardar justificación"}
+            </Button>
+          </div>
+        )}
+      >
+        <form id="attendance-classroom-justification-form" onSubmit={handleClassroomJustificationSubmit} className="space-y-4 px-5 py-5">
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+            Esta acción justificará la tardanza del alumno dentro del reporte por salón.
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-800">Motivo</label>
+            <textarea
+              value={justificationReason}
+              onChange={(event) => setJustificationReason(event.target.value)}
+              rows={4}
+              className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-orange-300"
+              placeholder="Escribe la justificación"
+            />
+          </div>
+        </form>
+      </BaseModal>
 
       <BaseModal
         open={justifyOpen}
