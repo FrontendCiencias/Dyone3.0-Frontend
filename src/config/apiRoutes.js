@@ -69,6 +69,7 @@ export const API_ROUTES = {
   charges: "/api/charges",
   chargeDetail: (id) => `/api/charges/${id}`,
   paymentsCreate: "/api/payments",
+  paymentsAccounting: "/api/payments/accounting",
   paymentReceiptCorrection: (id) => `/api/payments/${id}/receipt`,
   paymentsDailySummary: "/api/payments/daily-summary",
   paymentsDailyTransactions: "/api/payments/daily-transactions",

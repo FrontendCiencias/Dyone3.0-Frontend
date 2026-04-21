@@ -60,6 +60,21 @@ export async function createPayment(payload) {
   return res.data;
 }
 
+export async function getAccountingPayments({ campus, method, page = 1, limit = 25 } = {}) {
+  const params = { page, limit };
+  if (campus) params.campus = campus;
+  if (method) params.method = method;
+
+  logRequest(API_ROUTES.paymentsAccounting, "GET", params);
+  const res = await axiosInstance.get(API_ROUTES.paymentsAccounting, { params });
+  logResponse(API_ROUTES.paymentsAccounting, res.status, {
+    count: Array.isArray(res.data?.items) ? res.data.items.length : 0,
+    page: res.data?.pageInfo?.page || 1,
+    hasNext: Boolean(res.data?.pageInfo?.hasNext),
+  });
+  return res.data;
+}
+
 export async function updatePaymentReceipt(paymentId, payload) {
   const endpoint = API_ROUTES.paymentReceiptCorrection(paymentId);
   logRequest(endpoint, "PATCH", payload);

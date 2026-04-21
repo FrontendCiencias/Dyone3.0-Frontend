@@ -35,6 +35,7 @@ export const ROUTES = {
   dashboardProgramDetail: (programId = ":programId") => `/dashboard/programs/${programId}`,
   dashboardProgramSessionDetail: (programId = ":programId", sessionId = ":sessionId") => `/dashboard/programs/${programId}/sessions/${sessionId}`,
   dashboardAdmin: "/dashboard/admin",
+  dashboardAdminAccounting: "/dashboard/admin/accounting",
   dashboardAdminSettings: "/dashboard/admin/settings",
   dashboardAdminDev: "/dashboard/admin/dev",
 

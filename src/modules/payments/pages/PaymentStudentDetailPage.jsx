@@ -78,6 +78,15 @@ function isObjectId(value) {
   return /^[a-f\d]{24}$/i.test(String(value || "").trim());
 }
 
+function canSecretaryEditPaymentDate(payment, activeRole) {
+  const normalizedRole = String(activeRole || "").trim().toUpperCase();
+  if (normalizedRole !== "SECRETARY" || !payment) return false;
+
+  const method = String(payment.method || "").trim().toUpperCase();
+  const hasPhysicalReceipt = Boolean(String(payment.receiptNumber || "").trim());
+  return hasPhysicalReceipt || method === "CAJA_AREQUIPA";
+}
+
 const initialChargeForm = {
   billingConceptId: "",
   amount: "",
@@ -125,7 +134,8 @@ export default function PaymentStudentDetailPage() {
   const showDrawer = drawerOpen && selectedChargeRows.length > 0;
   const canCorrectReceipt = hasCapability(activeRole, CAPABILITIES.paymentsCorrectReceipt);
   const canEditReceiptAmount = hasCapability(activeRole, CAPABILITIES.paymentsEditReceiptAmount);
-  const canEditReceiptPaidAt = hasCapability(activeRole, CAPABILITIES.paymentsEditReceiptPaidAt);
+  const canEditReceiptPaidAt = hasCapability(activeRole, CAPABILITIES.paymentsEditReceiptPaidAt)
+    || canSecretaryEditPaymentDate(selectedPayment, activeRole);
   const canReassignReceipt = hasCapability(activeRole, CAPABILITIES.paymentsReassignReceipt);
 
   const topSummaryBlock = (

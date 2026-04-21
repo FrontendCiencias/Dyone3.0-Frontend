@@ -9,6 +9,7 @@ import {
   Users,
   School,
   BookOpenCheck,
+  Landmark,
 } from "lucide-react";
 
 import { ROUTES } from "../../../config/routes";
@@ -94,6 +95,14 @@ const NAV_ITEMS = [
     description: "Mover por seccion",
     icon: School,
     capability: CAPABILITIES.classroomsBoardView,
+  },
+  {
+    to: ROUTES.dashboardAdminAccounting,
+    label: "Admin · Contabilidad",
+    description: "Listado global de pagos",
+    icon: Landmark,
+    capability: CAPABILITIES.adminView,
+    roles: ["ADMIN"],
   },
   {
     to: ROUTES.dashboardAdminSettings,

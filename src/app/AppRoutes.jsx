@@ -6,6 +6,7 @@ import DashboardLayout from "../layouts/DashboardLayout";
 
 import LoginPage from "../modules/auth/pages/LoginPage";
 import LandingPage from "../modules/landing/pages/LandingPage";
+import AdminAccountingPage from "../modules/admin/pages/AdminAccountingPage";
 import AdminConfigPage from "../modules/admin/pages/AdminConfigPage";
 import AdminDevPage from "../modules/admin/pages/AdminDevPage";
 import AdminLegacyRedirectPage from "../modules/admin/pages/AdminLegacyRedirectPage";
@@ -161,6 +162,7 @@ export default function AppRoutes() {
               <Route path={ROUTES.dashboardProgramSessionDetail()} element={<ProgramSessionDetailPage />} />
               <Route path={ROUTES.dashboardProgramDetail()} element={<ProgramDetailPage />} />
               <Route path={ROUTES.dashboardAdmin} element={<AdminLegacyRedirectPage />} />
+              <Route path={ROUTES.dashboardAdminAccounting} element={<AdminAccountingPage />} />
               <Route path={ROUTES.dashboardAdminSettings} element={<AdminConfigPage />} />
               <Route element={<CapabilityRoute capability={CAPABILITIES.adminDevView} />}>
                 <Route path={ROUTES.dashboardAdminDev} element={<AdminDevPage />} />

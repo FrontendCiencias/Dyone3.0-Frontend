@@ -37,6 +37,7 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(todayDate());
   const [method, setMethod] = useState("CASH");
+  const [voucherNumber, setVoucherNumber] = useState("");
   const [receiptNumber, setReceiptNumber] = useState("");
   const [observation, setObservation] = useState("");
   const [formError, setFormError] = useState({});
@@ -62,6 +63,7 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
     setAmount("");
     setPaymentDate(todayDate());
     setMethod("CASH");
+    setVoucherNumber("");
     setReceiptNumber("");
     setObservation("");
     setFormError({});
@@ -122,6 +124,7 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
         amount: parsedAmount,
         paidAt: shouldUseCurrentTimestamp ? currentTimestamp() : paymentDate,
         method,
+        voucherNumber: method === "CAJA_AREQUIPA" ? voucherNumber.trim() || undefined : undefined,
         receiptNumber: receiptNumber.trim() || undefined,
         notes: observation.trim() || undefined,
       });
@@ -132,6 +135,7 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
         setAmount("");
         setPaymentDate(todayDate());
         setMethod("CASH");
+        setVoucherNumber("");
         setReceiptNumber("");
         setObservation("");
       }
@@ -195,8 +199,20 @@ export default function RegisterPaymentModal({ open, onClose, fixedStudent = nul
           <option value="CASH">Efectivo</option>
           <option value="YAPE">Yape</option>
           <option value="TRANSFER">Transferencia</option>
+          <option value="CAJA_AREQUIPA">Caja Arequipa</option>
         </select>
         {formError.method ? <p className="text-sm text-red-600">{formError.method}</p> : null}
+        {method === "CAJA_AREQUIPA" ? (
+          <>
+            <Input
+              label="Operación / voucher Caja Arequipa"
+              value={voucherNumber}
+              onChange={(e) => setVoucherNumber(e.target.value.slice(0, 64))}
+              placeholder="Opcional. Ej: operación o comprobante bancario"
+            />
+            <p className="text-xs text-gray-500">Estos pagos no se suman a la caja del día operativa.</p>
+          </>
+        ) : null}
 
         <Input
           label="Recibo físico anterior"

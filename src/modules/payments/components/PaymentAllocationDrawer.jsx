@@ -41,6 +41,7 @@ export default function PaymentAllocationDrawer({
   const [useHistoricalReceipt, setUseHistoricalReceipt] = useState(false);
   const [paymentDate, setPaymentDate] = useState(todayDate());
   const [method, setMethod] = useState("CASH");
+  const [voucherNumber, setVoucherNumber] = useState("");
   const [receiptNumber, setReceiptNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState("");
@@ -56,6 +57,7 @@ export default function PaymentAllocationDrawer({
     setUseHistoricalReceipt(false);
     setPaymentDate(todayDate());
     setMethod("CASH");
+    setVoucherNumber("");
     setReceiptNumber("");
     setNotes("");
     setFormError("");
@@ -104,6 +106,7 @@ export default function PaymentAllocationDrawer({
       studentId: student.id,
       paidAt: effectivePaymentDate,
       method,
+      voucherNumber: method === "CAJA_AREQUIPA" ? voucherNumber.trim() || undefined : undefined,
       receiptNumber: useHistoricalReceipt ? receiptNumber.trim() || undefined : undefined,
       notes: notes.trim() || undefined,
       amount: subtotal,
@@ -214,8 +217,24 @@ export default function PaymentAllocationDrawer({
               <option value="CASH">Efectivo</option>
               <option value="YAPE">Yape</option>
               <option value="TRANSFER">Transferencia</option>
+              <option value="CAJA_AREQUIPA">Caja Arequipa</option>
             </select>
+            {method === "CAJA_AREQUIPA" ? (
+              <p className="mt-1 text-xs text-gray-500">
+                Este pago no ingresará a la caja del día y quedará registrado como Caja Arequipa.
+              </p>
+            ) : null}
           </div>
+
+          {method === "CAJA_AREQUIPA" ? (
+            <Input
+              label="Operación / voucher Caja Arequipa"
+              value={voucherNumber}
+              disabled={Boolean(createdReceipt)}
+              onChange={(e) => setVoucherNumber(e.target.value.slice(0, 64))}
+              placeholder="Opcional. Ej: operación o comprobante bancario"
+            />
+          ) : null}
 
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <input

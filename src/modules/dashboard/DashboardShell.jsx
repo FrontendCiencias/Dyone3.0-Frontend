@@ -29,6 +29,7 @@ const PAGE_META = {
   activities: { title: "Actividades", description: "Concursos, eventos y recaudaciones especiales fuera de caja diaria." },
   activityDetail: { title: "Detalle de actividad", description: "Participantes, cobros y control operativo por cobrador." },
   activityPaidList: { title: "Lista de pagados", description: "Tabla consolidada de estudiantes pagados en la actividad." },
+  adminAccounting: { title: "Contabilidad", description: "Consulta global de pagos, métodos y trazabilidad bancaria." },
   adminSettings: { title: "Configuracion", description: "Sedes, ciclos, aulas y conceptos." },
   adminDev: { title: "Desarrollo", description: "Endpoints, modelos y utilidades tecnicas." },
   enrollments: { title: "Matriculas", description: "Monitorea y registra el flujo de matriculas." },
@@ -52,6 +53,7 @@ function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboardPaymentsCajaArequipa) return "paymentsCajaArequipa";
   if (pathname === ROUTES.dashboardPaymentsDailyCash) return "paymentsDailyCash";
   if (pathname === ROUTES.dashboardPaymentsDebtorsPrint) return "paymentsDebtorsPrint";
+  if (pathname === ROUTES.dashboardAdminAccounting) return "adminAccounting";
   if (pathname === ROUTES.dashboardActivities) return "activities";
   if (/^\/dashboard\/activities\/[^/]+\/lista$/.test(pathname)) return "activityPaidList";
   if (/^\/dashboard\/activities\/[^/]+$/.test(pathname)) return "activityDetail";
@@ -197,6 +199,14 @@ export default function DashboardShell() {
         rootCrumb,
         { label: "Admin", to: ROUTES.dashboardAdminSettings },
         { label: "Configuracion" },
+      ];
+    }
+
+    if (pageKey === "adminAccounting") {
+      return [
+        rootCrumb,
+        { label: "Admin", to: ROUTES.dashboardAdminAccounting },
+        { label: "Contabilidad" },
       ];
     }
 
