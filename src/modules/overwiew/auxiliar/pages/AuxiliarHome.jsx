@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardCheck, FileSearch, ShieldCheck } from "lucide-react";
+import { ClipboardCheck, FileSearch, ShieldCheck, School } from "lucide-react";
 import { ROUTES } from "../../../../config/routes";
 import { useAuth } from "../../../../lib/auth";
 import { getRoleTheme } from "../../../dashboard/config/roleTheme";
@@ -46,7 +46,7 @@ export default function AuxiliarHome() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
         <QuickCard
           icon={ClipboardCheck}
           title="Abrir flujo de asistencia"
@@ -69,6 +69,14 @@ export default function AuxiliarHome() {
           description="Consulta el espacio destinado a reportes mensuales por alumno y por salón."
           cta="Ir a reportes"
           onClick={() => navigate(ROUTES.dashboardAttendanceReports)}
+          accent={theme}
+        />
+        <QuickCard
+          icon={School}
+          title="Salones"
+          description="Consulta la distribucion actual de alumnos por grado, seccion y sede."
+          cta="Ir a salones"
+          onClick={() => navigate(ROUTES.dashboardClassrooms)}
           accent={theme}
         />
       </section>

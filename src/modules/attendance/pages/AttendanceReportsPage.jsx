@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, Users } from "lucide-react";
+import { Search, Users, Gavel } from "lucide-react";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
@@ -10,6 +10,7 @@ import { useAttendanceStudentMonthlySummaryQuery } from "../hooks/useAttendanceS
 import { useAttendanceBatchJustificationMutation } from "../hooks/useAttendanceBatchJustificationMutation";
 import { useAttendanceClassroomOptionsQuery } from "../hooks/useAttendanceClassroomOptionsQuery";
 import { useAttendanceClassroomDailyReportQuery } from "../hooks/useAttendanceClassroomDailyReportQuery";
+import { useAttendanceJustifyMutation } from "../hooks/useAttendanceJustifyMutation";
 
 function formatMonthInputValue(date = new Date()) {
   const year = date.getFullYear();
@@ -43,6 +44,18 @@ function getStudentFullName(student) {
   const names = String(student?.names || "").trim();
   if (lastNames && names) return `${lastNames}, ${names}`;
   return lastNames || names || student?.fullName || "-";
+}
+
+function getStudentCode(student) {
+  return student?.internalCode || student?.code || "-";
+}
+
+function normalizeSearchValue(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 function getAttendanceTone(status, justificationStatus) {
@@ -129,29 +142,38 @@ export default function AttendanceReportsPage() {
   const [selectedRecordIds, setSelectedRecordIds] = useState([]);
   const [justificationReason, setJustificationReason] = useState("");
   const [justifyOpen, setJustifyOpen] = useState(false);
+  const [classroomJustificationTarget, setClassroomJustificationTarget] = useState(null);
   const [classroomId, setClassroomId] = useState("");
   const [classroomDate, setClassroomDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [uiMessage, setUiMessage] = useState("");
+  const normalizedStudentSearch = String(studentSearch || "").trim();
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setDebouncedStudentSearch(studentSearch.trim());
-    }, 250);
+      setDebouncedStudentSearch(normalizedStudentSearch);
+    }, 450);
     return () => window.clearTimeout(timer);
-  }, [studentSearch]);
+  }, [normalizedStudentSearch]);
 
   const [year, month] = useMemo(() => {
     const [parsedYear, parsedMonth] = String(monthValue || "").split("-").map(Number);
     return [parsedYear, parsedMonth];
   }, [monthValue]);
 
-  const studentsQuery = useStudentsSearchQuery({
-    q: debouncedStudentSearch,
-    enabled: reportType === "student" && debouncedStudentSearch.length >= 2,
-    campus: activeCampus === "ALL" ? null : activeCampus,
-    mode: activeCampus === "ALL" ? "global" : "campus",
-    limit: 8,
+  const shouldSearchStudents =
+    reportType === "student" &&
+    debouncedStudentSearch.length >= 3 &&
+    debouncedStudentSearch !== String(selectedStudent?.fullName || "").trim();
+  const shouldWarmCampusRoster = reportType === "student" && activeCampus !== "ALL";
+
+  const studentRosterQuery = useStudentsSearchQuery({
+    q: "",
+    enabled: shouldWarmCampusRoster,
+    campus: shouldWarmCampusRoster ? activeCampus : null,
+    mode: "campus",
+    limit: 2500,
   });
+  const useLocalStudentSearch = shouldWarmCampusRoster;
 
   const studentReportQuery = useAttendanceStudentMonthlySummaryQuery({
     studentId: selectedStudent?.id,
@@ -169,18 +191,58 @@ export default function AttendanceReportsPage() {
   });
 
   const batchJustificationMutation = useAttendanceBatchJustificationMutation();
+  const justifyMutation = useAttendanceJustifyMutation();
 
   useEffect(() => {
     setSelectedRecordIds([]);
   }, [selectedStudent?.id, monthValue]);
 
-  const studentResults = Array.isArray(studentsQuery.data?.items) ? studentsQuery.data.items : [];
+  const studentRoster = Array.isArray(studentRosterQuery.data?.items) ? studentRosterQuery.data.items : [];
   const monthlyRecords = Array.isArray(studentReportQuery.data?.records) ? studentReportQuery.data.records : [];
   const classroomOptions = Array.isArray(classroomOptionsQuery.data?.items) ? classroomOptionsQuery.data.items : [];
   const classroomItems = Array.isArray(classroomReportQuery.data?.items) ? classroomReportQuery.data.items : [];
   const calendarCells = useMemo(() => buildCalendarDays(year, month, monthlyRecords), [year, month, monthlyRecords]);
+  const selectedRecords = useMemo(
+    () => monthlyRecords.filter((record) => selectedRecordIds.includes(record.recordId)),
+    [monthlyRecords, selectedRecordIds]
+  );
+  const studentResults = useMemo(() => {
+    if (!useLocalStudentSearch || debouncedStudentSearch.length < 3) return [];
+
+    const normalizedQuery = normalizeSearchValue(debouncedStudentSearch);
+    return studentRoster
+      .filter((student) => {
+        const fullName = normalizeSearchValue(getStudentFullName(student));
+        const internalCode = normalizeSearchValue(getStudentCode(student));
+        return fullName.includes(normalizedQuery) || internalCode.includes(normalizedQuery);
+      })
+      .slice(0, 8);
+  }, [debouncedStudentSearch, studentRoster, useLocalStudentSearch]);
+  const isStudentSearchLoading = useLocalStudentSearch && studentRosterQuery.isLoading;
+  const showStudentSearchPanel =
+    debouncedStudentSearch.length >= 3 &&
+    shouldSearchStudents &&
+    (isStudentSearchLoading || studentResults.length > 0 || !studentRosterQuery.isLoading);
+  const noStudentMatches =
+    showStudentSearchPanel &&
+    !isStudentSearchLoading &&
+    !studentRosterQuery.error &&
+    !studentResults.length;
+
+  useEffect(() => {
+    if (!shouldWarmCampusRoster || !studentRoster.length) return;
+    console.log("[AttendanceReports][StudentRoster][Loaded]", {
+      activeCampus,
+      total: studentRoster.length,
+      names: studentRoster.map((student) => ({
+        code: getStudentCode(student),
+        fullName: getStudentFullName(student),
+      })),
+    });
+  }, [activeCampus, shouldWarmCampusRoster, studentRoster]);
 
   const selectedCount = selectedRecordIds.length;
+  const canJustifyClassroomItem = (item) => item?.attendance?.status === "LATE" && item?.attendance?.justificationStatus !== "JUSTIFIED";
   const classroomStatusCounts = useMemo(() => classroomItems.reduce((acc, item) => {
     const status = item?.attendance?.status || "UNMARKED";
     acc[status] = (acc[status] || 0) + 1;
@@ -191,7 +253,7 @@ export default function AttendanceReportsPage() {
     setSelectedStudent({
       id: student?._id || student?.id,
       fullName: getStudentFullName(student),
-      internalCode: student?.internalCode || null,
+      internalCode: getStudentCode(student),
     });
     setStudentSearch(getStudentFullName(student));
   };
@@ -215,6 +277,43 @@ export default function AttendanceReportsPage() {
     if (batchJustificationMutation.isPending) return;
     setJustifyOpen(false);
     setJustificationReason("");
+  };
+
+  const openClassroomJustification = (item) => {
+    setUiMessage("");
+    setJustificationReason("");
+    setClassroomJustificationTarget({
+      recordId: item?.attendance?.recordId || item?.recordId,
+      status: item?.attendance?.status,
+      studentName: item?.person?.fullName || "el alumno",
+    });
+  };
+
+  const closeClassroomJustification = () => {
+    if (justifyMutation.isPending) return;
+    setClassroomJustificationTarget(null);
+    setJustificationReason("");
+  };
+
+  const handleClassroomJustificationSubmit = async (event) => {
+    event.preventDefault();
+    const recordId = classroomJustificationTarget?.recordId;
+    const cleanReason = String(justificationReason || "").trim();
+    if (!recordId || cleanReason.length < 3) return;
+
+    try {
+      await justifyMutation.mutateAsync({
+        recordId,
+        justificationReason: cleanReason,
+      });
+      await classroomReportQuery.refetch();
+      setUiMessage(`Tardanza justificada para ${classroomJustificationTarget?.studentName || "el alumno"}.`);
+      setClassroomJustificationTarget(null);
+      setJustificationReason("");
+    } catch (error) {
+      const message = error?.response?.data?.message || "No se pudo guardar la justificaón.";
+      setUiMessage(Array.isArray(message) ? message.join(". ") : message);
+    }
   };
 
   const handleBulkJustificationSubmit = async (event) => {
@@ -288,27 +387,43 @@ export default function AttendanceReportsPage() {
                   <label className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">Alumno</label>
                   <Input
                     value={studentSearch}
-                    onChange={(event) => setStudentSearch(event.target.value)}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setStudentSearch(nextValue);
+                      if (selectedStudent && nextValue.trim() !== String(selectedStudent.fullName || "").trim()) {
+                        setSelectedStudent(null);
+                      }
+                    }}
                     placeholder="Busca por código, nombre o apellidos"
                     className="mt-2"
                   />
 
-                  {debouncedStudentSearch.length >= 2 && studentResults.length ? (
+                  {showStudentSearchPanel ? (
                     <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
-                      {studentResults.map((student) => (
-                        <button
-                          key={student._id || student.id}
-                          type="button"
-                          onClick={() => handleStudentPick(student)}
-                          className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 hover:bg-gray-50"
-                        >
-                          <div>
-                            <div className="text-sm font-semibold text-gray-950">{getStudentFullName(student)}</div>
-                            <div className="mt-1 text-xs text-gray-500">{student?.internalCode || "-"}</div>
-                          </div>
-                          <div className="text-xs text-gray-500">{student?.lastKnownClassroom || student?.section || ""}</div>
-                        </button>
-                      ))}
+                      {isStudentSearchLoading ? (
+                        <div className="px-4 py-3 text-sm text-gray-500">Buscando alumnos...</div>
+                      ) : null}
+                      {!isStudentSearchLoading && studentResults.length ? (
+                        studentResults.map((student) => (
+                          <button
+                            key={student._id || student.id}
+                            type="button"
+                            onClick={() => handleStudentPick(student)}
+                            className="flex w-full items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 hover:bg-gray-50"
+                          >
+                            <div>
+                              <div className="text-sm font-semibold text-gray-950">{getStudentFullName(student)}</div>
+                              <div className="mt-1 text-xs text-gray-500">{student?.internalCode || "-"}</div>
+                            </div>
+                            <div className="text-xs text-gray-500">{student?.lastKnownClassroom || student?.section || ""}</div>
+                          </button>
+                        ))
+                      ) : null}
+                      {noStudentMatches ? (
+                        <div className="px-4 py-3 text-sm text-gray-500">
+                          No encontramos alumnos que coincidan con "{debouncedStudentSearch}".
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -327,7 +442,9 @@ export default function AttendanceReportsPage() {
                 </div>
               ) : (
                 <div className="mt-5 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
-                  Elige un alumno para abrir su reporte mensual y justificar faltas o tardanzas.
+                  {normalizedStudentSearch.length > 0 && normalizedStudentSearch.length < 3
+                    ? "Escribe al menos 3 caracteres para buscar un alumno."
+                    : "Elige un alumno para abrir su reporte mensual y justificar faltas o tardanzas."}
                 </div>
               )}
             </div>
@@ -477,6 +594,7 @@ export default function AttendanceReportsPage() {
                       <th className="px-4 py-3">Código</th>
                       <th className="px-4 py-3">Estado</th>
                       <th className="px-4 py-3">Hora</th>
+                      <th className="px-4 py-3 text-right">Acción</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -490,6 +608,21 @@ export default function AttendanceReportsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-600">{item?.attendance?.arrivalTime || "-"}</td>
+                        <td className="px-4 py-3 text-right">
+                          {canJustifyClassroomItem(item) ? (
+                            <button
+                              type="button"
+                              onClick={() => openClassroomJustification(item)}
+                              className="inline-flex items-center justify-center rounded-lg p-2 text-violet-700 transition-colors hover:bg-violet-50 hover:text-violet-900"
+                              title="Justificar tardanza"
+                              aria-label="Justificar tardanza"
+                            >
+                              <Gavel className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -499,6 +632,41 @@ export default function AttendanceReportsPage() {
           </div>
         </div>
       )}
+
+      <BaseModal
+        open={Boolean(classroomJustificationTarget)}
+        onClose={closeClassroomJustification}
+        title={classroomJustificationTarget ? `Justificar tardanza de ${classroomJustificationTarget.studentName}` : "Justificar tardanza"}
+        maxWidthClass="max-w-xl"
+        footer={(
+          <div className="flex justify-end gap-3">
+            <SecondaryButton onClick={closeClassroomJustification} disabled={justifyMutation.isPending}>Cancelar</SecondaryButton>
+            <Button
+              type="submit"
+              form="attendance-classroom-justification-form"
+              disabled={justifyMutation.isPending || String(justificationReason || "").trim().length < 3}
+            >
+              {justifyMutation.isPending ? "Guardando..." : "Guardar justificación"}
+            </Button>
+          </div>
+        )}
+      >
+        <form id="attendance-classroom-justification-form" onSubmit={handleClassroomJustificationSubmit} className="space-y-4 px-5 py-5">
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+            Esta acción justificará la tardanza del alumno dentro del reporte por salón.
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-800">Motivo</label>
+            <textarea
+              value={justificationReason}
+              onChange={(event) => setJustificationReason(event.target.value)}
+              rows={4}
+              className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none focus:border-orange-300"
+              placeholder="Escribe la justificación"
+            />
+          </div>
+        </form>
+      </BaseModal>
 
       <BaseModal
         open={justifyOpen}
@@ -522,6 +690,23 @@ export default function AttendanceReportsPage() {
           <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 text-sm text-gray-600">
             Esta acción justificará todos los días seleccionados del reporte mensual del alumno.
           </div>
+          {selectedRecords.length ? (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-600">
+                Días seleccionados
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedRecords.map((record) => (
+                  <span
+                    key={record.recordId}
+                    className="inline-flex rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-800"
+                  >
+                    {formatLongDate(record.date)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div>
             <label className="text-sm font-medium text-gray-800">Motivo</label>
             <textarea

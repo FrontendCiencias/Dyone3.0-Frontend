@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, CalendarClock, CheckCheck, PlayCircle } from "lucide-react";
 import Button from "../../../components/ui/Button";
-import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
 import { useAuth } from "../../../lib/auth";
 import { getRoleTheme } from "../../dashboard/config/roleTheme";
@@ -197,9 +196,9 @@ export default function AttendanceIntakePage() {
           </div>
         ) : null}
 
-        <div className="mt-5">
+        {false ? <div className="mt-5">
           <SecondaryButton onClick={() => navigate(ROUTES.dashboardAttendance)}>Volver al módulo</SecondaryButton>
-        </div>
+        </div> : null}
 
         {uiMessage ? <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{uiMessage}</p> : null}
       </section>

@@ -34,6 +34,7 @@ import ActivitiesPage from "../modules/activities/pages/ActivitiesPage";
 import ActivityDetailPage from "../modules/activities/pages/ActivityDetailPage";
 import ActivityPaidListPage from "../modules/activities/pages/ActivityPaidListPage";
 import ClassroomsBoardPage from "../modules/admin/pages/ClassroomsBoardPage";
+import ClassroomRosterPrintPreviewPage from "../modules/admin/pages/ClassroomRosterPrintPreviewPage";
 import AttendanceIntakePage from "../modules/attendance/pages/AttendanceIntakePage";
 import AttendanceTakePage from "../modules/attendance/pages/AttendanceTakePage";
 import AttendanceJustificationsPage from "../modules/attendance/pages/AttendanceJustificationsPage";
@@ -100,6 +101,9 @@ export default function AppRoutes() {
           <Route element={<CapabilityRoute capability={CAPABILITIES.studentsPrintCards} />}>
             <Route path={ROUTES.dashboardStudentsPrintCardsPreview} element={<StudentPrintCardsPreviewPage />} />
           </Route>
+          <Route element={<CapabilityRoute capability={CAPABILITIES.classroomsBoardView} />}>
+            <Route path={ROUTES.dashboardClassroomsPrintPreview} element={<ClassroomRosterPrintPreviewPage />} />
+          </Route>
           <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsPrintDebtors} />}>
             <Route path={ROUTES.dashboardPaymentsDebtorsPrintPreview} element={<PaymentsDebtorsPrintPreviewPage />} />
             <Route path={ROUTES.dashboardPaymentsDebtorsLettersPreview} element={<PaymentsDebtorsLettersPreviewPage />} />
@@ -118,11 +122,12 @@ export default function AppRoutes() {
               <Route path={ROUTES.dashboardAttendanceReports} element={<AttendanceReportsPage />} />
             </Route>
 
+            <Route element={<CapabilityRoute capability={CAPABILITIES.classroomsBoardView} />}>
+              <Route path={ROUTES.dashboardClassrooms} element={<ClassroomsBoardPage />} />
+            </Route>
+
             <Route element={<CapabilityRoute capability={CAPABILITIES.studentsView} />}>
               <Route path={ROUTES.dashboardStudents} element={<StudentsPage />} />
-              <Route element={<CapabilityRoute capability={CAPABILITIES.classroomsBoardView} />}>
-                <Route path={ROUTES.dashboardClassrooms} element={<ClassroomsBoardPage />} />
-              </Route>
               <Route element={<CapabilityRoute capability={CAPABILITIES.studentsPrintCards} />}>
                 <Route path={ROUTES.dashboardStudentsPrintCards} element={<StudentPrintCardsPage />} />
               </Route>

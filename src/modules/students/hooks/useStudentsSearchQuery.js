@@ -23,5 +23,6 @@ export function useStudentsSearchQuery({
     enabled: Boolean(token) && Boolean(enabled) && (mode === "global" || Boolean(campus)),
     retry: false,
     refetchOnWindowFocus: false,
+    staleTime: 60_000,
   });
 }
