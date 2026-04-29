@@ -75,6 +75,10 @@ export async function getAccountingPayments({ campus, method, page = 1, limit = 
   return res.data;
 }
 
+export async function getRegisteredPayments({ campus, method, page = 1, limit = 25 } = {}) {
+  return getAccountingPayments({ campus, method, page, limit });
+}
+
 export async function updatePaymentReceipt(paymentId, payload) {
   const endpoint = API_ROUTES.paymentReceiptCorrection(paymentId);
   logRequest(endpoint, "PATCH", payload);

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Filter, Landmark, Users, Wallet2 } from "lucide-react";
+import { AlertCircle, Filter, Landmark, ReceiptText, Users, Wallet2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Input from "../../../components/ui/Input";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
@@ -196,20 +196,21 @@ export default function PaymentsPage() {
       ) : (
         <div className={`grid gap-3 md:grid-cols-2 xl:grid-cols-4 ${activeQuery.isFetching ? "opacity-75" : ""}`}>
           <OperationalSummaryCard
-            label="Alumnos"
-            value={String(visibleStudents)}
-            hint={isSearchMode ? "Resultados de búsqueda" : "Registros visibles en cartera"}
-            icon={Users}
-            variant="neutral"
-            loading={activeQuery.isLoading}
-          />
-          <OperationalSummaryCard
             label="Vencido"
             value={formatMoney(totalOverdue)}
             hint="Deuda vencida visible"
             icon={AlertCircle}
             variant="amber"
             loading={activeQuery.isLoading}
+          />
+          <OperationalSummaryCard
+            label="Pagos registrados"
+            value="Abrir vista"
+            hint="Consulta todos los pagos guardados"
+            actionLabel="Abrir"
+            icon={ReceiptText}
+            variant="blue"
+            onAction={() => navigate(ROUTES.dashboardPaymentsRegistered)}
           />
           <OperationalSummaryCard
             label="Caja Arequipa"
@@ -338,3 +339,4 @@ export default function PaymentsPage() {
     </div>
   );
 }
+

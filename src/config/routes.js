@@ -25,6 +25,7 @@ export const ROUTES = {
   dashboardPaymentsCajaArequipa: "/dashboard/payments/caja-arequipa",
   dashboardPaymentsCajaArequipaPrintPreview: "/dashboard/payments/caja-arequipa/print-preview",
   dashboardPaymentsDailyCash: "/dashboard/payments/daily-cash",
+  dashboardPaymentsRegistered: "/dashboard/payments/registered",
   dashboardPaymentsDebtorsPrint: "/dashboard/payments/debtors/print",
   dashboardPaymentsDebtorsPrintPreview: "/dashboard/payments/debtors/print/preview",
   dashboardPaymentsDebtorsLettersPreview: "/dashboard/payments/debtors/print/letters-preview",

@@ -25,6 +25,7 @@ const PAGE_META = {
   paymentDetail: { title: "Detalle de pagos", description: "Revisa deuda, pagos y registro de cobros por alumno." },
   paymentsCajaArequipa: { title: "Caja Arequipa", description: "Sube PDFs bancarios, revisa coincidencias y confirma importaciones de pensiones." },
   paymentsDailyCash: { title: "Caja del día", description: "Consulta ingresos del día y revisa movimientos recientes por fecha." },
+  paymentsRegistered: { title: "Pagos registrados", description: "Lista todos los pagos guardados con concepto, origen y vencimiento asociado." },
   paymentsDebtorsPrint: { title: "Imprimir lista de deudores", description: "Filtra alumnos con deuda, selecciona destinatarios e imprime lista o comunicados." },
   activities: { title: "Actividades", description: "Concursos, eventos y recaudaciones especiales fuera de caja diaria." },
   activityDetail: { title: "Detalle de actividad", description: "Participantes, cobros y control operativo por cobrador." },
@@ -52,6 +53,7 @@ function resolvePageKey(pathname) {
   if (pathname === ROUTES.dashboardClassrooms) return "classrooms";
   if (pathname === ROUTES.dashboardPaymentsCajaArequipa) return "paymentsCajaArequipa";
   if (pathname === ROUTES.dashboardPaymentsDailyCash) return "paymentsDailyCash";
+  if (pathname === ROUTES.dashboardPaymentsRegistered) return "paymentsRegistered";
   if (pathname === ROUTES.dashboardPaymentsDebtorsPrint) return "paymentsDebtorsPrint";
   if (pathname === ROUTES.dashboardAdminAccounting) return "adminAccounting";
   if (pathname === ROUTES.dashboardActivities) return "activities";
@@ -312,6 +314,14 @@ export default function DashboardShell() {
         rootCrumb,
         { label: "Pagos", to: ROUTES.dashboardPayments },
         { label: "Imprimir lista de deudores" },
+      ];
+    }
+
+    if (pageKey === "paymentsRegistered") {
+      return [
+        rootCrumb,
+        { label: "Pagos", to: ROUTES.dashboardPayments },
+        { label: "Pagos registrados" },
       ];
     }
 

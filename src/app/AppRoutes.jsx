@@ -26,6 +26,7 @@ import PaymentsPage from "../modules/payments/pages/PaymentsPage";
 import PaymentsCajaArequipaPage from "../modules/payments/pages/PaymentsCajaArequipaPage";
 import PaymentsCajaArequipaPrintPreviewPage from "../modules/payments/pages/PaymentsCajaArequipaPrintPreviewPage";
 import PaymentsDailyCashPage from "../modules/payments/pages/PaymentsDailyCashPage";
+import PaymentsRegisteredPage from "../modules/payments/pages/PaymentsRegisteredPage";
 import PaymentsDebtorsPrintPage from "../modules/payments/pages/PaymentsDebtorsPrintPage";
 import PaymentsDebtorsPrintPreviewPage from "../modules/payments/pages/PaymentsDebtorsPrintPreviewPage";
 import PaymentsDebtorsLettersPreviewPage from "../modules/payments/pages/PaymentsDebtorsLettersPreviewPage";
@@ -150,6 +151,7 @@ export default function AppRoutes() {
                 <Route path={ROUTES.dashboardPaymentsCajaArequipa} element={<PaymentsCajaArequipaPage />} />
               </Route>
               <Route path={ROUTES.dashboardPaymentsDailyCash} element={<PaymentsDailyCashPage />} />
+              <Route path={ROUTES.dashboardPaymentsRegistered} element={<PaymentsRegisteredPage />} />
               <Route element={<CapabilityRoute capability={CAPABILITIES.paymentsPrintDebtors} />}>
                 <Route path={ROUTES.dashboardPaymentsDebtorsPrint} element={<PaymentsDebtorsPrintPage />} />
               </Route>
