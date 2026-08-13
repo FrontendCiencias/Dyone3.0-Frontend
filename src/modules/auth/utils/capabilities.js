@@ -59,6 +59,7 @@ const ROLE_CAPABILITIES = {
     CAPABILITIES.paymentsCorrectReceipt,
     CAPABILITIES.activitiesView,
     CAPABILITIES.activitiesCollect,
+    CAPABILITIES.classroomsBoardView,
   ],
   SECRETARY_VIEWER: [
     CAPABILITIES.dashboardView,

@@ -100,7 +100,10 @@ export default function ClassroomsBoardPage() {
   });
 
   const board = boardQuery.data || null;
-  const columns = Array.isArray(board?.columns) ? board.columns : [];
+  const columns = useMemo(
+    () => (Array.isArray(boardQuery.data?.columns) ? boardQuery.data.columns : []),
+    [boardQuery.data?.columns],
+  );
   const cycleId = board?.cycleId || null;
   const totalStudents = board?.totals?.students || 0;
   const gradeOptions = GRADE_OPTIONS_BY_LEVEL[selectedLevel] || [];
@@ -113,6 +116,9 @@ export default function ClassroomsBoardPage() {
       visibleClassroomIds.forEach((classroomId) => {
         if (prev.has(classroomId)) next.add(classroomId);
       });
+      if (next.size === prev.size && [...next].every((classroomId) => prev.has(classroomId))) {
+        return prev;
+      }
       return next;
     });
   }, [visibleClassroomIds]);
