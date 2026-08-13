@@ -92,6 +92,7 @@ const initialChargeForm = {
   amount: "",
   hasDueDate: false,
   dueDate: "",
+  customDescription: "",
   observation: "",
 };
 
@@ -241,6 +242,9 @@ export default function PaymentStudentDetailPage() {
 
     const selectedBillingConceptId = String(selectedConcept?.id || selectedConcept?._id || "").trim();
     const selectedConceptName = String(selectedConcept?.name || selectedConcept?.code || chargeForm.billingConceptId || "").trim();
+    const requiresCustomDescription = String(selectedConcept?.code || "").trim().toUpperCase() === "OTHER";
+    const customDescription = String(chargeForm.customDescription || "").trim();
+    if (requiresCustomDescription && !customDescription) return;
 
     await createChargeMutation.mutateAsync({
       studentId,
@@ -248,6 +252,7 @@ export default function PaymentStudentDetailPage() {
         ? { billingConceptId: selectedBillingConceptId }
         : { conceptName: selectedConceptName }),
       amount,
+      customDescription: customDescription || undefined,
       dueDate: chargeForm.hasDueDate ? chargeForm.dueDate : undefined,
       observation: chargeForm.observation.trim() || undefined,
     });
@@ -256,12 +261,15 @@ export default function PaymentStudentDetailPage() {
   const handleEditCharge = async (formValues) => {
     const amount = Number(formValues?.amount);
     if (!editingCharge?.id || Number.isNaN(amount) || amount <= 0) return;
+    const customDescription = String(formValues?.customDescription || "").trim();
+    if (String(editingCharge?.conceptCode || "").trim().toUpperCase() === "OTHER" && !customDescription) return;
 
     await updateChargeMutation.mutateAsync({
       chargeId: editingCharge.id,
       payload: {
         amount,
         dueDate: String(formValues?.dueDate || "").trim() || undefined,
+        customDescription,
       },
     });
   };

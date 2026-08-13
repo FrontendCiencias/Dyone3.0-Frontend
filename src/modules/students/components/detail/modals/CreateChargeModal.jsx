@@ -16,6 +16,10 @@ export default function CreateChargeModal({
   errorMessage,
 }) {
   const resolveConceptOptionValue = (concept) => concept?.id || concept?._id || concept?.code || concept?.name || "";
+  const selectedConcept = billingConcepts.find(
+    (concept) => String(resolveConceptOptionValue(concept)) === String(chargeForm.billingConceptId || ""),
+  );
+  const requiresCustomDescription = String(selectedConcept?.code || "").trim().toUpperCase() === "OTHER";
 
   return (
     <BaseModal
@@ -38,7 +42,12 @@ export default function CreateChargeModal({
       footer={
         <div className="flex justify-end gap-2">
           <SecondaryButton onClick={onClose}>Cancelar</SecondaryButton>
-          <Button onClick={onCreate} disabled={isPending || isSuccess}>Crear cargo</Button>
+          <Button
+            onClick={onCreate}
+            disabled={isPending || isSuccess || (requiresCustomDescription && !String(chargeForm.customDescription || "").trim())}
+          >
+            Crear cargo
+          </Button>
         </div>
       }
     >
@@ -47,7 +56,18 @@ export default function CreateChargeModal({
         <select
           className="w-full rounded-lg border border-gray-300 px-3 py-2"
           value={chargeForm.billingConceptId}
-          onChange={(e) => setChargeForm((prev) => ({ ...prev, billingConceptId: e.target.value }))}
+          onChange={(e) => {
+            const nextValue = e.target.value;
+            const nextConcept = billingConcepts.find(
+              (concept) => String(resolveConceptOptionValue(concept)) === String(nextValue),
+            );
+            const isOther = String(nextConcept?.code || "").trim().toUpperCase() === "OTHER";
+            setChargeForm((prev) => ({
+              ...prev,
+              billingConceptId: nextValue,
+              customDescription: isOther ? prev.customDescription : "",
+            }));
+          }}
         >
           <option value="">Selecciona un concepto</option>
           {billingConcepts.map((concept) => (
@@ -56,6 +76,16 @@ export default function CreateChargeModal({
             </option>
           ))}
         </select>
+        {requiresCustomDescription ? (
+          <Input
+            label="Descripción específica del cargo"
+            value={chargeForm.customDescription || ""}
+            maxLength={200}
+            required
+            placeholder="Ej.: Paseo de promoción"
+            onChange={(e) => setChargeForm((prev) => ({ ...prev, customDescription: e.target.value }))}
+          />
+        ) : null}
         <Input
           label="Monto"
           type="number"

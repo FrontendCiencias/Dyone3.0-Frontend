@@ -162,6 +162,12 @@ export default function DashboardShell() {
     (pageKey === "studentDetail" || pageKey === "paymentDetail") && studentId !== deletedStudentId,
   );
   const activityDetailQuery = useActivityDetailQuery(activityDetailId, pageKey === "activityDetail");
+  const isStudentSpecificPage = pageKey === "studentDetail" || pageKey === "paymentDetail";
+  const studentObservations = studentSummaryQuery.data?.student?.notes
+    ?? studentSummaryQuery.data?.notes
+    ?? studentSummaryQuery.data?.student?.internalNotes
+    ?? studentSummaryQuery.data?.internalNotes
+    ?? "";
 
   const pageMeta = useMemo(() => {
     if (pageKey !== "studentDetail" && pageKey !== "paymentDetail" && pageKey !== "activityDetail" && pageKey !== "activityPaidList") {
@@ -366,7 +372,7 @@ export default function DashboardShell() {
       return [
         rootCrumb,
         { label: "Pagos", to: ROUTES.dashboardPayments },
-        { label: "Detalle de Pagos" },
+        { label },
       ];
     }
 
@@ -436,6 +442,9 @@ export default function DashboardShell() {
             title={pageMeta.title}
             description={pageMeta.description}
             breadcrumbItems={breadcrumbItems}
+            showStudentObservations={isStudentSpecificPage}
+            studentObservations={studentObservations}
+            studentObservationsLoading={studentSummaryQuery.isLoading}
           />
 
           <section className="flex flex-1 min-h-0 flex-col overflow-visible rounded-2xl border border-gray-100 bg-white shadow-sm md:overflow-hidden">

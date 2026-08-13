@@ -20,6 +20,7 @@ export default function EditChargeModal({
   const [form, setForm] = useState({
     amount: "",
     dueDate: "",
+    customDescription: "",
   });
 
   useEffect(() => {
@@ -27,12 +28,14 @@ export default function EditChargeModal({
     setForm({
       amount: charge?.amount ? String(charge.amount) : "",
       dueDate: charge?.dueDate ? String(charge.dueDate).slice(0, 10) : "",
+      customDescription: charge?.customDescription || "",
     });
   }, [open, charge]);
 
   const isPending = isSaving || isDeleting;
   const isSuccess = isSaveSuccess || isDeleteSuccess;
   const errorMessage = deleteErrorMessage || saveErrorMessage || "";
+  const requiresCustomDescription = String(charge?.conceptCode || "").trim().toUpperCase() === "OTHER";
 
   const statusOverlay = isDeleting
     ? {
@@ -83,7 +86,10 @@ export default function EditChargeModal({
             {isDeleting ? "Eliminando..." : "Eliminar cargo"}
           </button>
           <SecondaryButton onClick={onClose}>Cancelar</SecondaryButton>
-          <Button onClick={() => onSave?.(form)} disabled={isPending || isSuccess}>
+          <Button
+            onClick={() => onSave?.(form)}
+            disabled={isPending || isSuccess || (requiresCustomDescription && !String(form.customDescription || "").trim())}
+          >
             {isSaving ? "Guardando..." : "Guardar"}
           </Button>
         </div>
@@ -106,6 +112,15 @@ export default function EditChargeModal({
           value={form.dueDate}
           onChange={(e) => setForm((prev) => ({ ...prev, dueDate: e.target.value }))}
         />
+        {requiresCustomDescription ? (
+          <Input
+            label="Descripción específica del cargo"
+            value={form.customDescription}
+            maxLength={200}
+            required
+            onChange={(e) => setForm((prev) => ({ ...prev, customDescription: e.target.value }))}
+          />
+        ) : null}
       </div>
     </BaseModal>
   );

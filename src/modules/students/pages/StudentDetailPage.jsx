@@ -65,6 +65,7 @@ const initialChargeForm = {
   amount: "",
   hasDueDate: false,
   dueDate: "",
+  customDescription: "",
   observation: "",
 };
 
@@ -335,6 +336,9 @@ export default function StudentDetailPage() {
 
     const selectedBillingConceptId = String(selectedConcept?.id || selectedConcept?._id || "").trim();
     const selectedConceptName = String(selectedConcept?.name || selectedConcept?.code || chargeForm.billingConceptId || "").trim();
+    const requiresCustomDescription = String(selectedConcept?.code || "").trim().toUpperCase() === "OTHER";
+    const customDescription = String(chargeForm.customDescription || "").trim();
+    if (requiresCustomDescription && !customDescription) return;
 
     await createChargeMutation.mutateAsync({
       studentId,
@@ -342,6 +346,7 @@ export default function StudentDetailPage() {
         ? { billingConceptId: selectedBillingConceptId }
         : { conceptName: selectedConceptName }),
       amount,
+      customDescription: customDescription || undefined,
       dueDate: chargeForm.hasDueDate ? chargeForm.dueDate : undefined,
       observation: chargeForm.observation.trim() || undefined,
     });
@@ -532,6 +537,7 @@ export default function StudentDetailPage() {
         onClose={() => {
           createChargeMutation.reset();
           setCreateChargeOpen(false);
+          setChargeForm(initialChargeForm);
         }}
         chargeForm={chargeForm}
         setChargeForm={setChargeForm}
