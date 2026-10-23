@@ -4,24 +4,13 @@ import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
 import Code39Barcode from "../components/Code39Barcode";
+import { usePrintPreview } from "../../../shared/hooks/usePrintPreview";
 
 const CARDS_PER_PAGE = 21;
 
 function normalizeItems(rawItems) {
   if (!Array.isArray(rawItems)) return [];
   return rawItems.filter((item) => item?.internalCode);
-}
-
-function resolveStoragePayload(printCardsKey) {
-  if (!printCardsKey) return null;
-
-  try {
-    const raw = localStorage.getItem(printCardsKey);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
 }
 
 function chunkItems(items, chunkSize) {
@@ -40,17 +29,15 @@ export default function StudentPrintCardsPreviewPage() {
   const [params] = useSearchParams();
   const printCardsKey = params.get("printCardsKey") || "";
 
-  const items = useMemo(() => {
-    const payload = resolveStoragePayload(printCardsKey);
-    return normalizeItems(payload?.items);
-  }, [printCardsKey]);
+  const { payload, closePreview } = usePrintPreview(printCardsKey);
+  const items = useMemo(() => normalizeItems(payload?.items), [payload]);
 
   const pages = useMemo(() => chunkItems(items, CARDS_PER_PAGE), [items]);
 
   const controls = (
     <div className="print-controls mx-auto mb-3 flex w-[210mm] max-w-full justify-end gap-2 px-2">
       <Button onClick={() => window.print()}>Imprimir</Button>
-      <SecondaryButton onClick={() => window.close()}>Cerrar</SecondaryButton>
+      <SecondaryButton onClick={closePreview}>Cerrar</SecondaryButton>
     </div>
   );
 

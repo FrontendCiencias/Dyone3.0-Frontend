@@ -6,6 +6,9 @@ import AppRoutes from './app/AppRoutes';
 import './index.css';
 import AuthBootstrap from './app/AuthBootstrap';
 import { AuthProvider } from './lib/auth';
+import { cleanupPrintStorage } from './shared/utils/printStorage.mjs';
+
+cleanupPrintStorage();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -290,19 +290,24 @@ export default function PaymentsCajaArequipaPage() {
 
   const handlePrintReview = () => {
     if (!review) return;
-    const printKey = createCajaArequipaPrintStorageKey();
-    saveCajaArequipaPrintPayload(printKey, {
-      generatedAt: new Date().toISOString(),
-      importId: review.importId,
-      campusLabel: currentCampusLabel,
-      items: sortedReviewRows.map((row) => ({
-        ...row,
-        statusLabel: translateStatus(row.reviewStatus).label,
-      })),
-    });
+    setLocalError("");
+    try {
+      const printKey = createCajaArequipaPrintStorageKey();
+      saveCajaArequipaPrintPayload(printKey, {
+        generatedAt: new Date().toISOString(),
+        importId: review.importId,
+        campusLabel: currentCampusLabel,
+        items: sortedReviewRows.map((row) => ({
+          ...row,
+          statusLabel: translateStatus(row.reviewStatus).label,
+        })),
+      });
 
-    const previewUrl = `${ROUTES.dashboardPaymentsCajaArequipaPrintPreview}?printKey=${encodeURIComponent(printKey)}`;
-    window.open(previewUrl, "_blank", "noopener,noreferrer");
+      const previewUrl = `${ROUTES.dashboardPaymentsCajaArequipaPrintPreview}?printKey=${encodeURIComponent(printKey)}`;
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setLocalError(getErrorMessage(error, "No se pudo preparar la impresión de Caja Arequipa."));
+    }
   };
 
   const handleLinkBankCode = async () => {

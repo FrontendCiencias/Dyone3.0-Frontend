@@ -12,6 +12,7 @@ import { useCampusesQuery } from "../../admin/hooks/useCampusesQuery";
 import { useCyclesQuery } from "../../admin/hooks/useCyclesQuery";
 import { getClassroomOptions, getStudentSummary, searchStudents } from "../../students/services/students.service";
 import { finalizeEnrollment, getEnrollmentDetail, searchTutorsForEnrollments } from "../services/enrollments.service";
+import { createPrintStorageKey, savePrintPayload } from "../../../shared/utils/printStorage.mjs";
 
 const LEVEL_OPTIONS = [
   { value: "INITIAL", label: "Inicial" },
@@ -1428,10 +1429,19 @@ export default function MatriculasV2Page() {
   }
 
   function openContractPreview(contractPayload) {
-    const contractKey = `enrollment-contract-preview-v2-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    localStorage.setItem(contractKey, JSON.stringify(contractPayload));
-    window.open(`${ROUTES.dashboardEnrollmentContractPreview}?contractKey=${encodeURIComponent(contractKey)}`, "_blank", "noopener,noreferrer");
-    return contractKey;
+    setToast(null);
+    try {
+      const contractKey = createPrintStorageKey("enrollment-contract-preview-v2");
+      savePrintPayload(contractKey, contractPayload);
+      window.open(`${ROUTES.dashboardEnrollmentContractPreview}?contractKey=${encodeURIComponent(contractKey)}`, "_blank", "noopener,noreferrer");
+      return contractKey;
+    } catch (error) {
+      const prefix = completedEnrollment ? "La matrícula ya está registrada. " : "";
+      const message = prefix + getErrorMessage(error, "No se pudo preparar la impresión del contrato.");
+      if (completedEnrollment) setToast({ type: "error", message });
+      else setStatusMessage(message);
+      return null;
+    }
   }
 
   function handlePreviewContract() {
@@ -1480,8 +1490,8 @@ export default function MatriculasV2Page() {
     console.log("[MatriculasV2][Finalize][PAYLOAD]", payload);
 
     const response = await finalizeMutation.mutateAsync(payload);
-    const contractKey = `enrollment-contract-preview-v2-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    localStorage.setItem(contractKey, JSON.stringify(contractPayload));
+    // The completed contract stays in memory; persist only when previewing it.
+    // Printing must never turn a successful enrollment into a reported failure.
 
     setCompletedEnrollment({
       enrollmentId: response?.enrollmentId || "",
@@ -1495,7 +1505,6 @@ export default function MatriculasV2Page() {
         campusCode: student.campusCode || "",
       })),
       contactAddress: observations.address || "",
-      contractKey,
       contractPayload,
     });
     setStatusMessage("Matrícula registrada correctamente.");

@@ -8,9 +8,10 @@ import { ROUTES } from "../../../config/routes";
 import { useCampusesQuery } from "../../admin/hooks/useCampusesQuery";
 import { useClassroomsQuery } from "../../admin/hooks/useClassroomsQuery";
 import { fetchStudentsForPrintCards } from "../services/studentPrintCards.service";
+import { createPrintStorageKey, savePrintPayload } from "../../../shared/utils/printStorage.mjs";
 
 function getErrorMessage(error) {
-  const message = error?.response?.data?.message;
+  const message = error?.response?.data?.message || error?.message;
   if (Array.isArray(message)) return message.join(". ");
   if (typeof message === "string") return message;
   return "No se pudo cargar alumnos para impresión.";
@@ -147,8 +148,8 @@ export default function StudentPrintCardsPage() {
       });
 
       const items = Array.isArray(response.items) ? response.items : [];
-      const printCardsKey = `student-print-cards-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      localStorage.setItem(printCardsKey, JSON.stringify({ items }));
+      const printCardsKey = createPrintStorageKey("student-print-cards");
+      savePrintPayload(printCardsKey, { items });
 
       const previewUrl = `${ROUTES.dashboardStudentsPrintCardsPreview}?printCardsKey=${encodeURIComponent(printCardsKey)}`;
       window.open(previewUrl, "_blank", "noopener,noreferrer");

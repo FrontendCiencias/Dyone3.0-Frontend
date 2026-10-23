@@ -169,22 +169,20 @@ export default function ClassroomsBoardPage() {
     const selectedColumns = columns.filter((column) => selectedClassroomIds.has(column.classroomId));
     if (!selectedColumns.length) return;
 
-    let blockedCount = 0;
+    try {
+      selectedColumns.forEach((column) => {
+        const printKey = createClassroomRosterPrintStorageKey();
+        saveClassroomRosterPrintPayload(printKey, {
+          generatedAt: new Date().toISOString(),
+          items: [toPrintableClassroomPayload({ classroom: column, board })],
+        });
 
-    selectedColumns.forEach((column) => {
-      const printKey = createClassroomRosterPrintStorageKey();
-      saveClassroomRosterPrintPayload(printKey, {
-        generatedAt: new Date().toISOString(),
-        items: [toPrintableClassroomPayload({ classroom: column, board })],
+        const previewUrl = `${ROUTES.dashboardClassroomsPrintPreview}?printKey=${encodeURIComponent(printKey)}`;
+        // noopener may return null even when the tab opens successfully.
+        window.open(previewUrl, "_blank", "noopener,noreferrer");
       });
-
-      const previewUrl = `${ROUTES.dashboardClassroomsPrintPreview}?printKey=${encodeURIComponent(printKey)}`;
-      const openedWindow = window.open(previewUrl, "_blank", "noopener,noreferrer");
-      if (!openedWindow) blockedCount += 1;
-    });
-
-    if (blockedCount > 0) {
-      setPrintError("Tu navegador bloqueo una o mas pestanas de impresion. Permite ventanas emergentes para generar todas las listas.");
+    } catch (error) {
+      setPrintError(getErrorMessage(error, "No se pudo preparar la impresión de salones."));
     }
   };
 

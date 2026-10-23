@@ -5,6 +5,7 @@ import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import SchoolLogo from "../../../shared/ui/SchoolLogo";
 import { getEnrollmentDetail } from "../services/enrollments.service";
+import { usePrintPreview } from "../../../shared/hooks/usePrintPreview";
 
 const MONTHS = ["Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -159,22 +160,11 @@ function normalizeContractDataFromEnrollmentDetail(detail) {
   };
 }
 
-function resolveStoragePayload(contractKey) {
-  if (!contractKey) return null;
-
-  try {
-    const raw = localStorage.getItem(contractKey);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
 export default function EnrollmentContractPreviewPage() {
   const [params] = useSearchParams();
   const contractKey = params.get("contractKey") || "";
   const enrollmentId = params.get("enrollmentId") || "";
+  const { payload, closePreview } = usePrintPreview(contractKey);
 
   const enrollmentDetailQuery = useQuery({
     queryKey: ["enrollments", "detail", "contract-preview", enrollmentId],
@@ -186,7 +176,6 @@ export default function EnrollmentContractPreviewPage() {
 
   const contractData = useMemo(() => {
     if (contractKey) {
-      const payload = resolveStoragePayload(contractKey);
       return payload ? normalizeContractData(payload) : null;
     }
 
@@ -195,7 +184,7 @@ export default function EnrollmentContractPreviewPage() {
     }
 
     return null;
-  }, [contractKey, enrollmentDetailQuery.data]);
+  }, [contractKey, payload, enrollmentDetailQuery.data]);
 
   if (enrollmentDetailQuery.isLoading && !contractKey) {
     return (
@@ -256,7 +245,7 @@ export default function EnrollmentContractPreviewPage() {
 
       <div className="min-h-screen bg-gray-100 py-6 print:bg-white print:py-0">
         <div className="no-print mx-auto mb-3 flex w-[210mm] max-w-full justify-end gap-2 px-2">
-          <SecondaryButton onClick={() => window.close()}>Cerrar</SecondaryButton>
+          <SecondaryButton onClick={closePreview}>Cerrar</SecondaryButton>
           <Button onClick={() => window.print()}>Imprimir</Button>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -6,7 +6,7 @@ import logoPng from "../../../assets/logopng.png";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
-import { resolveClassroomRosterPrintPayload } from "../utils/classroomRosterPrintStorage";
+import { usePrintPreview } from "../../../shared/hooks/usePrintPreview";
 
 const PERIOD_COLUMNS = [
   { key: "p1", label: "PERIODO 1" },
@@ -822,7 +822,7 @@ export default function ClassroomRosterPrintPreviewPage() {
   const [params] = useSearchParams();
   const printKey = params.get("printKey") || "";
 
-  const payload = useMemo(() => resolveClassroomRosterPrintPayload(printKey), [printKey]);
+  const { payload, closePreview } = usePrintPreview(printKey);
   const classrooms = Array.isArray(payload?.items) ? payload.items : [];
 
   const handleDownloadPdf = async () => {
@@ -874,7 +874,7 @@ export default function ClassroomRosterPrintPreviewPage() {
         <div className="print-controls mx-auto mb-3 flex w-[297mm] max-w-full flex-wrap justify-end gap-2 px-2">
           <Button onClick={handleDownloadExcel}>Descargar Excel</Button>
           <SecondaryButton onClick={() => window.print()}>Imprimir</SecondaryButton>
-          <SecondaryButton onClick={() => window.close()}>Cerrar</SecondaryButton>
+          <SecondaryButton onClick={closePreview}>Cerrar</SecondaryButton>
         </div>
 
         {!classrooms.length ? (

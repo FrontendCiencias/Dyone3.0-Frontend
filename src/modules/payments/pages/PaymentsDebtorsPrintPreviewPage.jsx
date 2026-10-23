@@ -1,9 +1,9 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "../../../components/ui/Button";
 import SecondaryButton from "../../../shared/ui/SecondaryButton";
 import { ROUTES } from "../../../config/routes";
-import { resolveDebtorsPrintPayload } from "../utils/debtorsPrintStorage";
+import { usePrintPreview } from "../../../shared/hooks/usePrintPreview";
 
 function formatMoney(value) {
   const amount = Number(value || 0);
@@ -26,7 +26,7 @@ export default function PaymentsDebtorsPrintPreviewPage() {
   const [params] = useSearchParams();
   const printKey = params.get("printKey") || "";
 
-  const payload = useMemo(() => resolveDebtorsPrintPayload(printKey), [printKey]);
+  const { payload, closePreview } = usePrintPreview(printKey);
   const items = Array.isArray(payload?.items) ? payload.items : [];
 
   return (
@@ -71,7 +71,7 @@ export default function PaymentsDebtorsPrintPreviewPage() {
       <div className="min-h-screen bg-gray-100 py-6 print:bg-white print:py-0">
         <div className="print-controls mx-auto mb-3 flex w-[210mm] max-w-full justify-end gap-2 px-2">
           <Button onClick={() => window.print()}>Imprimir</Button>
-          <SecondaryButton onClick={() => window.close()}>Cerrar</SecondaryButton>
+          <SecondaryButton onClick={closePreview}>Cerrar</SecondaryButton>
         </div>
 
         {!items.length ? (

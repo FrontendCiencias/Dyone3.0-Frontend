@@ -267,53 +267,35 @@ export default function PaymentsDebtorsPrintPage() {
     onlyOverdue: appliedFilters.onlyOverdue,
   });
 
-  const preparePrintPayload = async () => {
+  const handlePrint = async (letters = false) => {
     const studentIds = Array.from(selectedIds);
-    if (!studentIds.length) return null;
+    if (!studentIds.length || isPreparingPrint) return;
 
     setPrintError("");
     setIsPreparingPrint(true);
     try {
-      return await fetchDebtorsForPrint({
+      const response = await fetchDebtorsForPrint({
         studentIds,
         filters: buildFiltersPayload(),
       });
+      const printKey = createDebtorsPrintStorageKey(letters ? "payments-debtors-letters" : "payments-debtors-list");
+      saveDebtorsPrintPayload(printKey, {
+        generatedAt: response.generatedAt,
+        items: response.items,
+        ...(letters ? { template: communicationTemplate } : {}),
+      });
+      const route = letters ? ROUTES.dashboardPaymentsDebtorsLettersPreview : ROUTES.dashboardPaymentsDebtorsPrintPreview;
+      const previewUrl = `${route}?printKey=${encodeURIComponent(printKey)}`;
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
     } catch (error) {
       setPrintError(getErrorMessage(error));
-      return null;
     } finally {
       setIsPreparingPrint(false);
     }
   };
 
-  const handlePrintList = async () => {
-    const response = await preparePrintPayload();
-    if (!response) return;
-
-    const printKey = createDebtorsPrintStorageKey("payments-debtors-list");
-    saveDebtorsPrintPayload(printKey, {
-      generatedAt: response.generatedAt,
-      items: response.items,
-    });
-
-    const previewUrl = `${ROUTES.dashboardPaymentsDebtorsPrintPreview}?printKey=${encodeURIComponent(printKey)}`;
-    window.open(previewUrl, "_blank", "noopener,noreferrer");
-  };
-
-  const handlePrintLetters = async () => {
-    const response = await preparePrintPayload();
-    if (!response) return;
-
-    const printKey = createDebtorsPrintStorageKey("payments-debtors-letters");
-    saveDebtorsPrintPayload(printKey, {
-      generatedAt: response.generatedAt,
-      items: response.items,
-      template: communicationTemplate,
-    });
-
-    const previewUrl = `${ROUTES.dashboardPaymentsDebtorsLettersPreview}?printKey=${encodeURIComponent(printKey)}`;
-    window.open(previewUrl, "_blank", "noopener,noreferrer");
-  };
+  const handlePrintList = () => handlePrint(false);
+  const handlePrintLetters = () => handlePrint(true);
 
   return (
     <div className="flex min-h-0 flex-col gap-4">
